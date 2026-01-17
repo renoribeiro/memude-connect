@@ -1,0 +1,234 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* MeMude Connect Design System - Portal Imobiliário */
+
+@layer base {
+  :root {
+    /* Base colors */
+    --background: 250 250% 99%;
+    --foreground: 240 10% 15%;
+    
+    /* MeMude Brand Colors */
+    --primary: 262 83% 65%;        /* MeMude Purple */
+    --primary-light: 262 83% 75%;
+    --primary-dark: 262 83% 55%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 330 81% 60%;      /* MeMude Pink */
+    --secondary-light: 330 81% 70%;
+    --secondary-dark: 330 81% 50%;
+    --secondary-foreground: 0 0% 100%;
+    
+    /* System colors */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --error: 0 84% 60%;
+    --error-foreground: 0 0% 100%;
+    --info: 221 83% 53%;
+    --info-foreground: 0 0% 100%;
+
+    /* UI Component colors */
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 15%;
+    --card-border: 240 6% 90%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 15%;
+
+    /* Neutral grays */
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+    --muted-dark: 240 5% 84%;
+    
+    --accent: 240 5% 96%;
+    --accent-foreground: 240 10% 15%;
+
+    /* Destructive colors */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Form elements */
+    --border: 240 6% 90%;
+    --input: 0 0% 100%;
+    --input-border: 240 6% 85%;
+    --ring: 262 83% 65%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(262 83% 65%), hsl(330 81% 60%));
+    --gradient-subtle: linear-gradient(135deg, hsl(262 83% 98%), hsl(330 81% 98%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100% / 0.9), hsl(262 83% 99% / 0.8));
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(240 10% 15% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(240 10% 15% / 0.1), 0 2px 4px -2px hsl(240 10% 15% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(240 10% 15% / 0.1), 0 4px 6px -4px hsl(240 10% 15% / 0.1);
+    --shadow-xl: 0 20px 25px -5px hsl(240 10% 15% / 0.1), 0 8px 10px -6px hsl(240 10% 15% / 0.1);
+    --shadow-glow: 0 0 30px hsl(262 83% 65% / 0.3);
+    --shadow-glow-pink: 0 0 30px hsl(330 81% 60% / 0.3);
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 240 10% 6%;
+    --foreground: 0 0% 95%;
+
+    --card: 240 10% 8%;
+    --card-foreground: 0 0% 95%;
+    --card-border: 240 10% 15%;
+
+    --popover: 240 10% 8%;
+    --popover-foreground: 0 0% 95%;
+
+    --muted: 240 10% 15%;
+    --muted-foreground: 240 5% 65%;
+    --muted-dark: 240 10% 20%;
+    
+    --accent: 240 10% 15%;
+    --accent-foreground: 0 0% 95%;
+
+    --border: 240 10% 15%;
+    --input: 240 10% 8%;
+    --input-border: 240 10% 20%;
+    --ring: 262 83% 65%;
+
+    --gradient-card: linear-gradient(145deg, hsl(240 10% 8% / 0.9), hsl(240 10% 12% / 0.8));
+    --shadow-glow: 0 0 30px hsl(262 83% 65% / 0.4);
+    --shadow-glow-pink: 0 0 30px hsl(330 81% 60% / 0.4);
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-inter antialiased;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  /* Status indicator styles */
+  .status-novo { @apply bg-blue-100 text-blue-800 border-blue-200; }
+  .status-buscando { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+  .status-designado { @apply bg-purple-100 text-purple-800 border-purple-200; }
+  .status-agendado { @apply bg-green-100 text-green-800 border-green-200; }
+  .status-realizado { @apply bg-gray-100 text-gray-800 border-gray-200; }
+  .status-cancelado { @apply bg-red-100 text-red-800 border-red-200; }
+
+  /* Glassmorphism effects */
+  .glass {
+    @apply backdrop-blur-xl bg-white/10 border border-white/20;
+  }
+  
+  .glass-card {
+    background: var(--gradient-card);
+    backdrop-filter: blur(20px);
+    @apply border border-white/10 shadow-xl;
+  }
+
+  /* Gradient backgrounds */
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-subtle {
+    background: var(--gradient-subtle);
+  }
+  
+  /* Custom animations */
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+  
+  .hover-scale {
+    transition: transform 0.2s ease-in-out;
+  }
+  
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
+  
+  /* Loading pulse animation */
+  .animate-pulse-slow {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+@layer utilities {
+  /* Keyframe animations */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes slideInFromLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes slideInFromRight {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  .slide-in-left {
+    animation: slideInFromLeft 0.5s ease-out;
+  }
+  
+  .slide-in-right {
+    animation: slideInFromRight 0.5s ease-out;
+  }
+}

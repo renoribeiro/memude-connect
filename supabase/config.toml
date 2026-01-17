@@ -1,0 +1,85 @@
+project_id = "oxybasvtphosdmlmrfnb"
+
+[functions.create-admin]
+verify_jwt = false
+
+[functions.create-notification]
+verify_jwt = false
+
+[functions.sync-wordpress-properties]
+verify_jwt = false
+
+[functions.send-welcome-email]
+verify_jwt = false
+
+[functions.google-sheets-sync]
+verify_jwt = false
+
+[functions.send-whatsapp-invitation]
+verify_jwt = false
+
+[functions.evolution-check-connection]
+verify_jwt = false
+
+[functions.evolution-webhook-handler]
+verify_jwt = false
+
+[functions.evolution-send-whatsapp]
+verify_jwt = false
+
+[functions.evolution-configure-webhook]
+verify_jwt = false
+
+[functions.evolution-check-number]
+verify_jwt = false
+
+[functions.enhanced-whatsapp-sender]
+verify_jwt = false
+
+[functions.calculate-metrics]
+verify_jwt = false
+
+[functions.proactive-notifications]
+verify_jwt = false
+
+[functions.export-reports]
+verify_jwt = false
+
+[functions.schedule-reports]
+verify_jwt = false
+
+[functions.distribute-visit]
+verify_jwt = false
+
+[functions.visit-distribution-timeout-checker]
+verify_jwt = false
+
+[functions.distribute-lead]
+verify_jwt = false
+
+[functions.distribution-timeout-checker]
+verify_jwt = false
+
+[functions.distribution-webhook-handler]
+verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.template-manager]
+verify_jwt = false
+
+[functions.template-renderer]
+verify_jwt = false
+
+[functions.monitor-visits]
+verify_jwt = false
+
+[functions.evolution-send-whatsapp-v2]
+verify_jwt = false
+
+[functions.universal-whatsapp-sender]
+verify_jwt = false
+
+[functions.waha-webhook-handler]
+verify_jwt = false

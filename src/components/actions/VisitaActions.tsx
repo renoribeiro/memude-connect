@@ -1,3 +1,4 @@
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -34,6 +35,7 @@ export function VisitaActions({
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState("");
   const [leadComments, setLeadComments] = useState("");
+  const [hasInterest, setHasInterest] = useState(false);
 
   // Status update mutation
   const updateStatusMutation = useMutation({
@@ -71,6 +73,31 @@ export function VisitaActions({
           .update({ status: leadStatus })
           .eq('id', leadId);
       }
+
+      // If interested, trigger CRM integration
+      if (data?.interesse) {
+        try {
+          const { error: fnError } = await supabase.functions.invoke('send-lead-to-crm', {
+            body: { visitaId }
+          });
+          
+          if (fnError) {
+            console.error('Error sending to CRM:', fnError);
+            toast({
+              title: "Atenção",
+              description: "Status salvo, mas houve erro ao enviar para o CRM.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "CRM Integrado",
+              description: "Lead enviado para o CRM com sucesso!",
+            });
+          }
+        } catch (err) {
+          console.error('Failed to invoke CRM function:', err);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['visitas'] });
@@ -106,6 +133,7 @@ export function VisitaActions({
         avaliacao_lead: rating > 0 ? rating : null,
         feedback_corretor: feedback.trim() || null,
         comentarios_lead: leadComments.trim() || null,
+        interesse: hasInterest
       }
     });
   };
@@ -356,6 +384,17 @@ export function VisitaActions({
                   placeholder="Comentários ou feedback do lead sobre a visita..."
                   className="min-h-[60px]"
                 />
+              </div>
+
+              <div className="flex items-center space-x-2 py-2">
+                <Switch
+                  id="interest-mode"
+                  checked={hasInterest}
+                  onCheckedChange={setHasInterest}
+                />
+                <Label htmlFor="interest-mode" className="font-medium text-primary">
+                  Cliente tem interesse na compra?
+                </Label>
               </div>
 
               <div className="space-y-2">

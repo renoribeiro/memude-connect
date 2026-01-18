@@ -2,28 +2,29 @@ import { ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { 
-  Home, 
-  Users, 
-  UserCheck, 
-  Building2, 
-  Calendar, 
-  MessageSquare, 
-  BarChart3, 
+import {
+  Home,
+  Users,
+  UserCheck,
+  Building2,
+  Calendar,
+  MessageSquare,
+  BarChart3,
   Settings,
   RefreshCw,
   LogOut,
   UserCog,
   TrendingUp,
-  Activity
+  Activity,
+  Bot
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import Logo from '@/components/ui/logo';
@@ -44,6 +45,7 @@ const navigation = {
     { name: 'Comunicações', href: '/comunicacoes', icon: MessageSquare },
     { name: 'Relatórios', href: '/relatorios', icon: BarChart3 },
     { name: 'Analytics', href: '/admin/analytics', icon: TrendingUp },
+    { name: 'Agentes de IA', href: '/admin/ai-agents', icon: Bot },
     { name: 'Monitoramento', href: '/admin/monitoring', icon: Activity },
     { name: 'Sincronização WP', href: '/sincronizacao-wordpress', icon: RefreshCw },
     { name: 'Configurações', href: '/configuracoes', icon: Settings },
@@ -147,9 +149,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                       `}
                     >
                       <item.icon
-                        className={`mr-3 h-5 w-5 flex-shrink-0 ${
-                          isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'
-                        }`}
+                        className={`mr-3 h-5 w-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'
+                          }`}
                         aria-hidden="true"
                       />
                       {item.name}

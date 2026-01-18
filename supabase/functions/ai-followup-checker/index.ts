@@ -52,6 +52,23 @@ serve(async (req) => {
             .order('last_message_at', { ascending: true })
             .limit(50);
 
+        // Also fetch qualifications for temperature checking
+        const conversationIds = inactiveConversations?.map(c => c.id) || [];
+        let qualificationsMap: Record<string, any> = {};
+
+        if (conversationIds.length > 0) {
+            const { data: quals } = await supabase
+                .from('ai_lead_qualification')
+                .select('conversation_id, lead_temperature, bant_total_score')
+                .in('conversation_id', conversationIds);
+
+            if (quals) {
+                for (const q of quals) {
+                    qualificationsMap[q.conversation_id] = q;
+                }
+            }
+        }
+
         if (convError) {
             throw new Error(`Erro ao buscar conversas: ${convError.message}`);
         }
@@ -124,10 +141,34 @@ serve(async (req) => {
                     }
                 }
 
+                // 6.5 Check temperature filtering (Phase 3 enhancement)
+                const leadQual = qualificationsMap[conv.id];
+                const leadTemperature = leadQual?.lead_temperature || 'cold';
+
+                if (nextFollowup.use_for_temperature && nextFollowup.use_for_temperature.length > 0) {
+                    if (!nextFollowup.use_for_temperature.includes(leadTemperature)) {
+                        console.log(`  🌡️ ${conv.phone_number}: Temperatura ${leadTemperature} não elegível para este followup`);
+                        results.skipped++;
+                        continue;
+                    }
+                }
+
+                // 6.6 Check objection-based filtering
+                const lastObjection = conv.qualification_data?.last_objection;
+                if (nextFollowup.use_after_objection && lastObjection) {
+                    if (nextFollowup.use_after_objection !== lastObjection) {
+                        console.log(`  ⚠️ ${conv.phone_number}: Objeção ${lastObjection} não match`);
+                        results.skipped++;
+                        continue;
+                    }
+                }
+
                 // 7. Personalizar mensagem
-                const personalizedMessage = personalizeMessage(
+                const personalizedMessage = await personalizeMessage(
+                    supabase,
                     nextFollowup.message_template,
-                    conv
+                    conv,
+                    nextFollowup.include_property_reminder
                 );
 
                 // 8. Enviar follow-up
@@ -215,36 +256,73 @@ serve(async (req) => {
 // HELPER FUNCTIONS
 // ============================================================
 
-function personalizeMessage(template: string, conversation: any): string {
-    let message = template;
+function personalizeMessage(
+    supabase: any,
+    template: string,
+    conversation: any,
+    includePropertyReminder: boolean = false
+): Promise<string> {
+    return (async () => {
+        let message = template;
 
-    // Substituir variáveis
-    const replacements: Record<string, string> = {
-        '{{nome}}': conversation.customer_name || 'amigo(a)',
-        '{{telefone}}': conversation.phone_number || '',
-        '{{estagio}}': conversation.current_stage || 'conversa',
-        '{{mensagens}}': String(conversation.total_messages || 0)
-    };
+        // Substituir variáveis
+        const replacements: Record<string, string> = {
+            '{{nome}}': conversation.customer_name || 'amigo(a)',
+            '{{telefone}}': conversation.phone_number || '',
+            '{{estagio}}': conversation.current_stage || 'conversa',
+            '{{mensagens}}': String(conversation.total_messages || 0)
+        };
 
-    // Extrair dados de qualificação se disponíveis
-    const qualData = conversation.qualification_data || {};
-    if (qualData.preferred_neighborhood) {
-        replacements['{{bairro}}'] = qualData.preferred_neighborhood;
-    }
-    if (qualData.property_type) {
-        replacements['{{tipo_imovel}}'] = qualData.property_type;
-    }
-    if (qualData.max_price) {
-        const priceK = Math.round(qualData.max_price / 1000);
-        replacements['{{orcamento}}'] = `${priceK}k`;
-    }
+        // Extrair dados de qualificação se disponíveis
+        const qualData = conversation.qualification_data || {};
+        if (qualData.preferred_neighborhood) {
+            replacements['{{bairro}}'] = qualData.preferred_neighborhood;
+        }
+        if (qualData.property_type) {
+            replacements['{{tipo_imovel}}'] = qualData.property_type;
+        }
+        if (qualData.max_price) {
+            const priceK = Math.round(qualData.max_price / 1000);
+            replacements['{{orcamento}}'] = `${priceK}k`;
+        }
 
-    for (const [variable, value] of Object.entries(replacements)) {
-        message = message.replace(new RegExp(variable.replace(/[{}]/g, '\\$&'), 'g'), value);
-    }
+        // Add property reminder if enabled (Phase 3)
+        if (includePropertyReminder && conversation.presented_properties?.length > 0) {
+            try {
+                const lastPropertyId = conversation.presented_properties.slice(-1)[0];
+                const { data: property } = await supabase
+                    .from('empreendimentos')
+                    .select('nome, bairro, valor_min, valor_max')
+                    .eq('id', lastPropertyId)
+                    .single();
 
-    // Remover variáveis não substituídas
-    message = message.replace(/\{\{[^}]+\}\}/g, '');
+                if (property) {
+                    const formatPrice = (v: number) => v >= 1000000 ? `R$ ${(v / 1000000).toFixed(1)}M` : `R$ ${(v / 1000).toFixed(0)}k`;
+                    const priceRange = property.valor_min && property.valor_max
+                        ? `${formatPrice(property.valor_min)} - ${formatPrice(property.valor_max)}`
+                        : property.valor_max ? formatPrice(property.valor_max) : '';
 
-    return message.trim();
+                    replacements['{{ultimo_imovel}}'] = property.nome;
+                    replacements['{{bairro_imovel}}'] = property.bairro || '';
+                    replacements['{{preco_imovel}}'] = priceRange;
+
+                    // Add a reminder suffix if template doesn't use the variable
+                    if (!template.includes('{{ultimo_imovel}}')) {
+                        message += `\n\nLembrei aqui do ${property.nome}${property.bairro ? ` no ${property.bairro}` : ''}... Ainda tem interesse? 🏠`;
+                    }
+                }
+            } catch (e) {
+                console.warn('Property reminder error:', e);
+            }
+        }
+
+        for (const [variable, value] of Object.entries(replacements)) {
+            message = message.replace(new RegExp(variable.replace(/[{}]/g, '\\$&'), 'g'), value);
+        }
+
+        // Remover variáveis não substituídas
+        message = message.replace(/\{\{[^}]+\}\}/g, '');
+
+        return message.trim();
+    })();
 }

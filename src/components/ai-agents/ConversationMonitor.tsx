@@ -30,6 +30,10 @@ interface Message {
     created_at: string;
     intent_detected: string | null;
     action_taken: string | null;
+    sentiment_log?: {
+        sentiment: string;
+        confidence: number;
+    }[] | null;
 }
 
 interface ConversationMonitorProps {
@@ -71,7 +75,10 @@ export function ConversationMonitor({ agentId }: ConversationMonitorProps) {
 
             const { data, error } = await supabase
                 .from('agent_messages')
-                .select('*')
+                .select(`
+                    *,
+                    sentiment_log:conversation_sentiment_log(sentiment, confidence)
+                `)
                 .eq('conversation_id', selectedConversation.id)
                 .order('created_at', { ascending: true });
 
@@ -95,6 +102,26 @@ export function ConversationMonitor({ agentId }: ConversationMonitorProps) {
         };
         const config = variants[status] || { variant: 'outline', label: status };
         return <Badge variant={config.variant}>{config.label}</Badge>;
+    };
+
+    const getSentimentBadge = (message: Message) => {
+        const log = message.sentiment_log?.[0];
+        if (!log || message.role === 'assistant') return null;
+
+        const sentimentConfig: Record<string, { emoji: string; className: string; label: string }> = {
+            positive: { emoji: '😊', className: 'bg-green-500/20 text-green-700 border-green-300', label: 'Positivo' },
+            neutral: { emoji: '😐', className: 'bg-gray-500/20 text-gray-700 border-gray-300', label: 'Neutro' },
+            negative: { emoji: '😞', className: 'bg-red-500/20 text-red-700 border-red-300', label: 'Negativo' },
+            urgent: { emoji: '⚡', className: 'bg-orange-500/20 text-orange-700 border-orange-300', label: 'Urgente' },
+            frustrated: { emoji: '😤', className: 'bg-red-600/20 text-red-800 border-red-400', label: 'Frustrado' }
+        };
+
+        const config = sentimentConfig[log.sentiment] || sentimentConfig.neutral;
+        return (
+            <Badge variant="outline" className={`text-[10px] h-4 ${config.className}`}>
+                {config.emoji} {config.label}
+            </Badge>
+        );
     };
 
     const formatDate = (date: string) => {
@@ -216,8 +243,8 @@ export function ConversationMonitor({ agentId }: ConversationMonitorProps) {
                                             className={`flex ${msg.role === 'assistant' ? 'justify-start' : 'justify-end'}`}
                                         >
                                             <div className={`max-w-[80%] ${msg.role === 'assistant'
-                                                    ? 'bg-muted rounded-lg rounded-tl-none'
-                                                    : 'bg-primary text-primary-foreground rounded-lg rounded-tr-none'
+                                                ? 'bg-muted rounded-lg rounded-tl-none'
+                                                : 'bg-primary text-primary-foreground rounded-lg rounded-tr-none'
                                                 } p-3`}>
                                                 <div className="flex items-center gap-2 mb-1 text-xs opacity-70">
                                                     {msg.role === 'assistant' ? (
@@ -231,6 +258,7 @@ export function ConversationMonitor({ agentId }: ConversationMonitorProps) {
                                                             {msg.intent_detected}
                                                         </Badge>
                                                     )}
+                                                    {getSentimentBadge(msg)}
                                                 </div>
                                                 <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                                                 {msg.action_taken && msg.action_taken !== 'none' && (

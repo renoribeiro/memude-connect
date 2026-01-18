@@ -2,6 +2,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import OpenAI from 'https://esm.sh/openai@4.28.0';
 import { GoogleGenerativeAI } from 'https://esm.sh/@google/generative-ai@0.2.1';
+import { detectIntentFast, extractEntities, detectSentimentFast, shouldTransferToHuman, type IntentResult } from '../_shared/intent-detector.ts';
+import { buildContext, enrichWithKnowledge, formatContextForPrompt } from '../_shared/context-builder.ts';
+import { calculateBANTScore, getNextBANTQuestion, updateBANTFromEntities, getQualificationProgress } from '../_shared/bant-scorer.ts';
+import { detectObjection, buildObjectionContext, shouldEscalateToHuman, formatObjectionForLog } from '../_shared/objection-handler.ts';
+import { buildHandoffContext, formatHandoffMessage, formatHandoffForStorage } from '../_shared/human-handoff.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -284,6 +289,28 @@ serve(async (req) => {
       .eq('id', conversationId)
       .single();
 
+    // 4.5 Log funnel event for new conversation (Phase 4)
+    const isNewConversation = !conversationHistory || conversationHistory.length === 0;
+    if (isNewConversation) {
+      await supabase.from('conversion_funnel_events').insert({
+        conversation_id: conversationId,
+        agent_id: activeAgent.id,
+        event_type: 'conversation_started',
+        event_data: { source: 'whatsapp', phone: phone_number }
+      }).catch((e: Error) => console.warn('Funnel event error:', e));
+    }
+
+    // 4.6 Log activity for monitoring
+    await supabase.from('agent_activity_log').insert({
+      agent_id: activeAgent.id,
+      conversation_id: conversationId,
+      activity_type: 'message_received',
+      activity_data: {
+        message_preview: message_text.substring(0, 50),
+        is_new_conversation: isNewConversation
+      }
+    }).catch((e: Error) => console.warn('Activity log error:', e));
+
     // Extract customer name from first message if not set
     let customerName = conversation?.customer_name;
     if (!customerName && sender_name) {
@@ -305,11 +332,241 @@ serve(async (req) => {
       .eq('lead_responded', false);
 
     // 5. Save user message
-    await supabase.from('agent_messages').insert({
+    const { data: savedMessage } = await supabase.from('agent_messages').insert({
       conversation_id: conversationId,
       role: 'user',
       content: message_text
-    });
+    }).select('id').single();
+
+    // 5.1 Detect intent and sentiment (fast path)
+    const intentResult = detectIntentFast(message_text);
+    const detectedSentiment = intentResult.sentiment || 'neutral';
+    const extractedEntities = intentResult.entities || {};
+
+    console.log(`🎯 Intent: ${intentResult.primary_intent} (${(intentResult.confidence || 0) * 100}%), Sentiment: ${detectedSentiment}`);
+
+    // 5.2 Log sentiment for analytics
+    if (savedMessage?.id) {
+      await supabase.from('conversation_sentiment_log').insert({
+        conversation_id: conversationId,
+        message_id: savedMessage.id,
+        sentiment: detectedSentiment,
+        confidence: intentResult.sentiment_confidence || 0.8,
+        triggers_detected: Object.keys(extractedEntities).length > 0
+          ? Object.entries(extractedEntities).map(([k, v]) => `${k}:${v}`)
+          : null,
+        suggested_action: intentResult.primary_intent === 'objection' ? 'handle_objection' : null
+      }).catch((e: Error) => console.warn('Sentiment log error:', e));
+    }
+
+    // 5.25 Detect objections
+    const objectionResult = detectObjection(message_text);
+    let objectionContextForPrompt = '';
+
+    if (objectionResult.detected) {
+      console.log(`⚠️ Objeção detectada: ${objectionResult.objection_type} (${(objectionResult.confidence * 100).toFixed(0)}%)`);
+
+      // Log objection for analytics
+      await supabase.from('objection_log').insert({
+        conversation_id: conversationId,
+        message_id: savedMessage?.id,
+        objection_type: objectionResult.objection_type,
+        confidence: objectionResult.confidence,
+        counter_points_used: objectionResult.counter_points
+      }).catch((e: Error) => console.warn('Objection log error:', e));
+
+      // Build objection context for LLM
+      objectionContextForPrompt = buildObjectionContext(objectionResult);
+
+      // Check if should escalate to human
+      const previousObjections = (conversation?.qualification_data?.objection_count || 0) + 1;
+      const frustrationLevel = detectedSentiment === 'frustrated' ? 0.8 : detectedSentiment === 'negative' ? 0.5 : 0.2;
+
+      if (shouldEscalateToHuman(objectionResult, previousObjections, frustrationLevel)) {
+        console.log('🚨 Escalating to human due to objection pattern');
+
+        // Build handoff context
+        const handoffContext = await buildHandoffContext(
+          supabase,
+          conversationId,
+          `Objeção: ${objectionResult.objection_type?.replace(/_/g, ' ')}`
+        );
+
+        // Log handoff
+        await supabase.from('human_handoff_log').insert({
+          conversation_id: conversationId,
+          handoff_reason: `Objeção crítica: ${objectionResult.objection_type}`,
+          urgency_level: handoffContext.urgency_level,
+          bant_score_at_handoff: handoffContext.qualification.bant_score,
+          temperature_at_handoff: handoffContext.qualification.temperature,
+          objections_at_handoff: handoffContext.objections,
+          summary: handoffContext.summary,
+          recommended_actions: handoffContext.recommended_actions
+        });
+
+        // Update conversation status
+        await supabase
+          .from('agent_conversations')
+          .update({
+            status: 'transferred',
+            qualification_data: {
+              ...conversation?.qualification_data,
+              objection_count: previousObjections,
+              last_objection: objectionResult.objection_type
+            }
+          })
+          .eq('id', conversationId);
+
+        // Notify admin with rich context
+        const handoffMessage = formatHandoffMessage(handoffContext);
+        await notifyAdmin(supabase, conversation, handoffMessage);
+
+        return new Response(
+          JSON.stringify({
+            handled: true,
+            transferred: true,
+            reason: 'objection_escalation',
+            objection_type: objectionResult.objection_type,
+            sentiment: detectedSentiment
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Update objection count even if not escalating
+      await supabase
+        .from('agent_conversations')
+        .update({
+          qualification_data: {
+            ...conversation?.qualification_data,
+            objection_count: previousObjections,
+            last_objection: objectionResult.objection_type
+          }
+        })
+        .eq('id', conversationId);
+    }
+
+    // 5.3 Check if should transfer to human
+    const shouldTransfer = shouldTransferToHuman(
+      intentResult as any,
+      conversation?.total_messages || 0
+    );
+
+    if (shouldTransfer && intentResult.primary_intent === 'transfer_human') {
+      console.log('🚨 Transfer to human requested by intent detection');
+      await supabase
+        .from('agent_conversations')
+        .update({ status: 'transferred' })
+        .eq('id', conversationId);
+
+      await notifyAdmin(supabase, conversation,
+        detectedSentiment === 'frustrated'
+          ? 'Lead frustrado - solicita atendimento humano'
+          : 'Lead solicitou atendimento humano'
+      );
+
+      return new Response(
+        JSON.stringify({
+          handled: true,
+          transferred: true,
+          reason: 'human_requested',
+          sentiment: detectedSentiment
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 5.4 Update qualification data with extracted entities
+    if (Object.keys(extractedEntities).length > 0) {
+      const currentQual = conversation?.qualification_data || {};
+      const updatedQual = { ...currentQual, ...extractedEntities };
+
+      await supabase
+        .from('agent_conversations')
+        .update({
+          qualification_data: updatedQual,
+          last_intent: intentResult.primary_intent
+        })
+        .eq('id', conversationId);
+
+      // 5.5 Calculate and update BANT score
+      try {
+        const bantScores = calculateBANTScore(updatedQual);
+        const qualProgress = getQualificationProgress(updatedQual);
+
+        console.log(`📊 BANT Score: ${bantScores.total}/100 (${bantScores.temperature}) - Progress: ${qualProgress.percentage}%`);
+
+        // Get or create qualification record
+        let qualificationId = conversation?.ai_lead_qualification?.[0]?.id;
+
+        if (!qualificationId) {
+          const { data: newQual } = await supabase
+            .from('ai_lead_qualification')
+            .insert({
+              conversation_id: conversationId,
+              lead_id: conversation?.lead_id,
+              property_type: updatedQual.property_type,
+              max_price: updatedQual.max_price || updatedQual.price_max,
+              min_bedrooms: updatedQual.min_bedrooms || updatedQual.bedrooms,
+              preferred_neighborhoods: updatedQual.preferred_neighborhoods || (updatedQual.neighborhood ? [updatedQual.neighborhood] : null),
+              urgency: updatedQual.urgency || updatedQual.timeline,
+              financing_needed: updatedQual.financing_needed || updatedQual.financing,
+              decision_maker: updatedQual.decision_maker,
+              bant_budget_score: bantScores.budget,
+              bant_authority_score: bantScores.authority,
+              bant_need_score: bantScores.need,
+              bant_timeline_score: bantScores.timeline
+            })
+            .select('id')
+            .single();
+          qualificationId = newQual?.id;
+        } else {
+          // Update existing qualification
+          await supabase
+            .from('ai_lead_qualification')
+            .update({
+              property_type: updatedQual.property_type,
+              max_price: updatedQual.max_price || updatedQual.price_max,
+              min_bedrooms: updatedQual.min_bedrooms || updatedQual.bedrooms,
+              preferred_neighborhoods: updatedQual.preferred_neighborhoods || (updatedQual.neighborhood ? [updatedQual.neighborhood] : null),
+              urgency: updatedQual.urgency || updatedQual.timeline,
+              financing_needed: updatedQual.financing_needed || updatedQual.financing,
+              decision_maker: updatedQual.decision_maker,
+              bant_budget_score: bantScores.budget,
+              bant_authority_score: bantScores.authority,
+              bant_need_score: bantScores.need,
+              bant_timeline_score: bantScores.timeline,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', qualificationId);
+        }
+
+        // Record score history
+        if (qualificationId) {
+          await supabase.from('lead_score_history').insert({
+            qualification_id: qualificationId,
+            conversation_id: conversationId,
+            bant_budget: bantScores.budget,
+            bant_authority: bantScores.authority,
+            bant_need: bantScores.need,
+            bant_timeline: bantScores.timeline,
+            total_score: bantScores.total,
+            temperature: bantScores.temperature,
+            triggered_by: 'message',
+            message_id: savedMessage?.id
+          }).catch(e => console.warn('Score history error:', e));
+        }
+
+        // Update lead_score on conversation
+        await supabase
+          .from('agent_conversations')
+          .update({ lead_score: bantScores.total })
+          .eq('id', conversationId);
+
+      } catch (bantError) {
+        console.warn('BANT score calculation error:', bantError);
+      }
+    }
 
     // 6. Build ULTRA-HUMAN system prompt
     const systemPrompt = buildUltraHumanSystemPrompt(activeAgent, {

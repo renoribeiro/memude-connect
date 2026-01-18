@@ -15,8 +15,13 @@ import {
     Search,
     Star,
     CheckCircle,
-    XCircle
+    XCircle,
+    Flame,
+    Thermometer,
+    Snowflake,
+    Target
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 interface LeadQualificationData {
     id: string;
@@ -36,6 +41,13 @@ interface LeadQualificationData {
     qualification_score: number;
     is_qualified: boolean;
     disqualification_reason: string | null;
+    // BANT fields
+    bant_budget_score: number | null;
+    bant_authority_score: number | null;
+    bant_need_score: number | null;
+    bant_timeline_score: number | null;
+    bant_total_score: number | null;
+    lead_temperature: string | null;
     created_at: string;
     updated_at: string;
     conversation?: {
@@ -112,6 +124,48 @@ export function LeadQualificationView({ agentId }: LeadQualificationViewProps) {
         return labels[urgency || ""] || { text: urgency || "N/A", color: "bg-gray-400" };
     };
 
+    const getTemperatureBadge = (temperature: string | null, totalScore: number | null) => {
+        const configs: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
+            hot: {
+                icon: <Flame className="h-3 w-3" />,
+                label: 'Hot Lead',
+                className: 'bg-red-500 text-white'
+            },
+            warm: {
+                icon: <Thermometer className="h-3 w-3" />,
+                label: 'Warm Lead',
+                className: 'bg-orange-500 text-white'
+            },
+            cool: {
+                icon: <Snowflake className="h-3 w-3" />,
+                label: 'Cool Lead',
+                className: 'bg-blue-400 text-white'
+            },
+            cold: {
+                icon: <Snowflake className="h-3 w-3" />,
+                label: 'Cold Lead',
+                className: 'bg-gray-400 text-white'
+            }
+        };
+        const config = configs[temperature || 'cold'] || configs.cold;
+        return (
+            <Badge className={`${config.className} flex items-center gap-1`}>
+                {config.icon}
+                {totalScore !== null ? `${totalScore}` : config.label}
+            </Badge>
+        );
+    };
+
+    const BANTScoreBar = ({ label, score, max, color }: { label: string; score: number; max: number; color: string }) => (
+        <div className="space-y-1">
+            <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">{label}</span>
+                <span className="font-medium">{score}/{max}</span>
+            </div>
+            <Progress value={(score / max) * 100} className={`h-1.5 ${color}`} />
+        </div>
+    );
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-48">
@@ -147,7 +201,9 @@ export function LeadQualificationView({ agentId }: LeadQualificationViewProps) {
                                     {qual.conversation?.phone_number || "N/A"}
                                 </CardTitle>
                                 <div className="flex items-center gap-1">
-                                    {qual.is_qualified ? (
+                                    {qual.lead_temperature ? (
+                                        getTemperatureBadge(qual.lead_temperature, qual.bant_total_score)
+                                    ) : qual.is_qualified ? (
                                         <Badge className="bg-green-500">
                                             <CheckCircle className="h-3 w-3 mr-1" />
                                             Qualificado
@@ -229,6 +285,42 @@ export function LeadQualificationView({ agentId }: LeadQualificationViewProps) {
                                 <div className="flex items-center gap-2 text-sm text-red-500">
                                     <XCircle className="h-4 w-4" />
                                     <span>{qual.disqualification_reason}</span>
+                                </div>
+                            )}
+
+                            {/* BANT Score Breakdown */}
+                            {qual.bant_total_score !== null && qual.bant_total_score > 0 && (
+                                <div className="space-y-2 pt-2 border-t">
+                                    <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                                        <Target className="h-3 w-3" />
+                                        BANT Score
+                                    </div>
+                                    <div className="grid gap-1.5">
+                                        <BANTScoreBar
+                                            label="Budget (Orçamento)"
+                                            score={qual.bant_budget_score || 0}
+                                            max={25}
+                                            color="[&>div]:bg-green-500"
+                                        />
+                                        <BANTScoreBar
+                                            label="Authority (Decisor)"
+                                            score={qual.bant_authority_score || 0}
+                                            max={20}
+                                            color="[&>div]:bg-blue-500"
+                                        />
+                                        <BANTScoreBar
+                                            label="Need (Necessidade)"
+                                            score={qual.bant_need_score || 0}
+                                            max={30}
+                                            color="[&>div]:bg-purple-500"
+                                        />
+                                        <BANTScoreBar
+                                            label="Timeline (Prazo)"
+                                            score={qual.bant_timeline_score || 0}
+                                            max={25}
+                                            color="[&>div]:bg-orange-500"
+                                        />
+                                    </div>
                                 </div>
                             )}
 

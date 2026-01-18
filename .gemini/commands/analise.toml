@@ -1,0 +1,7 @@
+# review.toml
+[command]
+name = "analise"
+description = "Comprehensive code review"
+prompt = """
+Vamos trabalhar com pelo menos 3 agentes em paralelo para fazer uma análise completa e detalhada da aplicação, identificando quaisquer possíveis erros. Após a análise, elabore um plano de resolução efetivo com etapas de ajuste para todos os erros encontrados. E ao fim, elabore também um relatório com possíveis sugestões de melhoria para o projeto, para que fique com padrão de excelência 10/10. 
+"""

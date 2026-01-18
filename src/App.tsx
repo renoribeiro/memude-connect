@@ -20,6 +20,7 @@ import Configuracoes from "./pages/admin/Configuracoes";
 import SincronizacaoWordpress from "./pages/admin/SincronizacaoWordpress";
 import Analytics from "./pages/admin/Analytics";
 import Monitoring from "./pages/admin/Monitoring";
+import AIAgents from "./pages/admin/AIAgents";
 import MeusLeads from "./pages/corretor/MeusLeads";
 import MinhasVisitas from "./pages/corretor/MinhasVisitas";
 import Perfil from "./pages/corretor/Perfil";
@@ -39,14 +40,14 @@ const App = () => (
               {/* Public Routes */}
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
-              
+
               {/* Protected Routes */}
               <Route path="/" element={
                 <ProtectedRoute>
                   <Index />
                 </ProtectedRoute>
               } />
-              
+
               {/* Admin Routes */}
               <Route path="/admin/users" element={
                 <ProtectedRoute requireAdmin>
@@ -103,7 +104,12 @@ const App = () => (
                   <Monitoring />
                 </ProtectedRoute>
               } />
-              
+              <Route path="/admin/ai-agents" element={
+                <ProtectedRoute requireAdmin>
+                  <AIAgents />
+                </ProtectedRoute>
+              } />
+
               {/* Corretor Routes */}
               <Route path="/meus-leads" element={
                 <ProtectedRoute requireCorretor>
@@ -120,7 +126,7 @@ const App = () => (
                   <Perfil />
                 </ProtectedRoute>
               } />
-              
+
               {/* 404 Route */}
               <Route path="*" element={<NotFound />} />
             </Routes>

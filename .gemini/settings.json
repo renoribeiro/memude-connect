@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "github": {
+      "httpUrl": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer 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"
+      }
+    },
+    "supabase": {
+      "httpUrl": "https://mcp.supabase.com/mcp?project_ref=oxybasvtphosdmlmrfnb"
+    }
+  }
+}

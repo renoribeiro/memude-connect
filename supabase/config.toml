@@ -83,3 +83,15 @@ verify_jwt = false
 
 [functions.waha-webhook-handler]
 verify_jwt = false
+
+[functions.ai-agent-processor]
+verify_jwt = false
+
+[functions.ai-generate-embeddings]
+verify_jwt = false
+
+[functions.ai-property-search]
+verify_jwt = false
+
+[functions.ai-schedule-visit]
+verify_jwt = false

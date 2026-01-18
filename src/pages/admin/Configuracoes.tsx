@@ -20,6 +20,7 @@ import { DistributionMonitor } from "@/components/automation/DistributionMonitor
 import { VisitDistributionMonitor } from "@/components/automation/VisitDistributionMonitor";
 import { VisitDistributionSettings } from "@/components/automation/VisitDistributionSettings";
 import { WebhookMonitor } from "@/components/automation/WebhookMonitor";
+import { EvolutionInstances } from "@/components/configuracoes/EvolutionInstances";
 
 interface SystemSetting {
   key: string;
@@ -64,7 +65,7 @@ export default function Configuracoes() {
         .from('system_settings')
         .select('*')
         .order('key');
-      
+
       if (error) throw error;
       return data as SystemSetting[];
     }
@@ -73,10 +74,10 @@ export default function Configuracoes() {
   // Efeito para testar conexão automaticamente quando entrar na aba comunicação
   useEffect(() => {
     if (activeTab === 'comunicacao' && evolutionStatus === 'idle') {
-      const hasEvolutionConfig = getSetting('evolution_api_url') && 
-                                getSetting('evolution_api_key') && 
-                                getSetting('evolution_instance_name');
-      
+      const hasEvolutionConfig = getSetting('evolution_api_url') &&
+        getSetting('evolution_api_key') &&
+        getSetting('evolution_instance_name');
+
       if (hasEvolutionConfig) {
         // Testa automaticamente se tiver configuração
         setTimeout(() => testEvolutionConnection(), 1000);
@@ -94,25 +95,25 @@ export default function Configuracoes() {
       // Primeiro, tenta fazer update do registro existente
       const { data: updateResult, error: updateError } = await supabase
         .from('system_settings')
-        .update({ 
-          value, 
+        .update({
+          value,
           updated_by: profile?.id,
           updated_at: new Date().toISOString()
         })
         .eq('key', key)
         .select();
-      
+
       // Se não encontrou nenhum registro para atualizar, cria um novo
       if (updateResult && updateResult.length === 0) {
         const { error: insertError } = await supabase
           .from('system_settings')
-          .insert({ 
-            key, 
-            value, 
+          .insert({
+            key,
+            value,
             updated_by: profile?.id,
             updated_at: new Date().toISOString()
           });
-        
+
         if (insertError) throw insertError;
       } else if (updateError) {
         throw updateError;
@@ -175,7 +176,7 @@ export default function Configuracoes() {
   // Função para testar conexão com Evolution API
   const testEvolutionConnection = async () => {
     setEvolutionStatus('testing');
-    
+
     // Validar campos antes de testar
     const apiUrl = getSetting('evolution_api_url')?.trim();
     const apiKey = getSetting('evolution_api_key')?.trim();
@@ -187,7 +188,7 @@ export default function Configuracoes() {
       if (!apiUrl) missingFields.push('URL da API');
       if (!apiKey) missingFields.push('Chave da API');
       if (!instanceName) missingFields.push('Nome da Instância');
-      
+
       toast({
         title: "Configuração incompleta",
         description: `Por favor, preencha: ${missingFields.join(', ')}`,
@@ -214,12 +215,12 @@ export default function Configuracoes() {
 
     try {
       const { data, error } = await supabase.functions.invoke('evolution-check-connection');
-      
+
       if (error) {
         console.error('Function invocation error:', error);
         throw error;
       }
-      
+
       if (data.success && data.connected) {
         setEvolutionStatus('connected');
         toast({
@@ -371,51 +372,51 @@ export default function Configuracoes() {
                   <div className="space-y-0.5">
                     <Label>Atribuição Automática de Leads</Label>
                     <p className="text-sm text-muted-foreground">
-                     Distribui leads automaticamente para corretores disponíveis
-                   </p>
-                 </div>
-                 <div className="flex items-center gap-2">
-                   <Switch
-                     checked={getSetting('lead_auto_assign') === 'true'}
-                     disabled={isSaving === 'lead_auto_assign'}
-                     onCheckedChange={(checked) => handleSwitchChange('lead_auto_assign', checked)}
-                   />
-                   {isSaving === 'lead_auto_assign' && <Loader2 className="w-4 h-4 animate-spin" />}
-                 </div>
+                      Distribui leads automaticamente para corretores disponíveis
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={getSetting('lead_auto_assign') === 'true'}
+                      disabled={isSaving === 'lead_auto_assign'}
+                      onCheckedChange={(checked) => handleSwitchChange('lead_auto_assign', checked)}
+                    />
+                    {isSaving === 'lead_auto_assign' && <Loader2 className="w-4 h-4 animate-spin" />}
+                  </div>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Notificações por Email</Label>
                     <p className="text-sm text-muted-foreground">
-                     Receber notificações importantes por email
-                   </p>
-                 </div>
-                 <div className="flex items-center gap-2">
-                   <Switch
-                     checked={getSetting('notification_emails') === 'true'}
-                     disabled={isSaving === 'notification_emails'}
-                     onCheckedChange={(checked) => handleSwitchChange('notification_emails', checked)}
-                   />
-                   {isSaving === 'notification_emails' && <Loader2 className="w-4 h-4 animate-spin" />}
-                 </div>
+                      Receber notificações importantes por email
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={getSetting('notification_emails') === 'true'}
+                      disabled={isSaving === 'notification_emails'}
+                      onCheckedChange={(checked) => handleSwitchChange('notification_emails', checked)}
+                    />
+                    {isSaving === 'notification_emails' && <Loader2 className="w-4 h-4 animate-spin" />}
+                  </div>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Notificações por WhatsApp</Label>
                     <p className="text-sm text-muted-foreground">
-                     Receber notificações via WhatsApp
-                   </p>
-                 </div>
-                 <div className="flex items-center gap-2">
-                   <Switch
-                     checked={getSetting('notification_whatsapp') === 'true'}
-                     disabled={isSaving === 'notification_whatsapp'}
-                     onCheckedChange={(checked) => handleSwitchChange('notification_whatsapp', checked)}
-                   />
-                   {isSaving === 'notification_whatsapp' && <Loader2 className="w-4 h-4 animate-spin" />}
-                 </div>
+                      Receber notificações via WhatsApp
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={getSetting('notification_whatsapp') === 'true'}
+                      disabled={isSaving === 'notification_whatsapp'}
+                      onCheckedChange={(checked) => handleSwitchChange('notification_whatsapp', checked)}
+                    />
+                    {isSaving === 'notification_whatsapp' && <Loader2 className="w-4 h-4 animate-spin" />}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -449,121 +450,64 @@ export default function Configuracoes() {
 
             {/* Configuração Evolution */}
             {(getSetting('whatsapp_provider') === 'evolution' || !getSetting('whatsapp_provider')) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="w-5 h-5" />
-                  Configuração Evolution API V2
-                </CardTitle>
-                <CardDescription>
-                  Integração avançada com suporte a botões e listas.
-                  <a 
-                    href="https://doc.evolution-api.com/v2/api-reference/get-information" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline ml-1"
-                  >
-                    Ver documentação
-                  </a>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="evolution_api_url">URL da API</Label>
-                  <Input
-                    id="evolution_api_url"
-                    placeholder="https://api.evolution.com.br"
-                    defaultValue={getSetting('evolution_api_url')}
-                    onBlur={(e) => handleSaveSetting('evolution_api_url', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="evolution_api_key">Chave da API (apikey)</Label>
-                  <Input
-                    id="evolution_api_key"
-                    type="password"
-                    defaultValue={getSetting('evolution_api_key')}
-                    onBlur={(e) => handleSaveSetting('evolution_api_key', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="evolution_instance_name">Nome da Instância</Label>
-                  <Input
-                    id="evolution_instance_name"
-                    defaultValue={getSetting('evolution_instance_name')}
-                    onBlur={(e) => handleSaveSetting('evolution_instance_name', e.target.value)}
-                  />
-                </div>
-                
-                <div className="flex gap-2 pt-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={testEvolutionConnection}
-                  >
-                    Testar Conexão
-                  </Button>
-                  {getConnectionBadge()}
-                </div>
-              </CardContent>
-            </Card>
+              <EvolutionInstances />
             )}
 
             {/* Configuração WAHA */}
             {getSetting('whatsapp_provider') === 'waha' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="w-5 h-5" />
-                  Configuração WAHA
-                </CardTitle>
-                <CardDescription>
-                  WhatsApp HTTP API - Opção estável e leve.
-                  <a 
-                    href="https://waha.devlike.pro/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline ml-1"
-                  >
-                    Ver documentação
-                  </a>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="waha_api_url">URL da API WAHA</Label>
-                  <Input
-                    id="waha_api_url"
-                    placeholder="http://localhost:3000"
-                    defaultValue={getSetting('waha_api_url')}
-                    onBlur={(e) => handleSaveSetting('waha_api_url', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="waha_api_key">Chave da API (X-Api-Key)</Label>
-                  <Input
-                    id="waha_api_key"
-                    type="password"
-                    placeholder="Opcional se não configurado auth"
-                    defaultValue={getSetting('waha_api_key')}
-                    onBlur={(e) => handleSaveSetting('waha_api_key', e.target.value)}
-                  />
-                </div>
-                
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Webhook para WAHA:</strong>
-                    <br />
-                    Configure manualmente no seu WAHA:
-                    <br />
-                    <code className="text-xs bg-muted px-1 py-0.5 rounded block mt-1 overflow-x-auto">
-                      https://oxybasvtphosdmlmrfnb.supabase.co/functions/v1/waha-webhook-handler
-                    </code>
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5" />
+                    Configuração WAHA
+                  </CardTitle>
+                  <CardDescription>
+                    WhatsApp HTTP API - Opção estável e leve.
+                    <a
+                      href="https://waha.devlike.pro/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline ml-1"
+                    >
+                      Ver documentação
+                    </a>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="waha_api_url">URL da API WAHA</Label>
+                    <Input
+                      id="waha_api_url"
+                      placeholder="http://localhost:3000"
+                      defaultValue={getSetting('waha_api_url')}
+                      onBlur={(e) => handleSaveSetting('waha_api_url', e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="waha_api_key">Chave da API (X-Api-Key)</Label>
+                    <Input
+                      id="waha_api_key"
+                      type="password"
+                      placeholder="Opcional se não configurado auth"
+                      defaultValue={getSetting('waha_api_key')}
+                      onBlur={(e) => handleSaveSetting('waha_api_key', e.target.value)}
+                    />
+                  </div>
+
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Webhook para WAHA:</strong>
+                      <br />
+                      Configure manualmente no seu WAHA:
+                      <br />
+                      <code className="text-xs bg-muted px-1 py-0.5 rounded block mt-1 overflow-x-auto">
+                        https://oxybasvtphosdmlmrfnb.supabase.co/functions/v1/waha-webhook-handler
+                      </code>
+                    </AlertDescription>
+                  </Alert>
+                </CardContent>
+              </Card>
             )}
 
             {/* Configuração Webhook (Comum ou Específico) */}
@@ -582,12 +526,12 @@ export default function Configuracoes() {
                 <div className="space-y-2">
                   <Label>URL do Webhook</Label>
                   <div className="flex gap-2">
-                    <Input 
-                      readOnly 
+                    <Input
+                      readOnly
                       value="https://oxybasvtphosdmlmrfnb.supabase.co/functions/v1/evolution-webhook-handler"
                       className="font-mono text-sm"
                     />
-                    <Button 
+                    <Button
                       variant="outline"
                       onClick={() => {
                         navigator.clipboard.writeText('https://oxybasvtphosdmlmrfnb.supabase.co/functions/v1/evolution-webhook-handler');
@@ -610,7 +554,7 @@ export default function Configuracoes() {
                       setIsSaving('test_webhook');
                       try {
                         const { data, error } = await supabase.functions.invoke('test-webhook');
-                        
+
                         if (error) throw error;
 
                         if (data.success) {
@@ -644,7 +588,7 @@ export default function Configuracoes() {
                     )}
                     Testar Webhook
                   </Button>
-                  
+
                   {/* FASE 3: Botão Configurar Webhook */}
                   <Button
                     onClick={async () => {
@@ -656,7 +600,7 @@ export default function Configuracoes() {
                         });
 
                         const { data, error } = await supabase.functions.invoke('evolution-configure-webhook');
-                        
+
                         if (error) throw error;
 
                         if (data.success) {
@@ -664,7 +608,7 @@ export default function Configuracoes() {
                             title: "✅ Webhook configurado!",
                             description: `Webhook ativo na instância ${data.instance}. Eventos: ${data.events?.join(', ')}`,
                           });
-                          
+
                           // Atualizar configurações
                           queryClient.invalidateQueries({ queryKey: ['system-settings'] });
                         } else {
@@ -717,7 +661,7 @@ export default function Configuracoes() {
                   <AlertDescription>
                     <strong>📚 Documentação Oficial:</strong>
                     <br />
-                    <a 
+                    <a
                       href="https://doc.evolution-api.com/v2/pt/configuration/webhooks"
                       target="_blank"
                       rel="noopener noreferrer"
@@ -730,8 +674,8 @@ export default function Configuracoes() {
 
                 {/* FASE 5: Imagem de referência */}
                 <div className="border rounded-lg overflow-hidden">
-                  <img 
-                    src="/src/assets/webhook-config-guide.png" 
+                  <img
+                    src="/src/assets/webhook-config-guide.png"
                     alt="Guia de configuração do webhook na Evolution API"
                     className="w-full"
                   />
@@ -943,7 +887,7 @@ export default function Configuracoes() {
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="automacao" className="space-y-6">
             <Card>
               <CardHeader>
@@ -1004,7 +948,7 @@ export default function Configuracoes() {
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <h4 className="text-sm font-medium">Status do Sistema</h4>
                     <div className="space-y-3">

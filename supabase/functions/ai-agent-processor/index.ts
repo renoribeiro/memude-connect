@@ -410,7 +410,8 @@ serve(async (req) => {
           message: chunk,
           typing_delay_ms: delay,
           is_chunk: messageChunks.length > 1,
-          chunk_index: i
+          chunk_index: i,
+          instance_id: activeAgent.evolution_instance_id
         }
       });
 

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -126,6 +126,10 @@ const App = () => (
                   <Perfil />
                 </ProtectedRoute>
               } />
+
+              {/* Redirects for common typos/shortcuts */}
+              <Route path="/ai-agents" element={<Navigate to="/admin/ai-agents" replace />} />
+              <Route path="/ai-agentes" element={<Navigate to="/admin/ai-agents" replace />} />
 
               {/* 404 Route */}
               <Route path="*" element={<NotFound />} />

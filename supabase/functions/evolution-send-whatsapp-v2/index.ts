@@ -35,6 +35,7 @@ interface WhatsAppMessage {
   };
   lead_id?: string;
   corretor_id?: string;
+  instance_id?: string;
 }
 
 serve(async (req) => {
@@ -59,24 +60,50 @@ serve(async (req) => {
 
     // Normalizar número
     const normalizedPhone = normalizePhoneNumber(phone_number);
-    
+
     console.log('Sending to:', normalizedPhone);
 
     if (!isValidBrazilianPhone(normalizedPhone)) {
       throw new Error('Número de telefone inválido');
     }
 
-    // Buscar configurações da Evolution API
-    const { data: settings } = await supabase
-      .from('system_settings')
-      .select('key, value')
-      .in('key', ['evolution_api_url', 'evolution_api_key', 'evolution_instance_name']);
+    // 1. Get instance configuration
+    let apiUrl = '';
+    let apiKey = '';
+    let instanceName = '';
 
-    const settingsMap = new Map(settings?.map(s => [s.key, s.value]) || []);
-    
-    const apiUrl = settingsMap.get('evolution_api_url');
-    const apiKey = settingsMap.get('evolution_api_key');
-    const instanceName = settingsMap.get('evolution_instance_name');
+    const { instance_id } = body;
+
+    if (instance_id) {
+      // Fetch from evolution_instances table
+      const { data: instance, error } = await supabase
+        .from('evolution_instances')
+        .select('*')
+        .eq('id', instance_id)
+        .single();
+
+      if (error || !instance) {
+        throw new Error(`Instance not found: ${instance_id}`);
+      }
+
+      apiUrl = instance.api_url;
+      apiKey = instance.api_token;
+      instanceName = instance.instance_name;
+      console.log(`Using Evolution Instance: ${instance.name} (${instanceName})`);
+
+    } else {
+      // Legacy: Fetch from system_settings
+      const { data: settings } = await supabase
+        .from('system_settings')
+        .select('key, value')
+        .in('key', ['evolution_api_url', 'evolution_api_key', 'evolution_instance_name']);
+
+      const settingsMap = new Map(settings?.map(s => [s.key, s.value]) || []);
+
+      apiUrl = settingsMap.get('evolution_api_url');
+      apiKey = settingsMap.get('evolution_api_key');
+      instanceName = settingsMap.get('evolution_instance_name');
+    }
 
     if (!apiUrl || !apiKey || !instanceName) {
       throw new Error('Configurações da Evolution API não encontradas');
@@ -148,11 +175,11 @@ serve(async (req) => {
     console.log('✅ Message sent successfully:', result);
 
     // Registrar no communication_log
-    const logContent = media 
+    const logContent = media
       ? `Mídia (${media.type}): ${media.caption || media.url}`
       : list
-      ? `Lista: ${list.title}`
-      : message || '';
+        ? `Lista: ${list.title}`
+        : message || '';
 
     await supabase.from('communication_log').insert({
       type: 'whatsapp',
@@ -184,15 +211,15 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Erro ao enviar mensagem:', error);
-    
+
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400 
+        status: 400
       }
     );
   }

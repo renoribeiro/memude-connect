@@ -44,7 +44,8 @@ serve(async (req) => {
         qualification_data,
         lead_score,
         customer_name,
-        total_messages
+        total_messages,
+        ai_agents!inner ( evolution_instance_id )
       `)
             .eq('status', 'active')
             .lt('last_message_at', oneHourAgo)
@@ -136,7 +137,8 @@ serve(async (req) => {
                     body: {
                         phone_number: conv.phone_number,
                         message: personalizedMessage,
-                        typing_delay_ms: 2000 + Math.random() * 2000 // 2-4s delay humanizado
+                        typing_delay_ms: 2000 + Math.random() * 2000, // 2-4s delay humanizado
+                        instance_id: (conv.ai_agents as any)?.evolution_instance_id
                     }
                 });
 

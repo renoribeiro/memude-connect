@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,7 @@ interface AIAgent {
     conversation_timeout_hours: number;
     trigger_keywords: string[];
     fallback_action: string;
+    evolution_instance_id?: string | null;
 }
 
 const LLM_MODELS = {
@@ -108,7 +109,21 @@ export function AgentEditor({ agent, onClose }: AgentEditorProps) {
         max_messages_per_conversation: 50,
         conversation_timeout_hours: 24,
         trigger_keywords: ['comprar', 'apartamento', 'casa', 'imóvel', 'imovel'],
-        fallback_action: 'notify_admin'
+        fallback_action: 'notify_admin',
+        evolution_instance_id: null
+    });
+
+    const { data: evolutionInstances = [] } = useQuery({
+        queryKey: ['evolution-instances-select'],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('evolution_instances')
+                .select('id, name, instance_name')
+                .eq('is_active', true)
+                .order('name');
+            if (error) throw error;
+            return data;
+        }
     });
 
     useEffect(() => {
@@ -141,6 +156,7 @@ export function AgentEditor({ agent, onClose }: AgentEditorProps) {
                 conversation_timeout_hours: data.conversation_timeout_hours,
                 trigger_keywords: data.trigger_keywords,
                 fallback_action: data.fallback_action,
+                evolution_instance_id: data.evolution_instance_id,
                 updated_at: new Date().toISOString()
             };
 
@@ -220,6 +236,32 @@ export function AgentEditor({ agent, onClose }: AgentEditorProps) {
                                 placeholder="Ex: Ana - Consultora Imobiliária"
                             />
                         </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="evolution_instance">Instância Evolution API</Label>
+                        <Select
+                            value={formData.evolution_instance_id || "default"}
+                            onValueChange={(value) => setFormData({
+                                ...formData,
+                                evolution_instance_id: value === "default" ? null : value
+                            })}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecione uma instância" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="default">Padrão (System Settings)</SelectItem>
+                                {evolutionInstances.map((instance: any) => (
+                                    <SelectItem key={instance.id} value={instance.id}>
+                                        {instance.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            Define qual conta do WhatsApp este agente usará.
+                        </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

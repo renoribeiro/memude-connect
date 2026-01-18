@@ -13,7 +13,7 @@ import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Zap, AlertTriangle
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-interface EvolutionInstance {
+export interface EvolutionInstance {
     id: string;
     name: string;
     instance_name: string;

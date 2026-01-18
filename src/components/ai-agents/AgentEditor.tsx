@@ -12,6 +12,7 @@ import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { Save, Loader2, Bell } from "lucide-react";
 import { FollowupEditor } from "./FollowupEditor";
+import { EvolutionInstance } from "@/components/configuracoes/EvolutionInstances";
 
 interface AIAgent {
     id?: string;
@@ -35,6 +36,7 @@ interface AIAgent {
     fallback_action: string;
     evolution_instance_id?: string | null;
 }
+
 
 const LLM_MODELS = {
     openai: [
@@ -122,7 +124,7 @@ export function AgentEditor({ agent, onClose }: AgentEditorProps) {
                 .eq('is_active', true)
                 .order('name');
             if (error) throw error;
-            return data;
+            return data as Partial<EvolutionInstance>[];
         }
     });
 
@@ -252,8 +254,8 @@ export function AgentEditor({ agent, onClose }: AgentEditorProps) {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="default">Padrão (System Settings)</SelectItem>
-                                {evolutionInstances.map((instance: any) => (
-                                    <SelectItem key={instance.id} value={instance.id}>
+                                {evolutionInstances.map((instance) => (
+                                    <SelectItem key={instance.id} value={instance.id || ""}>
                                         {instance.name}
                                     </SelectItem>
                                 ))}

@@ -203,6 +203,51 @@ serve(async (req) => {
 
     console.log(`Encontrados ${eligibleCorretores.length} corretores elegíveis`);
 
+    // FASE: Cancelar distribuições anteriores antes de iniciar nova
+    // Isso evita violação da constraint unique (visita_id, corretor_id, attempt_order)
+    console.log('🧹 Verificando e cancelando distribuições anteriores...');
+
+    // Buscar filas anteriores em andamento para esta visita
+    const { data: previousQueues } = await supabase
+      .from('visit_distribution_queue')
+      .select('id')
+      .eq('visita_id', visita_id)
+      .in('status', ['pending', 'in_progress']);
+
+    if (previousQueues && previousQueues.length > 0) {
+      const queueIds = previousQueues.map(q => q.id);
+      console.log(`📋 Encontradas ${queueIds.length} filas anteriores para cancelar`);
+
+      // Cancelar tentativas pendentes dessas filas
+      const { error: attemptCancelError } = await supabase
+        .from('visit_distribution_attempts')
+        .update({
+          status: 'timeout',
+          response_message: 'Tentativa cancelada - nova distribuição iniciada',
+          response_received_at: new Date().toISOString()
+        })
+        .in('queue_id', queueIds)
+        .eq('status', 'pending');
+
+      if (attemptCancelError) {
+        console.warn('⚠️ Erro ao cancelar tentativas anteriores:', attemptCancelError);
+      } else {
+        console.log('✅ Tentativas anteriores canceladas');
+      }
+
+      // Marcar filas anteriores como canceladas
+      const { error: queueCancelError } = await supabase
+        .from('visit_distribution_queue')
+        .update({ status: 'cancelled' })
+        .in('id', queueIds);
+
+      if (queueCancelError) {
+        console.warn('⚠️ Erro ao cancelar filas anteriores:', queueCancelError);
+      } else {
+        console.log('✅ Filas anteriores canceladas');
+      }
+    }
+
     // Adicionar à fila de distribuição
     const { data: queueEntry, error: queueError } = await supabase
       .from('visit_distribution_queue')

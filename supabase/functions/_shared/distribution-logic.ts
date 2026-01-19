@@ -353,8 +353,18 @@ async function notifyVisitConfirmation(supabase: SupabaseClient, attempt: any, c
 
 // Função de Envio Unificado (Abstração)
 async function sendWhatsappMessage(supabase: SupabaseClient, phone: string, message: string) {
-  // Aqui chamamos uma função única que decide qual API usar
-  await supabase.functions.invoke('universal-whatsapp-sender', {
-    body: { phone, message }
+  // Correção: Usar a função existente 'evolution-send-whatsapp'
+  // Payload deve ser compatível com o esperado por essa função
+  console.log(`📤 Enviando mensagem para ${phone} via evolution-send-whatsapp`);
+
+  const { error } = await supabase.functions.invoke('evolution-send-whatsapp', {
+    body: {
+      phone_number: phone, // A função evolution-send-whatsapp espera 'phone_number', não 'number'
+      message: message
+    }
   });
+
+  if (error) {
+    console.error(`❌ Erro ao enviar mensagem para ${phone}:`, error);
+  }
 }

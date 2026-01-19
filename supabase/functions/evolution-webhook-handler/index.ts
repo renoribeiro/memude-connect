@@ -22,20 +22,65 @@ serve(async (req) => {
     const webhookData = await req.json();
     const { event, data } = webhookData;
 
-    if (event === 'MESSAGES_UPSERT') {
-      const message = data.message || data;
-      const phone = message.key?.remoteJid?.replace('@s.whatsapp.net', '');
+    // Log completo do payload para debug
+    console.log('📨 Webhook FULL payload:', JSON.stringify(webhookData).substring(0, 2000));
 
-      // Extrair texto (suporte V2)
-      let text = message.message?.conversation ||
-        message.message?.extendedTextMessage?.text ||
-        message.message?.buttonsResponseMessage?.selectedButtonId || '';
+    // Comparação case-insensitive para evento (Evolution API pode enviar MESSAGES_UPSERT ou messages.upsert)
+    const eventLower = (event || '').toLowerCase().replace('.', '_');
 
-      if (!text && message.message?.listResponseMessage) {
-        text = message.message.listResponseMessage.singleSelectReply.selectedRowId;
+    if (eventLower === 'messages_upsert') {
+      // Evolution API V2 pode ter estruturas diferentes
+      const messageData = data?.message || data;
+
+      // Tentar extrair phone de várias formas
+      let phone = messageData?.key?.remoteJid?.replace('@s.whatsapp.net', '') ||
+        data?.key?.remoteJid?.replace('@s.whatsapp.net', '');
+
+      // Em grupos, pegar o participante
+      if (phone?.includes('@g.us')) {
+        phone = messageData?.key?.participant?.replace('@s.whatsapp.net', '') ||
+          messageData?.key?.participantAlt?.replace('@s.whatsapp.net', '');
       }
 
-      if (phone && text && !message.key.fromMe) {
+      // Extrair texto de várias formas possíveis (Iterar sobre possíveis locais do conteúdo)
+      // O conteúdo pode estar em data.message (direto) ou data.message.message (aninhado)
+      let text = '';
+
+      const possibleContentObjects = [
+        data?.message?.message, // Estrutura WebMessageInfo padrão
+        data?.message,          // Estrutura simplificada ou direta
+        data                    // Fallback
+      ];
+
+      for (const msgContent of possibleContentObjects) {
+        if (!msgContent) continue;
+
+        const extracted = msgContent.conversation ||
+          msgContent.extendedTextMessage?.text ||
+          msgContent.buttonsResponseMessage?.selectedButtonId ||
+          msgContent.listResponseMessage?.singleSelectReply?.selectedRowId ||
+          msgContent.templateButtonReplyMessage?.selectedId;
+
+        if (extracted) {
+          text = extracted;
+          console.log('✅ Texto encontrado em nível de objeto:', Object.keys(msgContent));
+          break;
+        }
+      }
+
+      // Log detalhado
+      const fromMe = messageData?.key?.fromMe || data?.key?.fromMe;
+      console.log(`📱 Dados extraídos: phone=${phone}, text="${text}", fromMe=${fromMe}`);
+
+      // Log estrutura para garantir
+      console.log('📋 Estrutura analisada:', JSON.stringify({
+        hasDataMessage: !!data?.message,
+        hasDataMessageMessage: !!data?.message?.message,
+        hasConversationDirect: !!data?.message?.conversation,
+        hasConversationNested: !!data?.message?.message?.conversation
+      }));
+
+      if (phone && text && !fromMe) {
         console.log(`Webhook Evolution: Recebido de ${phone}: ${text}`);
 
         // ============================================
@@ -57,7 +102,46 @@ serve(async (req) => {
         console.log('📋 Processando com lógica de distribuição original...');
         const result = await processIncomingMessage(supabase, phone, text);
         console.log('Resultado processamento:', result);
+
+        // Log no banco para debug
+        await supabase.from('webhook_logs').insert({
+          event_type: 'DISTRIBUTION_RESPONSE',
+          instance_name: 'GTFit',
+          payload: { phone, text, result },
+          processed_successfully: result.processed,
+          processing_time_ms: 0
+        });
+      } else {
+        console.log(`⚠️ Mensagem ignorada: phone=${phone}, text="${text}", fromMe=${messageData?.key?.fromMe}`);
+
+        // Log no banco para debug - incluir estrutura completa para análise
+        await supabase.from('webhook_logs').insert({
+          event_type: 'MESSAGE_IGNORED',
+          instance_name: 'GTFit',
+          payload: {
+            phone,
+            text,
+            fromMe: messageData?.key?.fromMe,
+            reason: !phone ? 'no_phone' : !text ? 'no_text' : 'from_me',
+            messageKeys: Object.keys(messageData?.message || {}),
+            dataKeys: Object.keys(data || {}),
+            fullData: JSON.stringify(data).substring(0, 1000)
+          },
+          processed_successfully: false,
+          processing_time_ms: 0
+        });
       }
+    } else {
+      console.log(`⏭️ Evento ignorado: ${event}`);
+
+      // Log no banco para debug
+      await supabase.from('webhook_logs').insert({
+        event_type: event || 'UNKNOWN',
+        instance_name: 'GTFit',
+        payload: { event, ignored: true },
+        processed_successfully: false,
+        processing_time_ms: 0
+      });
     }
 
     return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

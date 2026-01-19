@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,12 +10,42 @@ import { ptBR } from "date-fns/locale";
 
 export function DistributionDashboard() {
   const [now, setNow] = useState(new Date());
+  const queryClient = useQueryClient();
 
   // Atualizar relógio a cada segundo
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Realtime Subscription para atualizações instantâneas
+  useEffect(() => {
+    console.log('🔌 Iniciando subscription Realtime para DistributionDashboard...');
+    const channel = supabase
+      .channel('distribution-dashboard-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'visit_distribution_attempts'
+        },
+        (payload) => {
+          console.log('🔄 Mudança detectada em visit_distribution_attempts:', payload);
+          // Invalidar todas as queries relacionadas para forçar recarregamento imediato
+          queryClient.invalidateQueries({ queryKey: ['active-distribution-attempts'] });
+          queryClient.invalidateQueries({ queryKey: ['distribution-stats-24h'] });
+          queryClient.invalidateQueries({ queryKey: ['distribution-history'] });
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Status da conexão Realtime:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Buscar tentativas ativas em tempo real
   const { data: activeAttempts, isLoading: loadingAttempts } = useQuery({
@@ -67,7 +97,7 @@ export function DistributionDashboard() {
       const expired = attempts.filter(a => a.status === 'expired').length;
 
       // Calcular tempo médio de resposta
-      const acceptedWithTime = attempts.filter(a => 
+      const acceptedWithTime = attempts.filter(a =>
         a.response_type === 'accept' && a.response_received_at
       );
 
@@ -99,7 +129,7 @@ export function DistributionDashboard() {
   const getTimeRemaining = (timeoutAt: string) => {
     const remaining = new Date(timeoutAt).getTime() - now.getTime();
     if (remaining <= 0) return 'Expirado';
-    
+
     const minutes = Math.floor(remaining / (1000 * 60));
     const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -125,8 +155,8 @@ export function DistributionDashboard() {
               {stats ? `${stats.successRate.toFixed(1)}%` : '0%'}
             </div>
             <p className="text-xs text-muted-foreground">Últimas 24 horas</p>
-            <Progress 
-              value={stats?.successRate || 0} 
+            <Progress
+              value={stats?.successRate || 0}
               className="mt-2"
             />
           </CardContent>
@@ -230,8 +260,8 @@ export function DistributionDashboard() {
                         </p>
                       </div>
                     </div>
-                    <Progress 
-                      value={progress} 
+                    <Progress
+                      value={progress}
                       className="h-2"
                     />
                   </div>
@@ -303,12 +333,12 @@ function RecentHistory() {
                       {item.corretor?.profiles?.first_name} {item.corretor?.profiles?.last_name}
                     </span>
                     <Badge variant={
-                      item.response_type === 'accepted' ? 'default' : 
-                      item.response_type === 'rejected' ? 'destructive' : 'secondary'
+                      item.response_type === 'accepted' ? 'default' :
+                        item.response_type === 'rejected' ? 'destructive' : 'secondary'
                     }>
                       {item.response_type === 'accepted' ? 'Aceitou' :
-                       item.response_type === 'rejected' ? 'Recusou' : 
-                       item.status === 'timeout' ? 'Expirou' : item.status}
+                        item.response_type === 'rejected' ? 'Recusou' :
+                          item.status === 'timeout' ? 'Expirou' : item.status}
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">

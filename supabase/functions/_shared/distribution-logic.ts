@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { normalizePhoneNumber } from './phoneHelpers.ts';
 
 // Definição de tipos para clareza
 export interface DistributionResult {
@@ -71,8 +72,8 @@ function analyzeResponse(message: string): ProcessingResponse {
 }
 
 async function checkPendingAttempts(supabase: SupabaseClient, phoneNumber: string) {
-  // Busca corretor pelo ID primeiro
-  const { data: corretor } = await supabase.from('corretores').select('id').eq('whatsapp', phoneNumber).single();
+  // Busca corretor usando busca flexível por telefone
+  const corretor = await findCorretorByPhone(supabase, phoneNumber);
   if (!corretor) return false;
 
   const { count: visits } = await supabase
@@ -92,6 +93,56 @@ async function checkPendingAttempts(supabase: SupabaseClient, phoneNumber: strin
   return leads && leads > 0;
 }
 
+// --- Helper para busca flexível de corretor por telefone ---
+
+async function findCorretorByPhone(supabase: SupabaseClient, phoneNumber: string) {
+  // Normalizar telefone para formato consistente
+  const normalizedPhone = normalizePhoneNumber(phoneNumber);
+
+  // Tentar buscar pelo telefone normalizado primeiro
+  let { data: corretor } = await supabase
+    .from('corretores')
+    .select('id, whatsapp')
+    .eq('whatsapp', normalizedPhone)
+    .maybeSingle();
+
+  if (corretor) {
+    console.log(`✅ Corretor encontrado pelo telefone normalizado: ${normalizedPhone}`);
+    return corretor;
+  }
+
+  // Tentar pelo telefone original (sem normalização)
+  ({ data: corretor } = await supabase
+    .from('corretores')
+    .select('id, whatsapp')
+    .eq('whatsapp', phoneNumber)
+    .maybeSingle());
+
+  if (corretor) {
+    console.log(`✅ Corretor encontrado pelo telefone original: ${phoneNumber}`);
+    return corretor;
+  }
+
+  // Buscar todos corretores e comparar normalizando
+  const { data: allCorretores } = await supabase
+    .from('corretores')
+    .select('id, whatsapp')
+    .not('whatsapp', 'is', null);
+
+  if (allCorretores) {
+    for (const c of allCorretores) {
+      const normalizedDbPhone = normalizePhoneNumber(c.whatsapp);
+      if (normalizedDbPhone === normalizedPhone) {
+        console.log(`✅ Corretor encontrado por comparação normalizada: ${c.whatsapp} -> ${normalizedDbPhone}`);
+        return c;
+      }
+    }
+  }
+
+  console.log(`❌ Corretor não encontrado para telefone: ${phoneNumber} (normalizado: ${normalizedPhone})`);
+  return null;
+}
+
 // --- Handlers Específicos ---
 
 async function handleVisitAttempt(
@@ -100,16 +151,21 @@ async function handleVisitAttempt(
   response: ProcessingResponse,
   originalText: string
 ): Promise<DistributionResult> {
-  // Buscar corretor
-  const { data: corretor } = await supabase.from('corretores').select('id').eq('whatsapp', phoneNumber).single();
-  if (!corretor) return { processed: false, action: 'none', type: 'visit' };
+  // Buscar corretor com busca flexível por telefone
+  const corretor = await findCorretorByPhone(supabase, phoneNumber);
+  if (!corretor) {
+    console.log(`❌ handleVisitAttempt: Corretor não encontrado para ${phoneNumber}`);
+    return { processed: false, action: 'none', type: 'visit' };
+  }
 
-  // Buscar tentativa pendente
-  const { data: attempt } = await supabase
+  console.log(`🔍 Buscando tentativa pendente para corretor ${corretor.id}...`);
+
+  // Buscar tentativa pendente - Usando queue_id para join com visit_distribution_queue
+  const { data: attempt, error: attemptError } = await supabase
     .from('visit_distribution_attempts')
     .select(`
       *,
-      visit_distribution_queue!inner (id, status, current_attempt),
+      visit_distribution_queue:queue_id (id, status, current_attempt),
       visita:visitas!inner (
         id, data_visita, horario_visita,
         lead:leads!inner (id, nome, telefone),
@@ -122,7 +178,15 @@ async function handleVisitAttempt(
     .limit(1)
     .maybeSingle();
 
-  if (!attempt) return { processed: false, action: 'none', type: 'visit' };
+  if (attemptError) {
+    console.error(`❌ Erro ao buscar tentativa pendente:`, attemptError);
+    return { processed: false, action: 'none', type: 'visit', error: attemptError.message };
+  }
+
+  if (!attempt) {
+    console.log(`⚠️ Nenhuma tentativa de visita pendente encontrada para corretor ${corretor.id}`);
+    return { processed: false, action: 'none', type: 'visit' };
+  }
 
   console.log(`🧠 CORE: Processando tentativa de visita ${attempt.id} - Ação: ${response.type}`);
 
@@ -178,9 +242,12 @@ async function handleLeadAttempt(
   response: ProcessingResponse,
   originalText: string
 ): Promise<DistributionResult> {
-  // Lógica similar para Leads (Copiada e adaptada do handler anterior)
-  const { data: corretor } = await supabase.from('corretores').select('id').eq('whatsapp', phoneNumber).single();
-  if (!corretor) return { processed: false, action: 'none', type: 'lead' };
+  // Usar busca flexível por telefone (mesmo helper de visitas)
+  const corretor = await findCorretorByPhone(supabase, phoneNumber);
+  if (!corretor) {
+    console.log(`❌ handleLeadAttempt: Corretor não encontrado para ${phoneNumber}`);
+    return { processed: false, action: 'none', type: 'lead' };
+  }
 
   const { data: attempt } = await supabase
     .from('distribution_attempts')

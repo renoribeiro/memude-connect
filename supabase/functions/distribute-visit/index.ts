@@ -75,8 +75,8 @@ serve(async (req) => {
     // SPRINT 2: Rate Limiting para distribuição
     const distributionRateLimitKey = `distribute:${callerUser.id}:${Math.floor(Date.now() / 60000)}`;
     const { data: rateLimitResult, error: rateLimitError } = await supabase
-      .rpc('increment_rate_limit', { 
-        p_key: distributionRateLimitKey, 
+      .rpc('increment_rate_limit', {
+        p_key: distributionRateLimitKey,
         p_max: 5,  // 5 distribuições por minuto
         p_window_seconds: 60
       })
@@ -96,10 +96,10 @@ serve(async (req) => {
       });
 
       return new Response(
-        JSON.stringify({ 
-          error: 'Rate limit exceeded', 
+        JSON.stringify({
+          error: 'Rate limit exceeded',
           message: 'Você está criando distribuições muito rápido. Aguarde um minuto.',
-          retry_after: 60 
+          retry_after: 60
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -184,15 +184,15 @@ serve(async (req) => {
 
     if (!eligibleCorretores || eligibleCorretores.length === 0) {
       console.log('Nenhum corretor elegível encontrado');
-      
+
       // Notificar admin
       await notifyAdmin(supabase, visita, 'Nenhum corretor elegível encontrado');
-      
+
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           message: 'Nenhum corretor elegível encontrado',
-          visita_id 
+          visita_id
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -221,14 +221,15 @@ serve(async (req) => {
     // Enviar mensagem para o primeiro corretor
     const firstCorretor = eligibleCorretores[0];
     await sendDistributionMessage(
-      supabase, 
-      visita_id, 
-      firstCorretor, 
-      visita, 
-      distributionSettings, 
-      1
+      supabase,
+      visita_id,
+      firstCorretor,
+      visita,
+      distributionSettings,
+      1,
+      queueEntry.id // Pass queue_id for FK relationship
     );
-    
+
     // Criar notificação para o corretor
     if (firstCorretor.profile_id) {
       const { data: profile } = await supabase
@@ -236,7 +237,7 @@ serve(async (req) => {
         .select('user_id')
         .eq('id', firstCorretor.profile_id)
         .single();
-      
+
       if (profile?.user_id) {
         await supabase.functions.invoke('create-notification', {
           body: {
@@ -259,8 +260,8 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         visita_id,
         queue_id: queueEntry.id,
         corretor_id: firstCorretor.id,
@@ -329,7 +330,7 @@ async function getEligibleCorretores(supabase: any, visita: any) {
   }
 
   console.log(`Total de corretores ativos encontrados: ${corretores.length}`);
-  
+
   // Log detalhado de cada corretor
   corretores.forEach((c, i) => {
     console.log(`Corretor ${i + 1}: ${c.profiles.first_name} ${c.profiles.last_name}`, {
@@ -359,7 +360,7 @@ async function getEligibleCorretores(supabase: any, visita: any) {
       const hasConstrutorMatch = corretor.corretor_construtoras?.some(
         (cc: any) => cc.construtora_id === visita.empreendimento.construtora_id
       );
-      
+
       if (hasConstrutorMatch) {
         score += 1000;
         matchDetails.push('Construtora Match');
@@ -371,7 +372,7 @@ async function getEligibleCorretores(supabase: any, visita: any) {
       const hasBairroMatch = corretor.corretor_bairros?.some(
         (cb: any) => cb.bairro_id === visita.empreendimento.bairro_id
       );
-      
+
       if (hasBairroMatch) {
         score += 500;
         matchDetails.push('Bairro Match');
@@ -380,10 +381,10 @@ async function getEligibleCorretores(supabase: any, visita: any) {
 
     // 3ª PRIORIDADE: Tipo de Imóvel (200 pontos)
     if (visita.empreendimento?.tipo_imovel) {
-      const tipoImovelMatch = 
-        corretor.tipo_imovel === 'todos' || 
+      const tipoImovelMatch =
+        corretor.tipo_imovel === 'todos' ||
         corretor.tipo_imovel === visita.empreendimento.tipo_imovel;
-      
+
       if (tipoImovelMatch) {
         score += 200;
         matchDetails.push('Tipo Imóvel Match');
@@ -403,8 +404,8 @@ async function getEligibleCorretores(supabase: any, visita: any) {
     score += visitasScore;
     matchDetails.push(`Visitas: ${corretor.total_visitas || 0}`);
 
-    corretoresWithScore.push({ 
-      ...corretor, 
+    corretoresWithScore.push({
+      ...corretor,
       score,
       matchDetails: matchDetails.join(', ')
     });
@@ -415,7 +416,7 @@ async function getEligibleCorretores(supabase: any, visita: any) {
     .sort((a, b) => b.score - a.score);
 
   console.log(`Total de corretores avaliados: ${sortedCorretores.length}`);
-  
+
   // Filtrar apenas corretores com WhatsApp
   const corretoresWithWhatsApp = sortedCorretores.filter(c => {
     const hasWhatsApp = !!(c.whatsapp || c.telefone);
@@ -446,7 +447,8 @@ async function sendDistributionMessage(
   corretor: any,
   visita: any,
   settings: any,
-  attemptOrder: number
+  attemptOrder: number,
+  queueId: string // Add queue_id parameter for FK relationship
 ) {
   console.log(`Enviando mensagem para corretor ${corretor.id}, tentativa ${attemptOrder}`);
 
@@ -465,7 +467,8 @@ async function sendDistributionMessage(
       corretor_id: corretor.id,
       attempt_order: attemptOrder,
       timeout_at: timeoutAt.toISOString(),
-      status: 'pending'
+      status: 'pending',
+      queue_id: queueId // Critical: FK for response processing
     })
     .select()
     .single();
@@ -514,7 +517,7 @@ async function sendDistributionMessage(
     if (templateError || !templateResult?.rendered_content) {
       console.error('Erro ao renderizar template:', templateError);
       // Fallback para mensagem padrão
-    message = `🏠 *NOVA OPORTUNIDADE DE VISITA*
+      message = `🏠 *NOVA OPORTUNIDADE DE VISITA*
 
 *Cliente:* ${visita.lead.nome}
 *Telefone:* ${visita.lead.telefone}
@@ -530,7 +533,7 @@ ${visita.lead.email ? `*E-mail:* ${visita.lead.email}` : ''}
 ❌ Digite *NÃO* para recusar
 
 _Aguardamos sua resposta!_`;
-      
+
       console.log('Usando mensagem de fallback');
     } else {
       message = templateResult.rendered_content;
@@ -560,13 +563,13 @@ _Aguardamos sua resposta!_`;
   // Usar whatsapp ou telefone como fallback - normalizar para Evolution API
   const rawPhoneNumber = corretor.whatsapp || corretor.telefone;
   const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
-  
+
   console.log(`Enviando WhatsApp para: ${phoneNumber} (original: ${rawPhoneNumber})`);
   console.log(`Corretor: ${corretor.profiles?.first_name || 'Unknown'} ${corretor.profiles?.last_name || ''}`);
 
   // Fase 3: Verificar se o número existe no WhatsApp antes de enviar
   console.log(`🔍 Verificando número WhatsApp: ${phoneNumber}`);
-  
+
   try {
     const { data: checkResult, error: checkError } = await supabase.functions.invoke(
       'evolution-check-number',
@@ -577,7 +580,7 @@ _Aguardamos sua resposta!_`;
 
     if (checkError || !checkResult?.success || !checkResult?.exists) {
       console.error(`❌ Número não existe no WhatsApp: ${phoneNumber}`, checkError);
-      
+
       // Registrar erro no communication_log
       await supabase.from('communication_log').insert({
         type: 'whatsapp',
@@ -596,7 +599,7 @@ _Aguardamos sua resposta!_`;
       // Marcar tentativa como falhada
       await supabase
         .from('visit_distribution_attempts')
-        .update({ 
+        .update({
           status: 'timeout',
           response_type: 'number_invalid',
           response_message: 'Número não existe no WhatsApp'
@@ -646,10 +649,10 @@ _Aguardamos sua resposta!_`;
     // Evolution API V2 retorna: result.key.id
     const messageId = whatsappResult?.result?.key?.id || whatsappResult?.messageId || whatsappResult?.message_id;
     console.log('Message ID extraído:', messageId);
-    
+
     await supabase
       .from('visit_distribution_attempts')
-      .update({ 
+      .update({
         whatsapp_message_id: messageId
       })
       .eq('id', attempt.id);
@@ -663,7 +666,7 @@ _Aguardamos sua resposta!_`;
       stack: error.stack,
       name: error.name
     });
-    
+
     // FASE 2: Logging robusto - registrar erro detalhado em communication_log
     try {
       await supabase
@@ -688,11 +691,11 @@ _Aguardamos sua resposta!_`;
     } catch (logError) {
       console.error('❌ Erro ao registrar em communication_log:', logError);
     }
-    
+
     // Marcar tentativa como erro
     await supabase
       .from('visit_distribution_attempts')
-      .update({ 
+      .update({
         status: 'error',
         response_message: `Erro no envio: ${error.message}`
       })
@@ -704,7 +707,7 @@ _Aguardamos sua resposta!_`;
 
 async function notifyAdmin(supabase: any, visita: any, reason: string) {
   console.log('Notificando administrador:', reason);
-  
+
   try {
     // Buscar WhatsApp do admin
     const { data: adminSettings } = await supabase

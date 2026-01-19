@@ -92,13 +92,13 @@ export function DistributionDashboard() {
       if (error) throw error;
 
       const total = attempts.length;
-      const accepted = attempts.filter(a => a.response_type === 'accept').length;
-      const rejected = attempts.filter(a => a.response_type === 'reject').length;
+      const accepted = attempts.filter(a => a.response_type === 'accepted').length;
+      const rejected = attempts.filter(a => a.response_type === 'rejected').length;
       const expired = attempts.filter(a => a.status === 'expired').length;
 
       // Calcular tempo médio de resposta
       const acceptedWithTime = attempts.filter(a =>
-        a.response_type === 'accept' && a.response_received_at
+        a.response_type === 'accepted' && a.response_received_at
       );
 
       let avgResponseTime = 0;

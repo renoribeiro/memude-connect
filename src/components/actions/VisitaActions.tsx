@@ -21,12 +21,12 @@ interface VisitaActionsProps {
   deletedAt?: string | null;
 }
 
-export function VisitaActions({ 
-  visitaId, 
-  status, 
-  leadId, 
-  onEdit, 
-  onView, 
+export function VisitaActions({
+  visitaId,
+  status,
+  leadId,
+  onEdit,
+  onView,
   isCorretor = false,
   deletedAt = null
 }: VisitaActionsProps) {
@@ -41,7 +41,7 @@ export function VisitaActions({
   const updateStatusMutation = useMutation({
     mutationFn: async ({ newStatus, data }: { newStatus: string; data?: any }) => {
       const updateData: any = { status: newStatus };
-      
+
       if (data) {
         Object.assign(updateData, data);
       }
@@ -50,7 +50,7 @@ export function VisitaActions({
         .from('visitas')
         .update(updateData)
         .eq('id', visitaId);
-      
+
       if (error) throw error;
 
       // Update lead status based on visit status
@@ -80,7 +80,7 @@ export function VisitaActions({
           const { error: fnError } = await supabase.functions.invoke('send-lead-to-crm', {
             body: { visitaId }
           });
-          
+
           if (fnError) {
             console.error('Error sending to CRM:', fnError);
             toast({
@@ -103,7 +103,7 @@ export function VisitaActions({
       queryClient.invalidateQueries({ queryKey: ['visitas'] });
       queryClient.invalidateQueries({ queryKey: ['my-visitas'] });
       queryClient.invalidateQueries({ queryKey: ['leads'] });
-      
+
       toast({
         title: "Sucesso",
         description: "Status da visita atualizado com sucesso!",
@@ -127,7 +127,7 @@ export function VisitaActions({
   };
 
   const handleMarkCompleted = () => {
-    updateStatusMutation.mutate({ 
+    updateStatusMutation.mutate({
       newStatus: 'realizada',
       data: {
         avaliacao_lead: rating > 0 ? rating : null,
@@ -235,9 +235,9 @@ export function VisitaActions({
         {/* Restore */}
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="text-green-600 border-green-600 hover:bg-green-50"
             >
               <RotateCcw className="w-3 h-3 mr-1" />
@@ -253,7 +253,7 @@ export function VisitaActions({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction 
+              <AlertDialogAction
                 onClick={() => restoreMutation.mutate()}
                 disabled={restoreMutation.isPending}
               >
@@ -267,9 +267,9 @@ export function VisitaActions({
         {!isCorretor && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="text-red-600 border-red-600 hover:bg-red-50"
               >
                 <Trash className="w-3 h-3 mr-1" />
@@ -285,7 +285,7 @@ export function VisitaActions({
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction 
+                <AlertDialogAction
                   onClick={() => hardDeleteMutation.mutate()}
                   disabled={hardDeleteMutation.isPending}
                   className="bg-red-600 hover:bg-red-700"
@@ -298,8 +298,8 @@ export function VisitaActions({
         )}
 
         {/* View Details */}
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           onClick={onView}
         >
@@ -313,12 +313,12 @@ export function VisitaActions({
   return (
     <div className="flex items-center gap-2">
       {/* Confirm Visit */}
-      {status === 'agendada' && (
+      {(status === 'agendada' || status === 'reagendada') && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="text-green-600 border-green-600 hover:bg-green-50"
             >
               <CheckCircle className="w-3 h-3 mr-1" />
@@ -334,7 +334,7 @@ export function VisitaActions({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction 
+              <AlertDialogAction
                 onClick={handleConfirm}
                 disabled={updateStatusMutation.isPending}
               >
@@ -346,12 +346,12 @@ export function VisitaActions({
       )}
 
       {/* Mark as Completed */}
-      {(status === 'confirmada' || (status === 'agendada' && isCorretor)) && (
+      {(status === 'confirmada' || ((status === 'agendada' || status === 'reagendada') && isCorretor)) && (
         <Dialog>
           <DialogTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="text-blue-600 border-blue-600 hover:bg-blue-50"
             >
               <CheckCircle className="w-3 h-3 mr-1" />
@@ -409,8 +409,8 @@ export function VisitaActions({
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setRating(0);
                     setFeedback("");
@@ -419,7 +419,7 @@ export function VisitaActions({
                 >
                   Cancelar
                 </Button>
-                <Button 
+                <Button
                   onClick={handleMarkCompleted}
                   disabled={updateStatusMutation.isPending}
                 >
@@ -432,12 +432,12 @@ export function VisitaActions({
       )}
 
       {/* Cancel Visit */}
-      {(status === 'agendada' || status === 'confirmada') && (
+      {(status === 'agendada' || status === 'confirmada' || status === 'reagendada') && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="text-red-600 border-red-600 hover:bg-red-50"
             >
               <XCircle className="w-3 h-3 mr-1" />
@@ -453,7 +453,7 @@ export function VisitaActions({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Não</AlertDialogCancel>
-              <AlertDialogAction 
+              <AlertDialogAction
                 onClick={handleCancel}
                 disabled={updateStatusMutation.isPending}
                 className="bg-red-600 hover:bg-red-700"
@@ -467,9 +467,9 @@ export function VisitaActions({
 
       {/* Reschedule */}
       {status === 'cancelada' && (
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           className="text-orange-600 border-orange-600 hover:bg-orange-50"
           onClick={onEdit}
         >
@@ -480,9 +480,9 @@ export function VisitaActions({
 
       {/* Send Reminder */}
       {status === 'confirmada' && isCorretor && (
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           className="text-purple-600 border-purple-600 hover:bg-purple-50"
         >
           <MessageSquare className="w-3 h-3 mr-1" />
@@ -491,8 +491,8 @@ export function VisitaActions({
       )}
 
       {/* View Details */}
-      <Button 
-        variant="outline" 
+      <Button
+        variant="outline"
         size="sm"
         onClick={onView}
       >
@@ -502,8 +502,8 @@ export function VisitaActions({
 
       {/* Edit */}
       {!isCorretor && (
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           onClick={onEdit}
         >
@@ -512,12 +512,12 @@ export function VisitaActions({
       )}
 
       {/* Soft Delete */}
-      {!isCorretor && (status === 'agendada' || status === 'cancelada') && (
+      {!isCorretor && (status === 'agendada' || status === 'cancelada' || status === 'reagendada') && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="text-red-600 border-red-600 hover:bg-red-50"
             >
               <Trash2 className="w-3 h-3 mr-1" />
@@ -533,7 +533,7 @@ export function VisitaActions({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction 
+              <AlertDialogAction
                 onClick={() => softDeleteMutation.mutate()}
                 disabled={softDeleteMutation.isPending}
                 className="bg-red-600 hover:bg-red-700"

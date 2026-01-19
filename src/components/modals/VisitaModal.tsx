@@ -33,13 +33,13 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
     queryKey: ['visita', visitaId],
     queryFn: async () => {
       if (!visitaId) return null;
-      
+
       const { data, error } = await supabase
         .from('visitas')
         .select('*')
         .eq('id', visitaId)
         .single();
-      
+
       if (error) throw error;
       return data;
     },
@@ -64,7 +64,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
         .from('leads')
         .select('id, nome, telefone')
         .order('nome');
-      
+
       if (error) throw error;
       return data;
     }
@@ -76,13 +76,13 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
     queryKey: ['visitas-by-lead', selectedLeadId],
     queryFn: async () => {
       if (!selectedLeadId || visitaId) return [];
-      
+
       const { data, error } = await supabase
         .from('visitas')
         .select('id, status, data_visita, horario_visita')
         .eq('lead_id', selectedLeadId)
         .in('status', ['agendada', 'confirmada']);
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -101,7 +101,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
         `)
         .eq('status', 'ativo')
         .order('profiles(first_name)');
-      
+
       if (error) throw error;
       return data;
     }
@@ -116,7 +116,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
         .select('id, nome')
         .eq('ativo', true)
         .order('nome');
-      
+
       if (error) throw error;
       return data;
     }
@@ -145,7 +145,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
           .eq('id', visitaId)
           .select()
           .single();
-        
+
         if (error) throw error;
         return { visita: result, autoAssign: false };
       } else {
@@ -155,17 +155,17 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
           .insert(visitaData)
           .select()
           .single();
-        
+
         if (error) throw error;
         return { visita: result, autoAssign: data.auto_assign_corretor || false };
       }
     },
     onSuccess: async (responseData) => {
       const { visita, autoAssign } = responseData;
-      
+
       queryClient.invalidateQueries({ queryKey: ['visitas'] });
       queryClient.invalidateQueries({ queryKey: ['my-visitas'] });
-      
+
       // Update lead status if visit was scheduled
       if (visita.status === 'agendada') {
         supabase
@@ -176,16 +176,20 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
             queryClient.invalidateQueries({ queryKey: ['leads'] });
           });
       }
-      
+
       // If auto-assign is enabled, trigger distribution
-      if (autoAssign && visita.id) {
+      // Works for both new visits and rescheduled visits (edits with auto_assign)
+      const shouldDistribute = autoAssign && visita.id &&
+        (visita.status === 'agendada' || visita.status === 'reagendada');
+
+      if (shouldDistribute) {
         console.log('Iniciando distribuição automática para visita:', visita.id);
-        
+
         toast({
-          title: "Visita criada!",
+          title: visitaId ? "Visita reagendada!" : "Visita criada!",
           description: "Buscando corretor disponível automaticamente...",
         });
-        
+
         try {
           const { data: distributionResult, error: distributionError } = await supabase.functions.invoke(
             'distribute-visit',
@@ -196,20 +200,20 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
 
           if (distributionError) {
             console.error('Erro na distribuição automática:', distributionError);
-            
+
             // Mensagens de erro específicas e acionáveis
-            let errorMessage = "Visita criada, mas houve erro na distribuição automática.";
-            
-            if (distributionError.message?.includes('cleanPhone') || 
-                distributionError.message?.includes('not defined')) {
+            let errorMessage = "Visita salva, mas houve erro na distribuição automática.";
+
+            if (distributionError.message?.includes('cleanPhone') ||
+              distributionError.message?.includes('not defined')) {
               errorMessage = "Erro técnico no sistema de distribuição. Nossa equipe foi notificada.";
-            } else if (distributionError.message?.includes('telefone') || 
-                       distributionError.message?.includes('phone')) {
+            } else if (distributionError.message?.includes('telefone') ||
+              distributionError.message?.includes('phone')) {
               errorMessage = "Corretor sem telefone válido cadastrado. Atribua manualmente.";
             } else if (distributionError.message?.includes('WhatsApp')) {
               errorMessage = "Erro ao enviar mensagem WhatsApp. Verifique as configurações da Evolution API.";
             }
-            
+
             toast({
               title: "Aviso",
               description: errorMessage,
@@ -226,7 +230,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
           console.error('Erro ao invocar distribute-visit:', error);
           toast({
             title: "Aviso",
-            description: "Visita criada, mas erro ao iniciar distribuição. Atribua manualmente.",
+            description: "Visita salva, mas erro ao iniciar distribuição. Atribua manualmente.",
             variant: "destructive",
           });
         }
@@ -236,16 +240,16 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
           description: visitaId ? "Visita atualizada com sucesso!" : "Visita agendada com sucesso!",
         });
       }
-      
+
       onClose();
     },
     onError: (error: any) => {
       console.error('Erro ao salvar visita:', error);
-      
+
       let errorMessage = "Erro ao salvar visita";
       let errorTitle = "Erro ao salvar visita";
       let actionLink = null;
-      
+
       // FASE 2: Mensagens de erro específicas e acionáveis
       if (error.message?.includes('webhook') || error.message?.includes('Webhook não configurado')) {
         errorTitle = "⚙️ Webhook não configurado";
@@ -272,11 +276,11 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       toast({
         title: errorTitle,
-        description: actionLink 
-          ? `${errorMessage}\n\n👉 ${actionLink.text}` 
+        description: actionLink
+          ? `${errorMessage}\n\n👉 ${actionLink.text}`
           : errorMessage,
         variant: errorTitle === "Sucesso" ? "default" : "destructive",
       });
@@ -308,7 +312,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent 
+        <DialogContent
           key={visitaId || 'new'}
           className="max-w-4xl max-h-[90vh] overflow-y-auto"
         >
@@ -317,7 +321,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
               {visitaId ? 'Editar Visita' : 'Nova Visita'}
             </DialogTitle>
           </DialogHeader>
-          
+
           {visitaId && isLoadingVisita ? (
             <div className="space-y-4">
               <Skeleton className="h-12 w-full" />
@@ -345,7 +349,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
                   </ul>
                 </div>
               )}
-              
+
               <VisitaForm
                 initialData={initialData}
                 onSubmit={handleSubmit}

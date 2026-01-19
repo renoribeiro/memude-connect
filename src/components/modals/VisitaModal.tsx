@@ -147,7 +147,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
           .single();
 
         if (error) throw error;
-        return { visita: result, autoAssign: false };
+        return { visita: result, autoAssign: data.auto_assign_corretor || false };
       } else {
         // Create new visita
         const { data: result, error } = await supabase

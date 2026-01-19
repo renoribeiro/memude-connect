@@ -203,48 +203,45 @@ serve(async (req) => {
 
     console.log(`Encontrados ${eligibleCorretores.length} corretores elegíveis`);
 
-    // FASE: Cancelar distribuições anteriores antes de iniciar nova
+    // FASE: Limpar distribuições anteriores antes de iniciar nova
     // Isso evita violação da constraint unique (visita_id, corretor_id, attempt_order)
-    console.log('🧹 Verificando e cancelando distribuições anteriores...');
+    // IMPORTANTE: Deletamos ao invés de cancelar porque a constraint considera a tupla
+    // (visita_id, corretor_id, attempt_order) independente do status
+    console.log('🧹 Verificando e limpando distribuições anteriores...');
 
-    // Buscar filas anteriores em andamento para esta visita
+    // Buscar TODAS as filas anteriores para esta visita (não apenas in_progress)
     const { data: previousQueues } = await supabase
       .from('visit_distribution_queue')
       .select('id')
-      .eq('visita_id', visita_id)
-      .in('status', ['pending', 'in_progress']);
+      .eq('visita_id', visita_id);
 
     if (previousQueues && previousQueues.length > 0) {
-      const queueIds = previousQueues.map(q => q.id);
-      console.log(`📋 Encontradas ${queueIds.length} filas anteriores para cancelar`);
+      const queueIds = previousQueues.map((q: { id: string }) => q.id);
+      console.log(`📋 Encontradas ${queueIds.length} filas anteriores para limpar`);
 
-      // Cancelar tentativas pendentes dessas filas
-      const { error: attemptCancelError } = await supabase
+      // DELETAR tentativas anteriores (não apenas cancelar)
+      // Necessário para evitar violação de constraint unique
+      const { error: attemptDeleteError } = await supabase
         .from('visit_distribution_attempts')
-        .update({
-          status: 'timeout',
-          response_message: 'Tentativa cancelada - nova distribuição iniciada',
-          response_received_at: new Date().toISOString()
-        })
-        .in('queue_id', queueIds)
-        .eq('status', 'pending');
+        .delete()
+        .eq('visita_id', visita_id);
 
-      if (attemptCancelError) {
-        console.warn('⚠️ Erro ao cancelar tentativas anteriores:', attemptCancelError);
+      if (attemptDeleteError) {
+        console.warn('⚠️ Erro ao deletar tentativas anteriores:', attemptDeleteError);
       } else {
-        console.log('✅ Tentativas anteriores canceladas');
+        console.log('✅ Tentativas anteriores deletadas');
       }
 
-      // Marcar filas anteriores como canceladas
-      const { error: queueCancelError } = await supabase
+      // DELETAR filas anteriores também
+      const { error: queueDeleteError } = await supabase
         .from('visit_distribution_queue')
-        .update({ status: 'cancelled' })
-        .in('id', queueIds);
+        .delete()
+        .eq('visita_id', visita_id);
 
-      if (queueCancelError) {
-        console.warn('⚠️ Erro ao cancelar filas anteriores:', queueCancelError);
+      if (queueDeleteError) {
+        console.warn('⚠️ Erro ao deletar filas anteriores:', queueDeleteError);
       } else {
-        console.log('✅ Filas anteriores canceladas');
+        console.log('✅ Filas anteriores deletadas');
       }
     }
 

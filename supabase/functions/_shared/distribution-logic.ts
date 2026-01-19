@@ -95,9 +95,46 @@ async function checkPendingAttempts(supabase: SupabaseClient, phoneNumber: strin
 
 // --- Helper para busca flexível de corretor por telefone ---
 
+/**
+ * Gera variantes de um número para matching flexível
+ * Considera que WhatsApp pode armazenar números brasileiros com ou sem o 9° dígito
+ * Ex: 5585996227722 (com 9) e 558596227722 (sem 9)
+ */
+function generatePhoneVariants(phone: string): string[] {
+  const digits = phone.replace(/\D/g, '');
+  const variants: string[] = [digits];
+
+  // Se tem 13 dígitos (55 + DDD + 9XXXXXXXX), gerar variante sem o nono dígito
+  if (digits.length === 13 && digits.startsWith('55') && digits[4] === '9') {
+    // Remove o 9 após o DDD: 5585996227722 -> 558596227722
+    const withoutNinth = digits.slice(0, 4) + digits.slice(5);
+    variants.push(withoutNinth);
+  }
+
+  // Se tem 12 dígitos (55 + DDD + 8XXXXXXXX), gerar variante COM o nono dígito
+  if (digits.length === 12 && digits.startsWith('55')) {
+    // Adiciona o 9 após o DDD: 558596227722 -> 5585996227722
+    const withNinth = digits.slice(0, 4) + '9' + digits.slice(4);
+    variants.push(withNinth);
+  }
+
+  // Variantes com/sem o DDI 55
+  if (digits.startsWith('55')) {
+    variants.push(digits.slice(2)); // Sem o 55
+  } else if (digits.length >= 10) {
+    variants.push('55' + digits); // Com o 55
+  }
+
+  return [...new Set(variants)]; // Remove duplicatas
+}
+
 async function findCorretorByPhone(supabase: SupabaseClient, phoneNumber: string) {
   // Normalizar telefone para formato consistente
   const normalizedPhone = normalizePhoneNumber(phoneNumber);
+  const phoneVariants = generatePhoneVariants(phoneNumber);
+
+  console.log(`🔍 Buscando corretor para ${phoneNumber}`);
+  console.log(`📞 Variantes geradas: ${phoneVariants.join(', ')}`);
 
   // Tentar buscar pelo telefone normalizado primeiro
   let { data: corretor } = await supabase
@@ -111,19 +148,21 @@ async function findCorretorByPhone(supabase: SupabaseClient, phoneNumber: string
     return corretor;
   }
 
-  // Tentar pelo telefone original (sem normalização)
-  ({ data: corretor } = await supabase
-    .from('corretores')
-    .select('id, whatsapp')
-    .eq('whatsapp', phoneNumber)
-    .maybeSingle());
+  // Tentar por cada variante
+  for (const variant of phoneVariants) {
+    ({ data: corretor } = await supabase
+      .from('corretores')
+      .select('id, whatsapp')
+      .eq('whatsapp', variant)
+      .maybeSingle());
 
-  if (corretor) {
-    console.log(`✅ Corretor encontrado pelo telefone original: ${phoneNumber}`);
-    return corretor;
+    if (corretor) {
+      console.log(`✅ Corretor encontrado pela variante: ${variant}`);
+      return corretor;
+    }
   }
 
-  // Buscar todos corretores e comparar normalizando
+  // Buscar todos corretores e comparar com variantes
   const { data: allCorretores } = await supabase
     .from('corretores')
     .select('id, whatsapp')
@@ -131,15 +170,21 @@ async function findCorretorByPhone(supabase: SupabaseClient, phoneNumber: string
 
   if (allCorretores) {
     for (const c of allCorretores) {
-      const normalizedDbPhone = normalizePhoneNumber(c.whatsapp);
-      if (normalizedDbPhone === normalizedPhone) {
-        console.log(`✅ Corretor encontrado por comparação normalizada: ${c.whatsapp} -> ${normalizedDbPhone}`);
-        return c;
+      const dbPhoneVariants = generatePhoneVariants(c.whatsapp);
+
+      // Verificar se alguma variante do DB match com alguma variante do input
+      for (const inputVariant of phoneVariants) {
+        for (const dbVariant of dbPhoneVariants) {
+          if (inputVariant === dbVariant) {
+            console.log(`✅ Corretor encontrado por matching flexível: ${c.whatsapp} <-> ${phoneNumber}`);
+            return c;
+          }
+        }
       }
     }
   }
 
-  console.log(`❌ Corretor não encontrado para telefone: ${phoneNumber} (normalizado: ${normalizedPhone})`);
+  console.log(`❌ Corretor não encontrado para telefone: ${phoneNumber} (variantes: ${phoneVariants.join(', ')})`);
   return null;
 }
 

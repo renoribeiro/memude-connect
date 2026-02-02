@@ -19,6 +19,29 @@ serve(async (req) => {
 
     const startTime = Date.now();
 
+    // ============================================================
+    // CRON AUTHENTICATION
+    // Permite autenticação via CRON_SECRET para jobs agendados
+    // ============================================================
+    const authHeader = req.headers.get('Authorization');
+    const cronSecret = Deno.env.get('CRON_SECRET');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    // Aceita: Bearer CRON_SECRET ou Bearer SERVICE_ROLE_KEY
+    const token = authHeader?.replace('Bearer ', '');
+    const isValidCronAuth = token === cronSecret;
+    const isValidServiceAuth = token === serviceRoleKey;
+
+    if (!isValidCronAuth && !isValidServiceAuth) {
+        console.warn('⚠️ Tentativa de acesso não autorizada ao ai-followup-checker');
+        return new Response(
+            JSON.stringify({ error: 'Unauthorized', message: 'Valid CRON_SECRET or SERVICE_ROLE_KEY required' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+    }
+
+    console.log(`🔐 Auth válida: ${isValidCronAuth ? 'CRON_SECRET' : 'SERVICE_ROLE_KEY'}`);
+
     try {
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',

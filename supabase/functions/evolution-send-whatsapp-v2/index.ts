@@ -168,6 +168,24 @@ serve(async (req) => {
 
     if (!response.ok) {
       console.error('❌ Evolution API error:', responseText);
+
+      // Log failure in communication_log for debugging
+      await supabase.from('communication_log').insert({
+        type: 'whatsapp',
+        direction: 'enviado',
+        phone_number: normalizedPhone,
+        content: message || `Mídia/Lista falhou`,
+        status: 'failed',
+        corretor_id: corretor_id || null,
+        lead_id: lead_id || null,
+        metadata: {
+          error: responseText,
+          status_code: response.status,
+          endpoint: endpoint,
+          api_version: 'v2'
+        }
+      });
+
       throw new Error(`Erro ao enviar mensagem (status ${response.status}): ${responseText}`);
     }
 

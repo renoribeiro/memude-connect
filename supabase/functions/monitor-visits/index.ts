@@ -95,14 +95,14 @@ async function processReminders(supabase: any, dateStr: string, type: 'reminder_
 
 async function processPostVisitFeedback(supabase: any) {
   console.log('Processando feedbacks pós-visita...');
-  
+
   // Buscar visitas 'agendada' ou 'realizada' que já passaram do horário
   // Nota: Idealmente o status muda para 'realizada' manualmente, mas vamos pegar pelo horário também
   // para garantir automação.
-  
+
   const now = new Date();
   const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000); // 3h atrás
-  
+
   // Vamos buscar visitas de hoje e ontem (para cobrir o caso de "dia seguinte 8h")
   const todayStr = now.toISOString().split('T')[0];
   const yesterday = new Date();
@@ -143,7 +143,7 @@ async function processPostVisitFeedback(supabase: any) {
 
     // Verificar horário atual
     const currentHour = now.getHours();
-    
+
     // Se a visita foi hoje e 3h depois cai após as 19h, só enviamos se agora for amanhã > 8h
     // Simplificação: Se agora é > 19h e < 8h, não enviamos (janela de silêncio)
     if (currentHour >= 19 || currentHour < 8) {
@@ -169,23 +169,24 @@ async function checkCommunicationLog(supabase: any, visitaId: string, type: stri
     .eq('metadata->visita_id', visitaId) // Assumindo que salvamos visita_id no metadata
     .eq('metadata->type', type)
     .limit(1);
-    
+
   return data && data.length > 0;
 }
 
 async function sendReminderMessages(supabase: any, visita: any, type: 'reminder_24h' | 'reminder_today') {
   const isToday = type === 'reminder_today';
   const timeText = isToday ? "é HOJE" : "é AMANHÃ";
-  
+
   // Mensagem para Cliente
   const msgClient = `⏰ *LEMBRETE DE VISITA*
 
-Olá ${visita.lead.nome}, lembre-se que sua visita ao *${visita.empreendimento.nome}* ${timeText}.
+Olá ${visita.lead.nome}, sua visita ao *${visita.empreendimento.nome}* ${timeText}.
 
 🕒 Horário: ${visita.horario_visita}
 📍 Corretor: ${visita.corretor.profiles.first_name}
 
-Qualquer imprevisto, avise seu corretor.`;
+⚠️ *Precisamos confirmar sua presença.*
+Responda *SIM* para confirmar ou *NÃO* para reagendar.`;
 
   // Mensagem para Corretor
   const msgCorretor = `⏰ *LEMBRETE DE VISITA*
@@ -195,7 +196,7 @@ Corretor(a) ${visita.corretor.profiles.first_name}, sua visita com o cliente *${
 🏢 Empreendimento: ${visita.empreendimento.nome}
 🕒 Horário: ${visita.horario_visita}
 
-Esteja preparado!`;
+Aguardando confirmação do cliente.`;
 
   // Enviar
   await sendWhatsapp(supabase, visita.lead.telefone, msgClient, visita, type, 'client');
@@ -232,17 +233,18 @@ async function sendWhatsapp(supabase: any, phone: string, message: string, visit
   try {
     await supabase.functions.invoke('evolution-send-whatsapp-v2', {
       body: {
-        phone: phone,
+        phone_number: phone, // Corrigido para V2
         message: message,
         metadata: {
           visita_id: visita.id,
           lead_id: visita.lead.id,
           type: type,
-          target: target
+          target: target,
+          context: type === 'reminder_24h' || type === 'reminder_today' ? 'visit_confirmation' : undefined
         }
       }
     });
-    
+
     // Log manual se necessário, mas o send-whatsapp-v2 já deve logar ou o webhook de retorno loga
     // Vamos garantir log local para o checkCommunicationLog funcionar
     await supabase.from('communication_log').insert({

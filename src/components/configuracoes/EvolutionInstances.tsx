@@ -45,18 +45,16 @@ export function EvolutionInstances() {
 
     const saveMutation = useMutation({
         mutationFn: async (data: Partial<EvolutionInstance>) => {
-            if (editingInstance) {
-                const { error } = await supabase
-                    .from('evolution_instances')
-                    .update(data)
-                    .eq('id', editingInstance.id);
-                if (error) throw error;
-            } else {
-                const { error } = await supabase
-                    .from('evolution_instances')
-                    .insert([data as any]);
-                if (error) throw error;
-            }
+            const payload = {
+                ...data,
+                id: editingInstance ? editingInstance.id : undefined
+            };
+
+            const { error } = await supabase.rpc('save_evolution_instance', {
+                payload
+            });
+
+            if (error) throw error;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['evolution-instances'] });
@@ -78,10 +76,9 @@ export function EvolutionInstances() {
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            const { error } = await supabase
-                .from('evolution_instances')
-                .delete()
-                .eq('id', id);
+            const { error } = await supabase.rpc('delete_evolution_instance', {
+                instance_id: id
+            });
             if (error) throw error;
         },
         onSuccess: () => {

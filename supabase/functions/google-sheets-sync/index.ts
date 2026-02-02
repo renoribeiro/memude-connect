@@ -20,7 +20,7 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // SECURITY: Verify caller is authenticated and is admin
@@ -70,7 +70,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const { action, spreadsheetId, range = 'Sheet1!A:Z' }: GoogleSheetsRequest = await req.json();
-    
+
     const googleApiKey = Deno.env.get('GOOGLE_SHEETS_API_KEY')!;
 
     console.log(`Starting Google Sheets ${action} for spreadsheet:`, spreadsheetId);
@@ -98,7 +98,7 @@ const handler = async (req: Request): Promise<Response> => {
       // Expected column order: Nome Completo, CPF, Telefone, Email, CRECI, Cidade, Estado, Bairros, Tipo Imóvel, Construtora, Status, Visitas Realizadas, Visitas Agendadas
       const headers = rows[0];
       const dataRows = rows.slice(1);
-      
+
       console.log(`Found ${dataRows.length} rows to import`);
       console.log('Headers:', headers);
 
@@ -190,7 +190,8 @@ const handler = async (req: Request): Promise<Response> => {
               .insert({
                 user_id: authUser.user.id,
                 first_name: firstName,
-                last_name: lastName
+                last_name: lastName,
+                role: 'corretor'
               })
               .select()
               .single();
@@ -238,7 +239,7 @@ const handler = async (req: Request): Promise<Response> => {
 
             // Process each bairro (comma-separated)
             const bairroNames = bairrosText.split(',').map(b => b.trim()).filter(b => b);
-            
+
             for (const bairroName of bairroNames) {
               // Find or create bairro
               let { data: bairro } = await supabase
@@ -286,7 +287,7 @@ const handler = async (req: Request): Promise<Response> => {
 
             // Process each construtora (comma-separated)
             const construtoraNames = construtorasText.split(',').map(c => c.trim()).filter(c => c);
-            
+
             for (const construtoraName of construtoraNames) {
               // Find or create construtora
               let { data: construtora } = await supabase
@@ -351,67 +352,67 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error(`Supabase error: ${error.message}`);
       }
 
-        // Format data for Google Sheets
-        const headers = [
-          'Nome Completo',
-          'CPF', 
-          'Telefone',
-          'Email',
-          'CRECI',
-          'Cidade',
-          'Estado',
-          'Bairros',
-          'Tipo Imóvel',
-          'Construtora',
-          'Status',
-          'Visitas Realizadas',
-          'Visitas Agendadas'
-        ];
+      // Format data for Google Sheets
+      const headers = [
+        'Nome Completo',
+        'CPF',
+        'Telefone',
+        'Email',
+        'CRECI',
+        'Cidade',
+        'Estado',
+        'Bairros',
+        'Tipo Imóvel',
+        'Construtora',
+        'Status',
+        'Visitas Realizadas',
+        'Visitas Agendadas'
+      ];
 
-        const rows = [headers];
-        
-        for (const corretor of corretores) {
-          // Get visit stats
-          const { data: visitStats } = await supabase
-            .rpc('get_corretor_visitas_stats', { corretor_uuid: corretor.id });
+      const rows = [headers];
 
-          // Get bairros
-          const { data: bairrosList } = await supabase
-            .from('corretor_bairros')
-            .select(`
+      for (const corretor of corretores) {
+        // Get visit stats
+        const { data: visitStats } = await supabase
+          .rpc('get_corretor_visitas_stats', { corretor_uuid: corretor.id });
+
+        // Get bairros
+        const { data: bairrosList } = await supabase
+          .from('corretor_bairros')
+          .select(`
               bairros!inner(nome)
             `)
-            .eq('corretor_id', corretor.id);
+          .eq('corretor_id', corretor.id);
 
-          // Get construtoras  
-          const { data: construtorasList } = await supabase
-            .from('corretor_construtoras')
-            .select(`
+        // Get construtoras  
+        const { data: construtorasList } = await supabase
+          .from('corretor_construtoras')
+          .select(`
               construtoras!inner(nome)
             `)
-            .eq('corretor_id', corretor.id);
+          .eq('corretor_id', corretor.id);
 
-          const bairrosNames = bairrosList?.map(b => b.bairros.nome).join(', ') || '';
-          const construtorasNames = construtorasList?.map(c => c.construtoras.nome).join(', ') || '';
-          const visitasRealizadas = visitStats?.[0]?.visitas_realizadas || 0;
-          const visitasAgendadas = visitStats?.[0]?.visitas_agendadas || 0;
+        const bairrosNames = bairrosList?.map(b => b.bairros.nome).join(', ') || '';
+        const construtorasNames = construtorasList?.map(c => c.construtoras.nome).join(', ') || '';
+        const visitasRealizadas = visitStats?.[0]?.visitas_realizadas || 0;
+        const visitasAgendadas = visitStats?.[0]?.visitas_agendadas || 0;
 
-          rows.push([
-            corretor.nome || '',
-            corretor.cpf || '',
-            corretor.telefone || corretor.whatsapp || '',
-            corretor.email || '',
-            corretor.creci || '',
-            corretor.cidade || '',
-            corretor.estado || '',
-            bairrosNames,
-            corretor.tipo_imovel || '',
-            construtorasNames,
-            corretor.status || '',
-            visitasRealizadas.toString(),
-            visitasAgendadas.toString()
-          ]);
-        }
+        rows.push([
+          corretor.nome || '',
+          corretor.cpf || '',
+          corretor.telefone || corretor.whatsapp || '',
+          corretor.email || '',
+          corretor.creci || '',
+          corretor.cidade || '',
+          corretor.estado || '',
+          bairrosNames,
+          corretor.tipo_imovel || '',
+          construtorasNames,
+          corretor.status || '',
+          visitasRealizadas.toString(),
+          visitasAgendadas.toString()
+        ]);
+      }
 
       // Update Google Sheet
       const updateResponse = await fetch(
@@ -431,16 +432,16 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error(`Google Sheets update error: ${updateResponse.statusText}`);
       }
 
-        console.log(`Exported ${rows.length - 1} corretores to Google Sheets`);
+      console.log(`Exported ${rows.length - 1} corretores to Google Sheets`);
 
-        return new Response(JSON.stringify({
-          success: true,
-          exported: rows.length - 1,
-          message: `Successfully exported ${rows.length - 1} corretores to Google Sheets`
-        }), {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
+      return new Response(JSON.stringify({
+        success: true,
+        exported: rows.length - 1,
+        message: `Successfully exported ${rows.length - 1} corretores to Google Sheets`
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
     return new Response(JSON.stringify({ error: "Invalid action" }), {

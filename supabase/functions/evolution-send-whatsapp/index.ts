@@ -67,7 +67,20 @@ serve(async (req) => {
 
     if (!evolutionResponse.ok) {
       console.error('Evolution API error:', evolutionData);
-      throw new Error(`Evolution API error: ${evolutionData.message || 'Unknown error'}`);
+
+      // Log failure in communication_log for debugging
+      await supabase.from('communication_log').insert({
+        lead_id,
+        corretor_id,
+        type: 'whatsapp',
+        direction: 'enviado',
+        content: message,
+        phone_number,
+        status: 'failed',
+        metadata: { error: evolutionData, status_code: evolutionResponse.status }
+      });
+
+      throw new Error(`Evolution API error: ${evolutionData.message || JSON.stringify(evolutionData)}`);
     }
 
     console.log('Message sent successfully:', evolutionData);
@@ -92,10 +105,10 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message_id: evolutionData.key?.id,
-        data: evolutionData 
+        data: evolutionData
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

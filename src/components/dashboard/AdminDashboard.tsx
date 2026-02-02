@@ -2,20 +2,19 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import StatsCard from './StatsCard';
+import VisitsChart from './VisitsChart';
 import LeadModal from '@/components/modals/LeadModal';
 import CorretorModal from '@/components/modals/CorretorModal';
 import EmpreendimentoModal from '@/components/modals/EmpreendimentoModal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { 
-  Users, 
-  UserCheck, 
-  Calendar, 
-  TrendingUp, 
+import {
+  Users,
+  UserCheck,
+  Calendar,
+  TrendingUp,
   AlertCircle,
-  Clock,
   CheckCircle,
   Building2,
   Loader2
@@ -32,25 +31,7 @@ interface DashboardStats {
   taxaConversao: number;
 }
 
-interface RecentLead {
-  id: string;
-  nome: string;
-  telefone: string;
-  status: string;
-  empreendimento?: {
-    nome: string;
-  };
-  created_at: string;
-}
 
-const statusColors = {
-  novo: 'bg-blue-100 text-blue-800',
-  buscando_corretor: 'bg-yellow-100 text-yellow-800',
-  corretor_designado: 'bg-purple-100 text-purple-800',
-  visita_agendada: 'bg-green-100 text-green-800',
-  visita_realizada: 'bg-gray-100 text-gray-800',
-  cancelado: 'bg-red-100 text-red-800',
-};
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState<DashboardStats>({
@@ -62,7 +43,7 @@ const AdminDashboard = () => {
     visitasSemana: 0,
     taxaConversao: 0,
   });
-  const [recentLeads, setRecentLeads] = useState<RecentLead[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isCorretorModalOpen, setIsCorretorModalOpen] = useState(false);
@@ -87,7 +68,6 @@ const AdminDashboard = () => {
         corretoresAtivosResult,
         visitasHojeResult,
         visitasSemanaResult,
-        recentLeadsResult,
       ] = await Promise.all([
         supabase.from('leads').select('*', { count: 'exact' }),
         supabase.from('leads').select('*', { count: 'exact' }).gte('created_at', today),
@@ -95,20 +75,6 @@ const AdminDashboard = () => {
         supabase.from('corretores').select('*', { count: 'exact' }).eq('status', 'ativo'),
         supabase.from('visitas').select('*', { count: 'exact' }).eq('data_visita', today),
         supabase.from('visitas').select('*', { count: 'exact' }).gte('data_visita', weekAgo),
-        supabase
-          .from('leads')
-          .select(`
-            id,
-            nome,
-            telefone,
-            status,
-            created_at,
-            empreendimentos (
-              nome
-            )
-          `)
-          .order('created_at', { ascending: false })
-          .limit(5)
       ]);
 
       // Calculate conversion rate
@@ -117,7 +83,7 @@ const AdminDashboard = () => {
         .select('*', { count: 'exact' })
         .eq('status', 'realizada');
 
-      const taxaConversao = totalLeadsResult.count && visitasRealizadas.count 
+      const taxaConversao = totalLeadsResult.count && visitasRealizadas.count
         ? Math.round((visitasRealizadas.count / totalLeadsResult.count) * 100)
         : 0;
 
@@ -131,7 +97,6 @@ const AdminDashboard = () => {
         taxaConversao,
       });
 
-      setRecentLeads(recentLeadsResult.data || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       toast({
@@ -144,17 +109,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    const labels = {
-      novo: 'Novo',
-      buscando_corretor: 'Buscando Corretor',
-      corretor_designado: 'Corretor Designado',
-      visita_agendada: 'Visita Agendada',
-      visita_realizada: 'Visita Realizada',
-      cancelado: 'Cancelado',
-    };
-    return labels[status as keyof typeof labels] || status;
-  };
+
 
   if (loading) {
     return (
@@ -195,7 +150,7 @@ const AdminDashboard = () => {
             isPositive: stats.leadsHoje > 0
           }}
         />
-        
+
         <StatsCard
           title="Corretores Ativos"
           value={`${stats.corretoresAtivos}/${stats.totalCorretores}`}
@@ -223,55 +178,8 @@ const AdminDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Leads */}
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Clock className="mr-2 h-5 w-5" />
-              Leads Recentes
-            </CardTitle>
-            <CardDescription>
-              Últimos leads cadastrados no sistema
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentLeads.length > 0 ? (
-                recentLeads.map((lead) => (
-                  <div
-                    key={lead.id}
-                    className="flex items-center justify-between p-3 bg-white/50 rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <h4 className="font-medium text-sm">{lead.nome}</h4>
-                        <Badge 
-                          className={`text-xs ${statusColors[lead.status as keyof typeof statusColors]}`}
-                        >
-                          {getStatusLabel(lead.status)}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{lead.telefone}</p>
-                      {lead.empreendimento && (
-                        <p className="text-xs text-primary font-medium">
-                          {lead.empreendimento.nome}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(lead.created_at).toLocaleDateString('pt-BR')}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="mx-auto h-12 w-12 mb-2 opacity-50" />
-                  <p>Nenhum lead encontrado</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Visits Chart */}
+        <VisitsChart />
 
         {/* Quick Actions */}
         <Card className="glass-card">
@@ -288,8 +196,8 @@ const AdminDashboard = () => {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    className="w-full justify-start hover-scale transition-all duration-200" 
+                  <Button
+                    className="w-full justify-start hover-scale transition-all duration-200"
                     variant="outline"
                     onClick={() => setIsLeadModalOpen(true)}
                     disabled={isLeadModalOpen}
@@ -306,11 +214,11 @@ const AdminDashboard = () => {
                   <p>Cadastrar um novo lead diretamente no sistema</p>
                 </TooltipContent>
               </Tooltip>
-              
+
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    className="w-full justify-start hover-scale transition-all duration-200" 
+                  <Button
+                    className="w-full justify-start hover-scale transition-all duration-200"
                     variant="outline"
                     onClick={() => setIsCorretorModalOpen(true)}
                     disabled={isCorretorModalOpen}
@@ -327,11 +235,11 @@ const AdminDashboard = () => {
                   <p>Adicionar um novo corretor ao sistema</p>
                 </TooltipContent>
               </Tooltip>
-              
+
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    className="w-full justify-start hover-scale transition-all duration-200" 
+                  <Button
+                    className="w-full justify-start hover-scale transition-all duration-200"
                     variant="outline"
                     onClick={() => setIsEmpreendimentoModalOpen(true)}
                     disabled={isEmpreendimentoModalOpen}
@@ -348,11 +256,11 @@ const AdminDashboard = () => {
                   <p>Cadastrar um novo empreendimento</p>
                 </TooltipContent>
               </Tooltip>
-              
+
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    className="w-full justify-start hover-scale transition-all duration-200" 
+                  <Button
+                    className="w-full justify-start hover-scale transition-all duration-200"
                     variant="outline"
                     onClick={() => navigate('/admin/corretores?filter=pendentes')}
                   >
@@ -401,13 +309,13 @@ const AdminDashboard = () => {
         onOpenChange={setIsLeadModalOpen}
         title="Adicionar Lead Manualmente"
       />
-      
+
       <CorretorModal
         open={isCorretorModalOpen}
         onOpenChange={setIsCorretorModalOpen}
         title="Cadastrar Novo Corretor"
       />
-      
+
       <EmpreendimentoModal
         open={isEmpreendimentoModalOpen}
         onOpenChange={setIsEmpreendimentoModalOpen}

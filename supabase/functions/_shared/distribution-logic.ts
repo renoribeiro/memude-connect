@@ -44,7 +44,12 @@ export async function processIncomingMessage(
 
   // 3. Processar Leads (Fallback)
   const leadResult = await handleLeadAttempt(supabase, phoneNumber, response, messageText);
+
   if (leadResult.processed) return leadResult;
+
+  // 4. Processar Confirmação de Visita (Lead respondendo Lembrete)
+  const confirmationResult = await handleLeadConfirmation(supabase, phoneNumber, response, messageText);
+  if (confirmationResult.processed) return confirmationResult;
 
   return { processed: false, action: 'none', type: 'visit' };
 }
@@ -330,7 +335,101 @@ async function handleLeadAttempt(
   }
 }
 
-// --- Notificações ---
+
+async function handleLeadConfirmation(
+  supabase: SupabaseClient,
+  phoneNumber: string,
+  response: ProcessingResponse,
+  originalText: string
+): Promise<DistributionResult> {
+  const lead = await findLeadByPhone(supabase, phoneNumber);
+  if (!lead) return { processed: false, action: 'none', type: 'visit' };
+
+  // Buscar visita agendada (futura ou hoje)
+  const today = new Date().toISOString().split('T')[0];
+  const { data: visit } = await supabase
+    .from('visitas')
+    .select(`
+      *,
+      corretor:corretores!inner(id, whatsapp, profiles(first_name)),
+      empreendimento:empreendimentos(nome, endereco)
+    `)
+    .eq('lead_id', lead.id)
+    .gte('data_visita', today) // Visitas de hoje em diante
+    .in('status', ['agendada', 'confirmada'])
+    .order('data_visita', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (!visit) {
+    return { processed: false, action: 'none', type: 'visit' };
+  }
+
+  if (response.type === 'accepted') {
+    // 1. Lead Confirmou
+    console.log(`✅ Lead ${lead.nome} confirmou visita ${visit.id}`);
+
+    // Avisar Corretor
+    const msgCorretor = `🎉 *CLIENTE CONFIRMOU!*\n\nO cliente ${lead.nome} confirmou a presença na visita de ${new Date(visit.data_visita).toLocaleDateString('pt-BR')}!\n\nEmpreendimento: ${visit.empreendimento?.nome}`;
+    await sendWhatsappMessage(supabase, visit.corretor.whatsapp, msgCorretor);
+
+    // Avisar Lead
+    await sendWhatsappMessage(supabase, phoneNumber, "✅ Combinado! Seu corretor aguarda você.");
+
+    return { processed: true, action: 'accepted', type: 'visit', id: visit.id };
+  }
+  else if (response.type === 'rejected') {
+    // 2. Lead Recusou/Cancelou
+    console.log(`⚠️ Lead ${lead.nome} não confirmou visita ${visit.id}`);
+
+    // Avisar Admin
+    const { data: settings } = await supabase.from('system_settings').select('value').eq('key', 'admin_whatsapp').single();
+    if (settings?.value) {
+      await sendWhatsappMessage(supabase, settings.value, `⚠️ *VISITA NÃO CONFIRMADA PELO LEAD*\n\nLead: ${lead.nome}\nCorretor: ${visit.corretor.profiles.first_name}\nData: ${new Date(visit.data_visita).toLocaleDateString('pt-BR')}\nMotivo: Respondeu NÃO ao lembrete (confirmar interesse).`);
+    }
+
+    // Avisar Lead
+    const msgLead = "Entendido. Um de nossos gestores entrará em contato.";
+    await sendWhatsappMessage(supabase, phoneNumber, msgLead);
+
+    return { processed: true, action: 'rejected', type: 'visit', id: visit.id };
+  }
+
+  return { processed: false, action: 'none', type: 'visit' };
+}
+
+async function findLeadByPhone(supabase: SupabaseClient, phoneNumber: string) {
+  const normalizedPhone = normalizePhoneNumber(phoneNumber);
+  const phoneVariants = generatePhoneVariants(phoneNumber);
+
+  // Tentar buscar pelo telefone normalizado
+  let { data: lead } = await supabase
+    .from('leads')
+    .select('id, nome, telefone')
+    .eq('telefone', normalizedPhone)
+    .maybeSingle();
+
+  if (lead) return lead;
+
+  // Variantes
+  for (const variant of phoneVariants) {
+    ({ data: lead } = await supabase
+      .from('leads')
+      .select('id, nome, telefone')
+      .eq('telefone', variant)
+      .maybeSingle());
+
+    if (lead) return lead;
+  }
+
+  // Matching flexível DB (Scan? Leads pode ser grande, mas para corretores era ok. Para Leads talvez seja pesado? 
+  // Mas vamos manter a consistência. Se Leads for gigante, isso precisará de refatoração futura com vetor ou FTS.)
+  // Por enquanto, vamos limitar a busca por variantes diretas. Scan em Leads é perigoso se tiver milhares.
+  // Corretores são poucos. Leads são muitos.
+  // Vamos confiar nas variantes geradas.
+
+  return null;
+}
 
 async function notifyVisitConfirmation(supabase: SupabaseClient, attempt: any, corretorPhone: string) {
   const dataVisita = new Date(attempt.visita.data_visita).toLocaleDateString('pt-BR');
@@ -352,19 +451,35 @@ async function notifyVisitConfirmation(supabase: SupabaseClient, attempt: any, c
 }
 
 // Função de Envio Unificado (Abstração)
+// Função de Envio Unificado (Abstração)
 async function sendWhatsappMessage(supabase: SupabaseClient, phone: string, message: string) {
-  // Correção: Usar a função existente 'evolution-send-whatsapp'
-  // Payload deve ser compatível com o esperado por essa função
-  console.log(`📤 Enviando mensagem para ${phone} via evolution-send-whatsapp`);
+  console.log(`📤 Enviando mensagem para ${phone} via evolution-send-whatsapp-v2`);
 
-  const { error } = await supabase.functions.invoke('evolution-send-whatsapp', {
+  // TRACE START
+  await supabase.from('webhook_logs').insert({
+    event_type: 'DEBUG_SEND_START',
+    payload: { phone, message_preview: message?.substring(0, 50) || 'empty' }
+  });
+
+  const { error } = await supabase.functions.invoke('evolution-send-whatsapp-v2', {
     body: {
-      phone_number: phone, // A função evolution-send-whatsapp espera 'phone_number', não 'number'
+      phone_number: phone,
       message: message
     }
   });
 
   if (error) {
-    console.error(`❌ Erro ao enviar mensagem para ${phone}:`, error);
+    console.error(`❌ Erro ao enviar mensagem para ${phone} via v2:`, error);
+    // TRACE ERROR
+    await supabase.from('webhook_logs').insert({
+      event_type: 'DEBUG_SEND_ERROR',
+      payload: { phone, error }
+    });
+  } else {
+    // TRACE SUCCESS (INVOKE)
+    await supabase.from('webhook_logs').insert({
+      event_type: 'DEBUG_SEND_INVOKE_OK',
+      payload: { phone }
+    });
   }
 }

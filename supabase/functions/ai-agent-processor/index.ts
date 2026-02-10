@@ -7,6 +7,7 @@ import { buildContext, enrichWithKnowledge, formatContextForPrompt } from '../_s
 import { calculateBANTScore, getNextBANTQuestion, updateBANTFromEntities, getQualificationProgress } from '../_shared/bant-scorer.ts';
 import { detectObjection, buildObjectionContext, shouldEscalateToHuman, formatObjectionForLog } from '../_shared/objection-handler.ts';
 import { buildHandoffContext, formatHandoffMessage, formatHandoffForStorage } from '../_shared/human-handoff.ts';
+import { getCachedResponse, setCachedResponse, isCacheable, getCachedEmbedding, setCachedEmbedding } from '../_shared/cache-manager.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,6 +24,28 @@ const SUPPORTED_MODELS = {
   openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
   gemini: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
 };
+
+// P3: Module-level API key cache (avoids DB fetch on every request)
+const apiKeyCache: Map<string, { value: string; expires: number }> = new Map();
+
+async function getApiKey(supabase: any, keyName: string): Promise<string | null> {
+  const cached = apiKeyCache.get(keyName);
+  if (cached && Date.now() < cached.expires) {
+    return cached.value;
+  }
+
+  const { data } = await supabase
+    .from('system_settings')
+    .select('value')
+    .eq('key', keyName)
+    .single();
+
+  if (data?.value) {
+    apiKeyCache.set(keyName, { value: data.value, expires: Date.now() + 5 * 60 * 1000 }); // 5 min TTL
+  }
+
+  return data?.value || null;
+}
 
 // ============================================================
 // HUMANIZATION FUNCTIONS
@@ -100,7 +123,7 @@ function addHumanTouches(text: string, agent: any): string {
 // ULTRA-HUMAN SYSTEM PROMPT BUILDER
 // ============================================================
 
-function buildUltraHumanSystemPrompt(agent: any, conversation: any, objectionContext?: string): string {
+function buildUltraHumanSystemPrompt(agent: any, conversation: any, objectionContext?: string, enrichedContext?: string): string {
   const personaName = agent.persona_name || 'Ana';
   const personaRole = agent.persona_role || 'Consultora de Imóveis';
 
@@ -191,6 +214,11 @@ ${agent.system_prompt ? `\n## Instruções Adicionais do Admin\n${agent.system_p
     prompt += `\n\n## ⚠️ OBJEÇÃO DETECTADA NA ÚLTIMA MENSAGEM\n${objectionContext}\n\nIMPORTANTE: Responda com empatia, reconhecendo a preocupação do cliente antes de apresentar contra-argumentos. Não ignore a objeção.`;
   }
 
+  // ARQ-01: Inject enriched context from context-builder (RAG + customer profile)
+  if (enrichedContext) {
+    prompt += `\n\n${enrichedContext}`;
+  }
+
   return prompt;
 }
 
@@ -279,20 +307,23 @@ serve(async (req) => {
       throw new Error('Falha ao criar/recuperar conversa');
     }
 
-    // 3. Get conversation history
-    const { data: conversationHistory } = await supabase
-      .from('agent_messages')
-      .select('role, content')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true })
-      .limit(10);
+    // 3. Get conversation history + data in parallel (P3: reduce N+1 sequential queries)
+    const [historyResult, conversationResult] = await Promise.all([
+      supabase
+        .from('agent_messages')
+        .select('role, content')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+        .limit(20),  // P3: Increased from 10 to 20 for better context
+      supabase
+        .from('agent_conversations')
+        .select('*, ai_lead_qualification(*)')
+        .eq('id', conversationId)
+        .single()
+    ]);
 
-    // 4. Get conversation data
-    const { data: conversation } = await supabase
-      .from('agent_conversations')
-      .select('*, ai_lead_qualification(*)')
-      .eq('id', conversationId)
-      .single();
+    const conversationHistory = historyResult.data;
+    const conversation = conversationResult.data;
 
     // 4.5 Log funnel event for new conversation (Phase 4)
     const isNewConversation = !conversationHistory || conversationHistory.length === 0;
@@ -324,6 +355,43 @@ serve(async (req) => {
         .from('agent_conversations')
         .update({ customer_name: customerName })
         .eq('id', conversationId);
+    }
+
+    // 4.7 ARQ-01: Build enriched context using context-builder
+    let enrichedContextPrompt = '';
+    try {
+      const context = await buildContext(supabase, conversationId, phone_number, message_text);
+
+      // Try RAG enrichment with knowledge base
+      try {
+        const { data: openaiSetting } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'openai_api_key')
+          .single();
+
+        if (openaiSetting?.value) {
+          const openaiClient = new OpenAI({ apiKey: openaiSetting.value });
+          await enrichWithKnowledge(supabase, openaiClient, activeAgent.id, context, message_text);
+        }
+      } catch (ragError) {
+        console.warn('RAG enrichment skipped:', ragError);
+      }
+
+      enrichedContextPrompt = formatContextForPrompt(context);
+      console.log(`📋 Context built: stage=${context.conversation_stage}, qual=${context.qualification_progress.completion_percentage}%, kb=${context.knowledge_context.length} matches`);
+    } catch (contextError) {
+      console.warn('Context build error, continuing without enrichment:', contextError);
+    }
+
+    // 4.8 ARQ-04: Update conversation stage based on progress
+    const newStage = determineConversationStage(conversation, conversationHistory?.length || 0);
+    if (newStage !== conversation?.current_stage) {
+      await supabase
+        .from('agent_conversations')
+        .update({ current_stage: newStage })
+        .eq('id', conversationId);
+      console.log(`📈 Stage progression: ${conversation?.current_stage || 'null'} → ${newStage}`);
     }
 
     // Mark any pending follow-ups as responded
@@ -573,27 +641,53 @@ serve(async (req) => {
       }
     }
 
-    // 6. Build ULTRA-HUMAN system prompt (with objection context if detected)
+    // 6. Build ULTRA-HUMAN system prompt (with objection context and enriched context)
     const systemPrompt = buildUltraHumanSystemPrompt(activeAgent, {
       ...conversation,
       customer_name: customerName
-    }, objectionContextForPrompt || undefined);
+    }, objectionContextForPrompt || undefined, enrichedContextPrompt || undefined);
 
-    // 7. Call LLM
-    let aiResponse: string;
-    let tokensUsed: number;
+    // 7. Call LLM (with cache check)
+    let aiResponse: string = '';
+    let tokensUsed: number = 0;
+    let cacheHit = false;
 
-    if (llmProvider === 'gemini') {
-      const result = await callGemini(supabase, activeAgent, systemPrompt, conversationHistory, message_text, conversation);
-      aiResponse = result.response;
-      tokensUsed = result.tokensUsed;
-    } else {
-      const result = await callOpenAI(supabase, activeAgent, systemPrompt, conversationHistory, message_text, conversation);
-      aiResponse = result.response;
-      tokensUsed = result.tokensUsed;
+    // P2: Check response cache for cacheable queries
+    const intentForCache = intentResult?.primary_intent || 'conversation';
+    if (isCacheable(message_text, intentForCache)) {
+      try {
+        const cachedResp = await getCachedResponse(supabase, activeAgent.id, message_text);
+        if (cachedResp && cachedResp.is_fresh) {
+          aiResponse = cachedResp.response_text;
+          tokensUsed = cachedResp.tokens_used;
+          cacheHit = true;
+          console.log(`💾 Cache HIT: reusing cached response (${tokensUsed} tokens saved)`);
+        }
+      } catch (cacheErr) {
+        console.warn('Cache check failed, proceeding with LLM:', cacheErr);
+      }
     }
 
-    console.log(`✅ Resposta gerada por ${llmProvider} (${tokensUsed} tokens)`);
+    if (!cacheHit) {
+      if (llmProvider === 'gemini') {
+        const result = await callGemini(supabase, activeAgent, systemPrompt, conversationHistory, message_text, conversation);
+        aiResponse = result.response;
+        tokensUsed = result.tokensUsed;
+      } else {
+        const result = await callOpenAI(supabase, activeAgent, systemPrompt, conversationHistory, message_text, conversation);
+        aiResponse = result.response;
+        tokensUsed = result.tokensUsed;
+      }
+
+      // Store in cache for future use
+      if (isCacheable(message_text, intentForCache)) {
+        setCachedResponse(supabase, activeAgent.id, message_text, aiResponse, tokensUsed, activeAgent.ai_model).catch(
+          e => console.warn('Cache store error:', e)
+        );
+      }
+    }
+
+    console.log(`✅ Resposta gerada por ${cacheHit ? 'cache' : llmProvider} (${tokensUsed} tokens)`);
 
     // 8. Parse actions
     const { cleanResponse, action, actionData, intent } = parseAIResponse(aiResponse);
@@ -730,6 +824,32 @@ function detectProvider(modelName: string): 'openai' | 'gemini' {
   return 'openai';
 }
 
+// ARQ-04: Conversation stage progression logic
+function determineConversationStage(conversation: any, messageCount: number): string {
+  const qualData = conversation?.qualification_data || {};
+  const presentedCount = conversation?.presented_properties?.length || 0;
+  const leadScore = conversation?.lead_score || 0;
+
+  // Count how many BANT fields are filled
+  let bantFieldsFilled = 0;
+  if (qualData.property_type) bantFieldsFilled++;
+  if (qualData.max_price || qualData.price_max) bantFieldsFilled++;
+  if (qualData.min_bedrooms || qualData.bedrooms) bantFieldsFilled++;
+  if (qualData.urgency || qualData.timeline) bantFieldsFilled++;
+  if (qualData.preferred_neighborhoods || qualData.neighborhood) bantFieldsFilled++;
+  if (qualData.financing_needed !== undefined) bantFieldsFilled++;
+
+  // Stage determination based on conversation progress
+  if (messageCount <= 2) return 'greeting';
+  if (bantFieldsFilled < 2) return 'qualifying';
+  if (bantFieldsFilled >= 2 && presentedCount === 0) return 'searching';
+  if (presentedCount > 0 && leadScore < 60) return 'presenting';
+  if (leadScore >= 60 && leadScore < 80) return 'negotiating';
+  if (leadScore >= 80) return 'closing';
+
+  return 'qualifying';
+}
+
 async function callOpenAI(
   supabase: any,
   agent: any,
@@ -738,17 +858,14 @@ async function callOpenAI(
   currentMessage: string,
   conversation: any
 ): Promise<{ response: string; tokensUsed: number }> {
-  const { data: openaiSetting } = await supabase
-    .from('system_settings')
-    .select('value')
-    .eq('key', 'openai_api_key')
-    .single();
+  // P3: Use cached API key
+  const apiKey = await getApiKey(supabase, 'openai_api_key');
 
-  if (!openaiSetting?.value) {
+  if (!apiKey) {
     throw new Error('OpenAI API key não configurada');
   }
 
-  const openai = new OpenAI({ apiKey: openaiSetting.value });
+  const openai = new OpenAI({ apiKey: apiKey });
 
   const messages: any[] = [
     { role: 'system', content: systemPrompt }
@@ -787,17 +904,14 @@ async function callGemini(
   currentMessage: string,
   conversation: any
 ): Promise<{ response: string; tokensUsed: number }> {
-  const { data: geminiSetting } = await supabase
-    .from('system_settings')
-    .select('value')
-    .eq('key', 'gemini_api_key')
-    .single();
+  // P3: Use cached API key
+  const apiKey = await getApiKey(supabase, 'gemini_api_key');
 
-  if (!geminiSetting?.value) {
+  if (!apiKey) {
     throw new Error('Gemini API key não configurada');
   }
 
-  const genAI = new GoogleGenerativeAI(geminiSetting.value);
+  const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: agent.ai_model,
     systemInstruction: systemPrompt
@@ -869,20 +983,9 @@ function parseAIResponse(response: string): {
     cleanResponse = response.replace(/\[TRANSFERIR_HUMANO\]/g, '').trim();
   }
 
-  // Extract qualification data
-  const qualificationPatterns = [
-    { regex: /(?:orçamento|budget|valor).*?(\d+(?:\.\d+)?)\s*(?:mil|k|reais|R\$)/i, field: 'max_price', transform: (v: string) => parseFloat(v.replace(/\./g, '')) * 1000 },
-    { regex: /(\d+)\s*(?:quartos?|dormitórios?)/i, field: 'min_bedrooms', transform: (v: string) => parseInt(v) },
-    { regex: /(?:bairro|região|local).*?([\w\s]+?)(?:\.|,|$)/i, field: 'preferred_neighborhood', transform: (v: string) => v.trim() },
-  ];
-
-  for (const pattern of qualificationPatterns) {
-    const match = response.match(pattern.regex);
-    if (match) {
-      actionData.qualification = actionData.qualification || {};
-      actionData.qualification[pattern.field] = pattern.transform(match[1]);
-    }
-  }
+  // ARQ-05 FIX: Removed qualification pattern extraction from AI response.
+  // Qualification data must be extracted from USER messages (via extractEntities),
+  // not from the AI response which may echo or rephrase user data incorrectly.
 
   return { cleanResponse, action, actionData, intent };
 }

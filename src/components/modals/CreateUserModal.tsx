@@ -29,7 +29,7 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
     role: 'cliente' as 'admin' | 'corretor' | 'cliente',
     phone: '',
   });
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -38,12 +38,12 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
       const { data, error } = await supabase.functions.invoke('create-user', {
         body: userData
       });
-      
+
       if (error) throw error;
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['managed-users'] });
       toast({
         title: 'Usuário criado',
         description: 'O usuário foi criado com sucesso e receberá um email de confirmação.',

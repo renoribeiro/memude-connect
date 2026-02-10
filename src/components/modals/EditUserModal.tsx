@@ -13,21 +13,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, Phone, UserCircle } from 'lucide-react';
+import { User, Phone, UserCircle } from 'lucide-react';
 
-interface User {
+interface ManagedUser {
   id: string;
   first_name: string;
   last_name: string;
   role: 'admin' | 'corretor' | 'cliente';
   phone?: string;
+  email?: string;
   user_id: string;
 }
 
 interface EditUserModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  user: User | null;
+  user: ManagedUser | null;
 }
 
 export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) {
@@ -37,7 +38,7 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
     role: 'cliente' as 'admin' | 'corretor' | 'cliente',
     phone: '',
   });
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -55,16 +56,25 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
   const updateUserMutation = useMutation({
     mutationFn: async (userData: typeof formData) => {
       if (!user) throw new Error('Usuário não encontrado');
-      
-      const { error } = await supabase
-        .from('profiles')
-        .update(userData)
-        .eq('id', user.id);
-      
+
+      const { data, error } = await supabase.functions.invoke('manage-user', {
+        body: {
+          action: 'update',
+          user_id: user.user_id,
+          data: {
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            phone: userData.phone || null,
+            role: userData.role,
+          }
+        }
+      });
+
       if (error) throw error;
+      if (!data.success) throw new Error(data.error);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['managed-users'] });
       toast({
         title: 'Usuário atualizado',
         description: 'As informações do usuário foram atualizadas com sucesso.',
@@ -104,7 +114,8 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
             Editar Usuário
           </DialogTitle>
           <DialogDescription>
-            Edite as informações do usuário {user.first_name} {user.last_name}.
+            Edite as informações de {user.first_name} {user.last_name}
+            {user.email && <span className="block text-xs mt-1">{user.email}</span>}
           </DialogDescription>
         </DialogHeader>
 

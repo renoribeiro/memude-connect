@@ -83,10 +83,13 @@ serve(async (req) => {
       if (phone && text && !fromMe) {
         console.log(`Webhook Evolution: Recebido de ${phone}: ${text}`);
 
+        // Extract sender name (pushName) from webhook payload (BUG-03 fix)
+        const senderName = messageData?.pushName || data?.pushName || null;
+
         // ============================================
         // FASE 1: Verificar se há agente de IA ativo
         // ============================================
-        const aiHandled = await tryAIAgentProcessing(supabase, phone, text);
+        const aiHandled = await tryAIAgentProcessing(supabase, phone, text, senderName);
 
         if (aiHandled) {
           console.log('✅ Mensagem processada pelo AI Agent');
@@ -106,7 +109,7 @@ serve(async (req) => {
         // Log no banco para debug
         await supabase.from('webhook_logs').insert({
           event_type: 'DISTRIBUTION_RESPONSE',
-          instance_name: 'GTFit',
+          instance_name: webhookData?.instance || 'unknown',
           payload: { phone, text, result },
           processed_successfully: result.processed,
           processing_time_ms: 0
@@ -117,7 +120,7 @@ serve(async (req) => {
         // Log no banco para debug - incluir estrutura completa para análise
         await supabase.from('webhook_logs').insert({
           event_type: 'MESSAGE_IGNORED',
-          instance_name: 'GTFit',
+          instance_name: webhookData?.instance || 'unknown',
           payload: {
             phone,
             text,
@@ -137,7 +140,7 @@ serve(async (req) => {
       // Log no banco para debug
       await supabase.from('webhook_logs').insert({
         event_type: event || 'UNKNOWN',
-        instance_name: 'GTFit',
+        instance_name: webhookData?.instance || 'unknown',
         payload: { event, ignored: true },
         processed_successfully: false,
         processing_time_ms: 0
@@ -159,7 +162,8 @@ serve(async (req) => {
 async function tryAIAgentProcessing(
   supabase: any,
   phone: string,
-  text: string
+  text: string,
+  senderName?: string | null
 ): Promise<boolean> {
   try {
     // 1. Verificar se há agente ativo
@@ -199,13 +203,28 @@ async function tryAIAgentProcessing(
       console.log(`🤖 Conversa ativa encontrada: ${existingConversation.id}`);
     }
 
+    // BUG-06 fix: Check if lead was recently transferred to human — don't reactivate AI
+    const { data: transferredConv } = await supabase
+      .from('agent_conversations')
+      .select('id, status')
+      .eq('phone_number', phone)
+      .eq('status', 'transferred')
+      .gte('last_message_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .maybeSingle();
+
+    if (transferredConv) {
+      console.log('🚫 Lead está em atendimento humano (transferido há menos de 24h), ignorando AI');
+      return false;
+    }
+
     // 4. Invocar o processador de AI
     const { data: aiResult, error: aiError } = await supabase.functions.invoke(
       'ai-agent-processor',
       {
         body: {
           phone_number: phone,
-          message_text: text
+          message_text: text,
+          sender_name: senderName || null
         }
       }
     );

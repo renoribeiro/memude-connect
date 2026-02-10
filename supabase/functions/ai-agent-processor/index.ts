@@ -100,7 +100,7 @@ function addHumanTouches(text: string, agent: any): string {
 // ULTRA-HUMAN SYSTEM PROMPT BUILDER
 // ============================================================
 
-function buildUltraHumanSystemPrompt(agent: any, conversation: any): string {
+function buildUltraHumanSystemPrompt(agent: any, conversation: any, objectionContext?: string): string {
   const personaName = agent.persona_name || 'Ana';
   const personaRole = agent.persona_role || 'Consultora de Imóveis';
 
@@ -184,6 +184,11 @@ ${agent.system_prompt ? `\n## Instruções Adicionais do Admin\n${agent.system_p
   // Extract customer name if available
   if (conversation?.customer_name) {
     prompt += `\nNome do cliente: ${conversation.customer_name}`;
+  }
+
+  // Inject objection handling context if an objection was detected
+  if (objectionContext) {
+    prompt += `\n\n## ⚠️ OBJEÇÃO DETECTADA NA ÚLTIMA MENSAGEM\n${objectionContext}\n\nIMPORTANTE: Responda com empatia, reconhecendo a preocupação do cliente antes de apresentar contra-argumentos. Não ignore a objeção.`;
   }
 
   return prompt;
@@ -568,11 +573,11 @@ serve(async (req) => {
       }
     }
 
-    // 6. Build ULTRA-HUMAN system prompt
+    // 6. Build ULTRA-HUMAN system prompt (with objection context if detected)
     const systemPrompt = buildUltraHumanSystemPrompt(activeAgent, {
       ...conversation,
       customer_name: customerName
-    });
+    }, objectionContextForPrompt || undefined);
 
     // 7. Call LLM
     let aiResponse: string;
@@ -678,14 +683,10 @@ serve(async (req) => {
       }
     }
 
-    // 14. Update last_message_at
-    await supabase
-      .from('agent_conversations')
-      .update({
-        last_message_at: new Date().toISOString(),
-        total_messages: (conversation?.total_messages || 0) + 2
-      })
-      .eq('id', conversationId);
+    // 14. Metrics update
+    // NOTE: last_message_at and total_messages are updated automatically
+    // by the trg_update_conversation_metrics trigger on agent_messages INSERT.
+    // No manual update needed here (BUG-02/07 fix: removed double-counting).
 
     return new Response(
       JSON.stringify({

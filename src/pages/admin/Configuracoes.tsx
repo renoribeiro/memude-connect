@@ -603,16 +603,15 @@ export default function Configuracoes() {
 
                         if (error) throw error;
 
-                        if (data.success) {
+                        if (data?.success) {
                           toast({
                             title: "✅ Webhook configurado!",
                             description: `Webhook ativo na instância ${data.instance}. Eventos: ${data.events?.join(', ')}`,
                           });
 
-                          // Atualizar configurações
                           queryClient.invalidateQueries({ queryKey: ['system-settings'] });
                         } else {
-                          throw new Error(data.error || 'Erro ao configurar webhook');
+                          throw new Error(data?.error || 'Erro desconhecido ao configurar webhook. Verifique as configurações da Evolution API.');
                         }
                       } catch (error: any) {
                         console.error('Erro ao configurar webhook:', error);

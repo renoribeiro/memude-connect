@@ -21,33 +21,53 @@ serve(async (req) => {
 
     // ============================================================
     // CRON AUTHENTICATION
-    // Permite autenticação via CRON_SECRET para jobs agendados
+    // Permite autenticação via CRON_SECRET, SERVICE_ROLE, ou INTERNAL_DB_SECRET
     // ============================================================
     const authHeader = req.headers.get('Authorization');
     const cronSecret = Deno.env.get('CRON_SECRET');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    // Inicializa Supabase Client (necessário para buscar segredo interno do banco)
+    const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        serviceRoleKey ?? ''
+    );
 
     // Aceita: Bearer CRON_SECRET ou Bearer SERVICE_ROLE_KEY
     const token = authHeader?.replace('Bearer ', '');
     const isValidCronAuth = token === cronSecret;
     const isValidServiceAuth = token === serviceRoleKey;
 
-    if (!isValidCronAuth && !isValidServiceAuth) {
+    let isValidInternalAuth = false;
+
+    // Se as auths padrão falharem, tentar validar com segredo do banco (para pg_cron)
+    if (!isValidCronAuth && !isValidServiceAuth && token) {
+        try {
+            const { data: internalSecret } = await supabase
+                .from('system_settings')
+                .select('value')
+                .eq('key', 'cron_secret')
+                .single();
+
+            if (internalSecret && internalSecret.value === token) {
+                isValidInternalAuth = true;
+            }
+        } catch (e) {
+            console.warn('Erro ao verificar internal cron secret:', e);
+        }
+    }
+
+    if (!isValidCronAuth && !isValidServiceAuth && !isValidInternalAuth) {
         console.warn('⚠️ Tentativa de acesso não autorizada ao ai-followup-checker');
         return new Response(
-            JSON.stringify({ error: 'Unauthorized', message: 'Valid CRON_SECRET or SERVICE_ROLE_KEY required' }),
+            JSON.stringify({ error: 'Unauthorized', message: 'Valid CRON_SECRET, SERVICE_ROLE_KEY or INTERNAL_DB_SECRET required' }),
             { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
     }
 
-    console.log(`🔐 Auth válida: ${isValidCronAuth ? 'CRON_SECRET' : 'SERVICE_ROLE_KEY'}`);
+    console.log(`🔐 Auth válida: ${isValidCronAuth ? 'CRON_SECRET' : isValidServiceAuth ? 'SERVICE_ROLE_KEY' : 'INTERNAL_DB_SECRET'}`);
 
     try {
-        const supabase = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        );
-
         const currentHour = new Date().getHours();
         const now = new Date();
 

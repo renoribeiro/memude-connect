@@ -109,10 +109,12 @@ serve(async (req) => {
       throw new Error('Configurações da Evolution API não encontradas');
     }
 
+    // Trim trailing slash from API URL to prevent double slashes
+    apiUrl = apiUrl.trim().replace(/\/$/, '');
+    instanceName = instanceName.trim();
+
     let endpoint = '';
-    let payload: any = {
-      number: normalizedPhone,
-    };
+    let payload: any = {};
 
     // Evolution API v2: Suporte para diferentes tipos de mensagem
     if (media) {
@@ -137,7 +139,7 @@ serve(async (req) => {
       };
     } else {
       // Enviar mensagem de texto simples
-      // IMPORTANTE: Evolution API V2 aceita APENAS "number" e "text"
+      // IMPORTANTE: Evolution API V2 aceita APENAS "number" e "text" nas rotas /message/sendText
       endpoint = `/message/sendText/${instanceName}`;
       payload = {
         number: normalizedPhone,
@@ -189,7 +191,13 @@ serve(async (req) => {
       throw new Error(`Erro ao enviar mensagem (status ${response.status}): ${responseText}`);
     }
 
-    const result = JSON.parse(responseText);
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      result = { raw: responseText };
+    }
+
     console.log('✅ Message sent successfully:', result);
 
     // Registrar no communication_log
@@ -227,7 +235,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Erro ao enviar mensagem:', error);
 
     return new Response(

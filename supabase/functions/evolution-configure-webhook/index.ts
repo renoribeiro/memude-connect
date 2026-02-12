@@ -101,9 +101,9 @@ Deno.serve(async (req) => {
 
     console.log('Chamando Evolution API:', evolutionUrl);
 
+
     // Payload conforme docs V2
     const webhookPayload = {
-      enabled: true,
       url: webhookUrl,
       webhook_by_events: false,
       webhook_base64: false,

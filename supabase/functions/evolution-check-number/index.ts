@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { normalizePhoneNumber, isValidBrazilianPhone } from '../_shared/phoneHelpers.ts';
 
 const corsHeaders = {
@@ -7,7 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -15,12 +16,22 @@ serve(async (req) => {
   try {
     console.log('=== EVOLUTION CHECK NUMBER ===');
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    const { phone_number } = await req.json();
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Missing Supabase environment variables');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let body;
+    try {
+      body = await req.json();
+    } catch (e) {
+      throw new Error('Invalid JSON payload');
+    }
+    const { phone_number } = body;
 
     if (!phone_number) {
       throw new Error('Número de telefone é obrigatório');
@@ -28,7 +39,7 @@ serve(async (req) => {
 
     // Normalizar número
     const normalizedPhone = normalizePhoneNumber(phone_number);
-    
+
     console.log('Checking phone:', normalizedPhone);
 
     if (!isValidBrazilianPhone(normalizedPhone)) {
@@ -71,25 +82,56 @@ serve(async (req) => {
     }
 
     // Buscar configurações da Evolution API
-    const { data: settings } = await supabase
-      .from('system_settings')
-      .select('key, value')
-      .in('key', ['evolution_api_url', 'evolution_api_key', 'evolution_instance_name']);
+    // 1. Try to find an ACTIVE instance first (Best practice)
+    let apiUrl = '';
+    let apiKey = '';
+    let instanceName = '';
 
-    const settingsMap = new Map(settings?.map(s => [s.key, s.value]) || []);
-    
-    const apiUrl = settingsMap.get('evolution_api_url');
-    const apiKey = settingsMap.get('evolution_api_key');
-    const instanceName = settingsMap.get('evolution_instance_name');
+    const { data: activeInstance } = await supabase
+      .from('evolution_instances')
+      .select('*')
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (activeInstance) {
+      apiUrl = activeInstance.api_url;
+      apiKey = activeInstance.api_token;
+      instanceName = activeInstance.instance_name;
+    } else {
+      // Fallback to system_settings
+      const { data: settings } = await supabase
+        .from('system_settings')
+        .select('key, value')
+        .in('key', ['evolution_api_url', 'evolution_api_key', 'evolution_instance_name']);
+
+      const settingsMap = new Map(settings?.map((s: any) => [s.key, s.value]) || []);
+
+      apiUrl = settingsMap.get('evolution_api_url');
+      apiKey = settingsMap.get('evolution_api_key');
+      instanceName = settingsMap.get('evolution_instance_name');
+    }
 
     if (!apiUrl || !apiKey || !instanceName) {
       throw new Error('Configurações da Evolution API não encontradas');
     }
 
-    console.log('Checking with Evolution API...');
+    // Normalize URL
+    apiUrl = apiUrl.trim().replace(/\/$/, '');
+    instanceName = instanceName.trim();
+
+    console.log('Checking with Evolution API...', { apiUrl, instanceName });
 
     // Verificar se número existe no WhatsApp via Evolution API
-    // Endpoint: POST /message/exists/{instance}
+    // Endpoint: POST /message/exists/{instance} or legacy /checkNumber ?
+    // V2 suggests: /chat/whatsappNumbers/{instance} OR /chat/checkNumber/{instance} ? 
+    // Evolution V2 usually has /chat/checkNumber or /chat/whatsappNumbers
+    // The previous code used /chat/whatsappNumbers/{instance}
+    // Let's stick to that but handle errors gracefully.
+
+    // NOTE: Some Evolution versions uses /chat/checkNumber
+    // Let's try standard V2 endpoint.
+
     const response = await fetch(`${apiUrl}/chat/whatsappNumbers/${instanceName}`, {
       method: 'POST',
       headers: {
@@ -98,12 +140,15 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         numbers: [normalizedPhone]
-      })
+      }),
+      signal: AbortSignal.timeout(10000)
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Evolution API error:', errorText);
+      // Fail gracefully? No, verification failure is important. But maybe just log and return success=false?
+      // If ABI fails, we can't verify.
       throw new Error(`Erro ao verificar número: ${errorText}`);
     }
 
@@ -111,7 +156,7 @@ serve(async (req) => {
     console.log('Evolution API result:', result);
 
     // Resultado da API: array com {jid, exists}
-    const numberExists = result && result.length > 0 && result[0].exists === true;
+    const numberExists = result && Array.isArray(result) && result.length > 0 && result[0].exists === true;
 
     // Salvar/atualizar cache
     await supabase
@@ -132,17 +177,24 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+      console.error('Evolution API Timeout during check-number');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Evolution API Timeout' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 504 }
+      );
+    }
     console.error('❌ Erro ao verificar número:', error);
-    
+
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400 
+        status: 400
       }
     );
   }

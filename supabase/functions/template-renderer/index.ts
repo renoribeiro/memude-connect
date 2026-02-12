@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,16 +14,28 @@ interface TemplateRenderRequest {
   previewMode?: boolean;
 }
 
-const handler = async (req: Request): Promise<Response> => {
+Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase environment variables');
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    let body: TemplateRenderRequest;
+    try {
+      body = await req.json();
+    } catch (e) {
+      throw new Error('Invalid JSON payload');
+    }
 
     const {
       templateId,
@@ -31,7 +43,7 @@ const handler = async (req: Request): Promise<Response> => {
       type,
       variables,
       previewMode = false
-    }: TemplateRenderRequest = await req.json();
+    } = body;
 
     let template;
 
@@ -58,9 +70,9 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     if (!template) {
-      return new Response(JSON.stringify({ 
+      return new Response(JSON.stringify({
         error: 'Template não encontrado',
-        rendered_content: null 
+        rendered_content: null
       }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -69,13 +81,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Renderizar template com variáveis
     let renderedContent = template.content;
-    
+
     // Adicionar variáveis do sistema
     const systemVariables = {
       data_atual: new Date().toLocaleDateString('pt-BR'),
-      hora_atual: new Date().toLocaleTimeString('pt-BR', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      hora_atual: new Date().toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit'
       }),
       empresa: 'Memude Imóveis'
     };
@@ -119,14 +131,12 @@ const handler = async (req: Request): Promise<Response> => {
 
   } catch (error: any) {
     console.error('Erro no template-renderer:', error);
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       error: error.message,
-      rendered_content: null 
+      rendered_content: null
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
-};
-
-serve(handler);
+});

@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { normalizePhoneNumber, isValidBrazilianPhone } from '../_shared/phoneHelpers.ts';
 
 const corsHeaders = {
@@ -38,7 +38,8 @@ interface WhatsAppMessage {
   instance_id?: string;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -46,12 +47,22 @@ serve(async (req) => {
   try {
     console.log('=== EVOLUTION API V2 - SEND WHATSAPP MESSAGE ===');
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    const body: WhatsAppMessage = await req.json();
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Missing Supabase environment variables');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let body: WhatsAppMessage;
+    try {
+      body = await req.json();
+    } catch (e) {
+      throw new Error('Invalid JSON payload');
+    }
+
     const { phone_number, message, media, buttons, list, lead_id, corretor_id } = body;
 
     if (!phone_number) {
@@ -113,7 +124,7 @@ serve(async (req) => {
           .select('key, value')
           .in('key', ['evolution_api_url', 'evolution_api_key', 'evolution_instance_name']);
 
-        const settingsMap = new Map(settings?.map(s => [s.key, s.value]) || []);
+        const settingsMap = new Map(settings?.map((s: any) => [s.key, s.value]) || []);
 
         apiUrl = settingsMap.get('evolution_api_url');
         apiKey = settingsMap.get('evolution_api_key');
@@ -177,7 +188,8 @@ serve(async (req) => {
         'Content-Type': 'application/json',
         'apikey': apiKey,
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000)
     });
 
     console.log('📥 Response status:', response.status);
@@ -252,6 +264,13 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+      console.error('❌ Evolution API Timeout');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Evolution API Timeout' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 504 }
+      );
+    }
     console.error('❌ Erro ao enviar mensagem:', error);
 
     return new Response(

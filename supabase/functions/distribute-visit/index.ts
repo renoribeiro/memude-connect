@@ -1,7 +1,7 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { normalizePhoneNumber } from '../_shared/phoneHelpers.ts';
-import { logStructured, createTimedLogger } from '../_shared/structuredLogger.ts';
+import { logStructured } from '../_shared/structuredLogger.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +12,8 @@ interface DistributeVisitRequest {
   visita_id: string;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -21,10 +22,14 @@ serve(async (req) => {
   const requestId = crypto.randomUUID();
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Missing Supabase environment variables');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // SECURITY: Verify caller is authenticated and is admin
     const authHeader = req.headers.get('Authorization');
@@ -108,7 +113,13 @@ serve(async (req) => {
       );
     }
 
-    const { visita_id }: DistributeVisitRequest = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (e) {
+      throw new Error('Invalid JSON payload');
+    }
+    const { visita_id }: DistributeVisitRequest = body;
 
     if (!visita_id) {
       throw new Error('visita_id é obrigatório');
@@ -122,7 +133,7 @@ serve(async (req) => {
       .select('key, value')
       .in('key', ['evolution_webhook_enabled', 'evolution_webhook_url']);
 
-    const webhookMap = new Map(webhookSettings?.map(s => [s.key, s.value]) || []);
+    const webhookMap = new Map(webhookSettings?.map((s: any) => [s.key, s.value]) || []);
     const webhookEnabled = webhookMap.get('evolution_webhook_enabled') === 'true';
     const webhookUrl = webhookMap.get('evolution_webhook_url');
 
@@ -141,7 +152,8 @@ serve(async (req) => {
           nome,
           telefone,
           email,
-          empreendimento_id
+          empreendimento_id,
+          observacoes
         ),
         empreendimento:empreendimentos (
           id,
@@ -172,7 +184,13 @@ serve(async (req) => {
       max_attempts: 5,
       timeout_minutes: 15,
       auto_distribution_enabled: true,
-      fallback_to_admin: true
+      fallback_to_admin: true,
+      // Default weights if not present in DB
+      construtora_weight: 1000,
+      bairro_weight: 500,
+      tipo_imovel_weight: 200,
+      nota_weight: 20, // Multiplier for 0-5 stars -> 0-100 points
+      visitas_weight: 50 // Penalty base
     };
 
     if (!distributionSettings.auto_distribution_enabled) {
@@ -180,7 +198,7 @@ serve(async (req) => {
     }
 
     // Buscar corretores elegíveis
-    const eligibleCorretores = await getEligibleCorretores(supabase, visita);
+    const eligibleCorretores = await getEligibleCorretores(supabase, visita, distributionSettings);
 
     if (!eligibleCorretores || eligibleCorretores.length === 0) {
       console.log('Nenhum corretor elegível encontrado');
@@ -204,12 +222,8 @@ serve(async (req) => {
     console.log(`Encontrados ${eligibleCorretores.length} corretores elegíveis`);
 
     // FASE: Limpar distribuições anteriores antes de iniciar nova
-    // Isso evita violação da constraint unique (visita_id, corretor_id, attempt_order)
-    // IMPORTANTE: Deletamos ao invés de cancelar porque a constraint considera a tupla
-    // (visita_id, corretor_id, attempt_order) independente do status
     console.log('🧹 Verificando e limpando distribuições anteriores...');
 
-    // Buscar TODAS as filas anteriores para esta visita (não apenas in_progress)
     const { data: previousQueues } = await supabase
       .from('visit_distribution_queue')
       .select('id')
@@ -219,8 +233,6 @@ serve(async (req) => {
       const queueIds = previousQueues.map((q: { id: string }) => q.id);
       console.log(`📋 Encontradas ${queueIds.length} filas anteriores para limpar`);
 
-      // DELETAR tentativas anteriores (não apenas cancelar)
-      // Necessário para evitar violação de constraint unique
       const { error: attemptDeleteError } = await supabase
         .from('visit_distribution_attempts')
         .delete()
@@ -232,7 +244,6 @@ serve(async (req) => {
         console.log('✅ Tentativas anteriores deletadas');
       }
 
-      // DELETAR filas anteriores também
       const { error: queueDeleteError } = await supabase
         .from('visit_distribution_queue')
         .delete()
@@ -269,7 +280,7 @@ serve(async (req) => {
       visita,
       distributionSettings,
       1,
-      queueEntry.id // Pass queue_id for FK relationship
+      queueEntry.id
     );
 
     // Criar notificação para o corretor
@@ -316,7 +327,7 @@ serve(async (req) => {
       }
     );
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro na função distribute-visit:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
@@ -328,7 +339,7 @@ serve(async (req) => {
   }
 });
 
-async function getEligibleCorretores(supabase: any, visita: any) {
+async function getEligibleCorretores(supabase: any, visita: any, settings: any) {
   console.log('Buscando corretores elegíveis...');
   console.log('Dados da visita para matching:', {
     empreendimento_id: visita.empreendimento?.id,
@@ -336,6 +347,13 @@ async function getEligibleCorretores(supabase: any, visita: any) {
     bairro_id: visita.empreendimento?.bairro_id,
     tipo_imovel: visita.empreendimento?.tipo_imovel
   });
+
+  // Extract weights from settings or use defaults (aligned with distribute-lead keys)
+  const W_CONSTRUTORA = settings.score_match_construtora ?? settings.construtora_weight ?? 1000;
+  const W_BAIRRO = settings.score_match_bairro ?? settings.bairro_weight ?? 500;
+  const W_TIPO_IMOVEL = settings.score_match_tipo_imovel ?? settings.tipo_imovel_weight ?? 200;
+  const W_NOTA = settings.score_nota_multiplier ?? settings.nota_weight ?? 20;
+  const W_VISITAS_PENALTY = settings.score_visitas_multiplier ?? settings.visitas_weight ?? 50;
 
   // Buscar todos os corretores ativos
   const { data: corretores, error } = await supabase
@@ -372,77 +390,61 @@ async function getEligibleCorretores(supabase: any, visita: any) {
   }
 
   console.log(`Total de corretores ativos encontrados: ${corretores.length}`);
+  console.log(`Pesos utilizados: Construtora=${W_CONSTRUTORA}, Bairro=${W_BAIRRO}, Tipo=${W_TIPO_IMOVEL}, Nota=${W_NOTA}, VisitaBonus=${W_VISITAS_PENALTY}`);
 
-  // Log detalhado de cada corretor
-  corretores.forEach((c, i) => {
-    console.log(`Corretor ${i + 1}: ${c.profiles.first_name} ${c.profiles.last_name}`, {
-      id: c.id,
-      whatsapp: c.whatsapp || 'NÃO INFORMADO',
-      telefone: c.telefone || 'NÃO INFORMADO',
-      status: c.status,
-      tipo_imovel: c.tipo_imovel,
-      total_visitas: c.total_visitas,
-      nota_media: c.nota_media,
-      construtoras_count: c.corretor_construtoras?.length || 0,
-      bairros_count: c.corretor_bairros?.length || 0
-    });
-  });
-
-  console.log(`Avaliando ${corretores.length} corretores...`);
-
-  // Aplicar algoritmo de scoring
-  const corretoresWithScore = [];
+  const corretoresWithScore: any[] = [];
 
   for (const corretor of corretores) {
     let score = 0;
     const matchDetails: string[] = [];
 
-    // 1ª PRIORIDADE: Construtora (1000 pontos)
+    // 1ª PRIORIDADE: Construtora
     if (visita.empreendimento?.construtora_id) {
       const hasConstrutorMatch = corretor.corretor_construtoras?.some(
         (cc: any) => cc.construtora_id === visita.empreendimento.construtora_id
       );
 
       if (hasConstrutorMatch) {
-        score += 1000;
+        score += W_CONSTRUTORA;
         matchDetails.push('Construtora Match');
       }
     }
 
-    // 2ª PRIORIDADE: Bairro (500 pontos)
+    // 2ª PRIORIDADE: Bairro
     if (visita.empreendimento?.bairro_id) {
       const hasBairroMatch = corretor.corretor_bairros?.some(
         (cb: any) => cb.bairro_id === visita.empreendimento.bairro_id
       );
 
       if (hasBairroMatch) {
-        score += 500;
+        score += W_BAIRRO;
         matchDetails.push('Bairro Match');
       }
     }
 
-    // 3ª PRIORIDADE: Tipo de Imóvel (200 pontos)
+    // 3ª PRIORIDADE: Tipo de Imóvel
     if (visita.empreendimento?.tipo_imovel) {
       const tipoImovelMatch =
         corretor.tipo_imovel === 'todos' ||
         corretor.tipo_imovel === visita.empreendimento.tipo_imovel;
 
       if (tipoImovelMatch) {
-        score += 200;
+        score += W_TIPO_IMOVEL;
         matchDetails.push('Tipo Imóvel Match');
       }
     }
 
-    // 4ª PRIORIDADE: Nota do Corretor (0-100 pontos)
-    const notaScore = Math.round((corretor.nota_media || 0) * 20);
+    // 4ª PRIORIDADE: Nota do Corretor
+    const notaScore = Math.round((corretor.nota_media || 0) * W_NOTA);
     score += notaScore;
     if (notaScore > 0) {
       matchDetails.push(`Nota: ${corretor.nota_media?.toFixed(1)}`);
     }
 
-    // 5ª PRIORIDADE: Menor número de visitas (0-50 pontos)
-    const visitasPenalty = Math.min(corretor.total_visitas || 0, 50);
-    const visitasScore = 50 - visitasPenalty;
+    // 5ª PRIORIDADE: Menor número de visitas (Penalidade/Bônus invertido)
+    // Quanto menos visitas, mais pontos (até o limite do peso definido)
+    const visitasPenalty = Math.min(corretor.total_visitas || 0, W_VISITAS_PENALTY);
+    const visitasScore = W_VISITAS_PENALTY - visitasPenalty;
     score += visitasScore;
     matchDetails.push(`Visitas: ${corretor.total_visitas || 0}`);
 
@@ -468,18 +470,6 @@ async function getEligibleCorretores(supabase: any, visita: any) {
     return hasWhatsApp;
   });
 
-  console.log(`Corretores com WhatsApp: ${corretoresWithWhatsApp.length} de ${sortedCorretores.length}`);
-
-  // Log dos top 5 corretores
-  console.log('=== TOP 5 CORRETORES ELEGÍVEIS ===');
-  corretoresWithWhatsApp.slice(0, 5).forEach((c, i) => {
-    console.log(`${i + 1}. ${c.profiles.first_name} ${c.profiles.last_name}`);
-    console.log(`   Score: ${c.score}`);
-    console.log(`   WhatsApp: ${c.whatsapp || c.telefone}`);
-    console.log(`   Matches: ${c.matchDetails}`);
-    console.log('---');
-  });
-
   return corretoresWithWhatsApp;
 }
 
@@ -490,18 +480,16 @@ async function sendDistributionMessage(
   visita: any,
   settings: any,
   attemptOrder: number,
-  queueId: string // Add queue_id parameter for FK relationship
+  queueId: string
 ) {
   console.log(`Enviando mensagem para corretor ${corretor.id}, tentativa ${attemptOrder}`);
 
   const timeoutAt = new Date();
   timeoutAt.setMinutes(timeoutAt.getMinutes() + (settings.timeout_minutes || 15));
 
-  // Formatar data e horário
   const dataVisita = new Date(visita.data_visita).toLocaleDateString('pt-BR');
   const horarioVisita = visita.horario_visita;
 
-  // Registrar tentativa
   const { data: attempt, error: attemptError } = await supabase
     .from('visit_distribution_attempts')
     .insert({
@@ -510,7 +498,7 @@ async function sendDistributionMessage(
       attempt_order: attemptOrder,
       timeout_at: timeoutAt.toISOString(),
       status: 'pending',
-      queue_id: queueId // Critical: FK for response processing
+      queue_id: queueId
     })
     .select()
     .single();
@@ -520,7 +508,6 @@ async function sendDistributionMessage(
     throw attemptError;
   }
 
-  // Buscar bairro para incluir nos dados
   let bairroNome = 'Não especificado';
   if (visita.empreendimento?.bairro_id) {
     const { data: bairro } = await supabase
@@ -531,7 +518,6 @@ async function sendDistributionMessage(
     if (bairro) bairroNome = bairro.nome;
   }
 
-  // Renderizar mensagem usando template
   let message = '';
   try {
     const { data: templateResult, error: templateError } = await supabase.functions.invoke(
@@ -558,24 +544,7 @@ async function sendDistributionMessage(
 
     if (templateError || !templateResult?.rendered_content) {
       console.error('Erro ao renderizar template:', templateError);
-      // Fallback para mensagem padrão
-      message = `🏠 *NOVA OPORTUNIDADE DE VISITA*
-
-*Cliente:* ${visita.lead.nome}
-*Telefone:* ${visita.lead.telefone}
-${visita.lead.email ? `*E-mail:* ${visita.lead.email}` : ''}
-*Empreendimento:* ${visita.empreendimento?.nome || 'Não especificado'}
-*Data:* ${dataVisita}
-*Horário:* ${horarioVisita}
-
-⏰ *Você tem ${settings.timeout_minutes || 15} minutos para responder.*
-
-➡️ *Como responder:*
-✅ Digite *SIM* para aceitar esta visita
-❌ Digite *NÃO* para recusar
-
-_Aguardamos sua resposta!_`;
-
+      message = getFallbackMessage(visita, dataVisita, horarioVisita, settings);
       console.log('Usando mensagem de fallback');
     } else {
       message = templateResult.rendered_content;
@@ -583,34 +552,13 @@ _Aguardamos sua resposta!_`;
     }
   } catch (error) {
     console.error('Erro ao chamar template-renderer:', error);
-    // Fallback para mensagem padrão
-    message = `🏠 *NOVA OPORTUNIDADE DE VISITA*
-
-*Cliente:* ${visita.lead.nome}
-*Telefone:* ${visita.lead.telefone}
-${visita.lead.email ? `*E-mail:* ${visita.lead.email}` : ''}
-*Empreendimento:* ${visita.empreendimento?.nome || 'Não especificado'}
-*Data:* ${dataVisita}
-*Horário:* ${horarioVisita}
-
-⏰ *Você tem ${settings.timeout_minutes || 15} minutos para responder.*
-
-➡️ *Como responder:*
-✅ Digite *SIM* para aceitar esta visita
-❌ Digite *NÃO* para recusar
-
-_Aguardamos sua resposta!_`;
+    message = getFallbackMessage(visita, dataVisita, horarioVisita, settings);
   }
 
-  // Usar whatsapp ou telefone como fallback - normalizar para Evolution API
   const rawPhoneNumber = corretor.whatsapp || corretor.telefone;
   const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
 
   console.log(`Enviando WhatsApp para: ${phoneNumber} (original: ${rawPhoneNumber})`);
-  console.log(`Corretor: ${corretor.profiles?.first_name || 'Unknown'} ${corretor.profiles?.last_name || ''}`);
-
-  // Fase 3: Verificar se o número existe no WhatsApp antes de enviar
-  console.log(`🔍 Verificando número WhatsApp: ${phoneNumber}`);
 
   try {
     const { data: checkResult, error: checkError } = await supabase.functions.invoke(
@@ -623,7 +571,6 @@ _Aguardamos sua resposta!_`;
     if (checkError || !checkResult?.success || !checkResult?.exists) {
       console.error(`❌ Número não existe no WhatsApp: ${phoneNumber}`, checkError);
 
-      // Registrar erro no communication_log
       await supabase.from('communication_log').insert({
         type: 'whatsapp',
         direction: 'enviado',
@@ -638,7 +585,6 @@ _Aguardamos sua resposta!_`;
         }
       });
 
-      // Marcar tentativa como falhada
       await supabase
         .from('visit_distribution_attempts')
         .update({
@@ -654,19 +600,10 @@ _Aguardamos sua resposta!_`;
     console.log(`✅ Número verificado com sucesso no WhatsApp`);
   } catch (verificationError) {
     console.error('⚠️ Erro ao verificar número, prosseguindo com envio:', verificationError);
-    // Continuar com envio mesmo se verificação falhar (fallback)
   }
 
   try {
-    // FASE 2: Envio de mensagem via evolution-send-whatsapp-v2 (APENAS TEXTO)
     console.log('🔄 Invocando evolution-send-whatsapp-v2...');
-    console.log('Payload:', {
-      phone_number: phoneNumber,
-      message: message,
-      lead_id: visita.lead.id,
-      corretor_id: corretor.id
-    });
-
     const { data: whatsappResult, error: whatsappError } = await supabase.functions.invoke(
       'evolution-send-whatsapp-v2',
       {
@@ -684,13 +621,9 @@ _Aguardamos sua resposta!_`;
       throw whatsappError;
     }
 
-    console.log('✅ Mensagem enviada com sucesso via evolution-send-whatsapp-v2');
-    console.log('Resultado completo:', JSON.stringify(whatsappResult, null, 2));
+    console.log('✅ Mensagem enviada com sucesso');
 
-    // Atualizar tentativa com ID da mensagem
-    // Evolution API V2 retorna: result.key.id
     const messageId = whatsappResult?.result?.key?.id || whatsappResult?.messageId || whatsappResult?.message_id;
-    console.log('Message ID extraído:', messageId);
 
     await supabase
       .from('visit_distribution_attempts')
@@ -701,15 +634,9 @@ _Aguardamos sua resposta!_`;
 
     console.log(`✅ Tentativa ${attemptOrder} registrada com sucesso`);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ ERRO CRÍTICO ao enviar mensagem WhatsApp:', error);
-    console.error('Detalhes do erro:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
 
-    // FASE 2: Logging robusto - registrar erro detalhado em communication_log
     try {
       await supabase
         .from('communication_log')
@@ -723,18 +650,15 @@ _Aguardamos sua resposta!_`;
           corretor_id: corretor.id,
           metadata: {
             error: error.message,
-            error_stack: error.stack,
             attempt_order: attemptOrder,
             visita_id: visitaId,
             timestamp: new Date().toISOString()
           }
         });
-      console.log('📝 Erro registrado em communication_log');
     } catch (logError) {
       console.error('❌ Erro ao registrar em communication_log:', logError);
     }
 
-    // Marcar tentativa como erro
     await supabase
       .from('visit_distribution_attempts')
       .update({
@@ -747,11 +671,29 @@ _Aguardamos sua resposta!_`;
   }
 }
 
+function getFallbackMessage(visita: any, dataVisita: string, horarioVisita: string, settings: any) {
+  return `🏠 *NOVA OPORTUNIDADE DE VISITA*
+
+*Cliente:* ${visita.lead.nome}
+*Telefone:* ${visita.lead.telefone}
+${visita.lead.email ? `*E-mail:* ${visita.lead.email}` : ''}
+*Empreendimento:* ${visita.empreendimento?.nome || 'Não especificado'}
+*Data:* ${dataVisita}
+*Horário:* ${horarioVisita}
+
+⏰ *Você tem ${settings.timeout_minutes || 15} minutos para responder.*
+
+➡️ *Como responder:*
+✅ Digite *SIM* para aceitar esta visita
+❌ Digite *NÃO* para recusar
+
+_Aguardamos sua resposta!_`;
+}
+
 async function notifyAdmin(supabase: any, visita: any, reason: string) {
   console.log('Notificando administrador:', reason);
 
   try {
-    // Buscar WhatsApp do admin
     const { data: adminSettings } = await supabase
       .from('system_settings')
       .select('value')
@@ -764,82 +706,27 @@ async function notifyAdmin(supabase: any, visita: any, reason: string) {
     }
 
     const dataVisita = new Date(visita.data_visita).toLocaleDateString('pt-BR');
-
-    // Renderizar mensagem usando template
-    let adminMessage = '';
-    try {
-      const { data: templateResult, error: templateError } = await supabase.functions.invoke(
-        'template-renderer',
-        {
-          body: {
-            category: 'admin_notification',
-            type: 'whatsapp',
-            variables: {
-              visita_id: visita.id,
-              nome_lead: visita.lead.nome,
-              empreendimento_nome: visita.empreendimento?.nome || 'Não especificado',
-              data_visita: dataVisita,
-              horario_visita: visita.horario_visita,
-              motivo_falha: reason
-            },
-            previewMode: false
-          }
-        }
-      );
-
-      if (templateError || !templateResult?.rendered_content) {
-        console.error('Erro ao renderizar template admin:', templateError);
-        // Fallback para mensagem padrão
-        adminMessage = `🚨 *ATENÇÃO: FALHA NA DISTRIBUIÇÃO AUTOMÁTICA*
+    const adminMessage = `🚨 *ATENÇÃO: FALHA NA DISTRIBUIÇÃO AUTOMÁTICA*
 
 *Visita ID:* ${visita.id}
 *Cliente:* ${visita.lead.nome}
-*Telefone:* ${visita.lead.telefone}
+*Motivo:* ${reason}
 *Empreendimento:* ${visita.empreendimento?.nome || 'Não especificado'}
 *Data:* ${dataVisita}
-*Horário:* ${visita.horario_visita}
 
-*Motivo da Falha:* ${reason}
+Acesse o painel para atribuir manualmente.`;
 
-⚠️ *Ação necessária:* É preciso atribuir manualmente um corretor para esta visita.`;
-      } else {
-        adminMessage = templateResult.rendered_content;
-        console.log('Template admin renderizado com sucesso');
-      }
-    } catch (error) {
-      console.error('Erro ao chamar template-renderer para admin:', error);
-      // Fallback
-      adminMessage = `🚨 *ATENÇÃO: FALHA NA DISTRIBUIÇÃO AUTOMÁTICA*
+    const rawPhoneNumber = adminSettings.value;
+    const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
 
-*Visita ID:* ${visita.id}
-*Cliente:* ${visita.lead.nome}
-*Telefone:* ${visita.lead.telefone}
-*Empreendimento:* ${visita.empreendimento?.nome || 'Não especificado'}
-*Data:* ${dataVisita}
-*Horário:* ${visita.horario_visita}
-
-*Motivo da Falha:* ${reason}
-
-⚠️ *Ação necessária:* É preciso atribuir manualmente um corretor para esta visita.`;
-    }
-
-    const { data: adminResult, error: adminError } = await supabase.functions.invoke('enhanced-whatsapp-sender', {
+    await supabase.functions.invoke('evolution-send-whatsapp-v2', {
       body: {
-        phone_number: adminSettings.value,
-        message: adminMessage,
-        lead_id: visita.lead.id,
-        corretor_id: null
+        phone_number: phoneNumber,
+        message: adminMessage
       }
     });
 
-    if (adminError) {
-      console.error('Erro ao enviar notificação ao admin:', adminError);
-      throw adminError;
-    }
-
-    console.log('Administrador notificado com sucesso:', adminResult);
-
   } catch (error) {
-    console.error('Erro ao notificar administrador:', error);
+    console.error('Erro ao notificar admin:', error);
   }
 }

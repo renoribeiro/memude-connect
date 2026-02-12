@@ -23,35 +23,73 @@ serve(async (req) => {
     // Log de diagnóstico para confirmar qual chave está sendo usada
     console.log('🔧 Supabase client initialized:', {
       url: !!Deno.env.get('SUPABASE_URL'),
-      keyType: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ? 'SERVICE_ROLE ✅' : 
-               Deno.env.get('SUPABASE_ANON_KEY') ? 'ANON ❌' : 'NONE ❌',
+      keyType: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ? 'SERVICE_ROLE ✅' :
+        Deno.env.get('SUPABASE_ANON_KEY') ? 'ANON ❌' : 'NONE ❌',
       timestamp: new Date().toISOString()
     });
 
-    // Get Evolution API settings
-    const { data: settings, error: settingsError } = await supabase
-      .from('system_settings')
-      .select('key, value')
-      .in('key', ['evolution_api_url', 'evolution_api_key', 'evolution_instance_name']);
+    const { instance_id } = await req.json().catch(() => ({}));
 
-    if (settingsError) throw settingsError;
+    let settingsMap: any = {};
+    let usingLegacySettings = false;
 
-    // FASE 2: Log da query de settings
-    console.log('Settings query result:', {
-      count: settings?.length,
-      keys: settings?.map(s => s.key),
-      hasData: !!settings && settings.length > 0
-    });
+    // 1. Try to get specific instance or active instance from DB
+    let instanceData;
 
-    // FASE 2: Verificar se a query retornou dados
-    if (!settings || settings.length === 0) {
-      throw new Error('Nenhuma configuração encontrada no banco de dados. Verifique as políticas RLS da tabela system_settings.');
+    if (instance_id) {
+      const { data } = await supabase
+        .from('evolution_instances')
+        .select('*')
+        .eq('id', instance_id)
+        .single();
+      instanceData = data;
+    } else {
+      // If no ID, try to find the first ACTIVE instance
+      const { data } = await supabase
+        .from('evolution_instances')
+        .select('*')
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+      instanceData = data;
     }
 
-    const settingsMap = settings.reduce((acc: any, setting) => {
-      acc[setting.key] = setting.value;
-      return acc;
-    }, {});
+    if (instanceData) {
+      settingsMap = {
+        evolution_api_url: instanceData.api_url,
+        evolution_api_key: instanceData.api_token,
+        evolution_instance_name: instanceData.instance_name
+      };
+      console.log(`Using Evolution Instance from DB: ${instanceData.name}`);
+    } else {
+      // 2. Fallback to system_settings
+      console.log('No active instance found in DB. Falling back to system_settings.');
+      usingLegacySettings = true;
+
+      const { data: settings, error: settingsError } = await supabase
+        .from('system_settings')
+        .select('key, value')
+        .in('key', ['evolution_api_url', 'evolution_api_key', 'evolution_instance_name']);
+
+      if (settingsError) throw settingsError;
+
+      if (!settings || settings.length === 0) {
+        throw new Error('Nenhuma configuração encontrada (Nem instância ativa, nem settings legados).');
+      }
+
+      settingsMap = settings.reduce((acc: any, setting) => {
+        acc[setting.key] = setting.value;
+        return acc;
+      }, {});
+    }
+
+    // FASE 2: Log da query de settings
+    console.log('Settings loaded:', {
+      source: usingLegacySettings ? 'system_settings' : 'evolution_instances',
+      instance: settingsMap.evolution_instance_name,
+      hasUrl: !!settingsMap.evolution_api_url,
+      hasKey: !!settingsMap.evolution_api_key
+    });
 
     // Validar configurações
     const requiredSettings = {
@@ -85,12 +123,12 @@ serve(async (req) => {
 
     // Check instance status - Evolution API V2
     const apiUrl = settingsMap.evolution_api_url.replace(/\/$/, '');
-    
+
     console.log('=== EVOLUTION API DEBUG ===');
     console.log('1. URL Base:', apiUrl);
     console.log('2. Instance Name:', settingsMap.evolution_instance_name);
     console.log('3. API Key present:', !!settingsMap.evolution_api_key);
-    
+
     // FASE 6: Adicionar timeout de 10 segundos
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -123,9 +161,9 @@ serve(async (req) => {
         },
         signal: controller.signal
       });
-      
+
       evolutionData = await evolutionResponse.json();
-      
+
       console.log('6. Response Status:', evolutionResponse.status);
       console.log('7. Response OK:', evolutionResponse.ok);
       console.log('8. Response Data Type:', Array.isArray(evolutionData) ? 'array' : typeof evolutionData);
@@ -137,7 +175,7 @@ serve(async (req) => {
         console.log('Specific instance not found, fetching all instances...');
         clearTimeout(timeoutId);
         const timeoutId2 = setTimeout(() => controller.abort(), 10000);
-        
+
         evolutionResponse = await fetch(`${apiUrl}/instance/fetchInstances`, {
           method: 'GET',
           headers: {
@@ -146,29 +184,29 @@ serve(async (req) => {
           },
           signal: controller.signal
         });
-        
+
         clearTimeout(timeoutId2);
-        
+
         if (evolutionResponse.ok) {
           const allInstances = await evolutionResponse.json();
           console.log('All instances fetched:', Array.isArray(allInstances) ? allInstances.length : 'not an array');
-          
+
           if (Array.isArray(allInstances)) {
             const targetInstance = allInstances.find(
               (inst: any) => inst.instance?.instanceName === settingsMap.evolution_instance_name
             );
-            
+
             if (!targetInstance) {
               throw new Error(`Instância "${settingsMap.evolution_instance_name}" não encontrada. Verifique o nome da instância nas configurações da Evolution API.`);
             }
-            
+
             evolutionData = targetInstance;
           } else {
             evolutionData = allInstances;
           }
         }
       }
-      
+
       clearTimeout(timeoutId);
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
@@ -184,15 +222,15 @@ serve(async (req) => {
         statusText: evolutionResponse.statusText,
         data: evolutionData
       });
-      
+
       if (evolutionResponse.status === 404) {
         throw new Error(`Endpoint não encontrado. Verifique se a URL está correta: ${apiUrl}/instance/fetchInstances`);
       }
-      
+
       if (evolutionResponse.status === 401 || evolutionResponse.status === 403) {
         throw new Error('API Key inválida. Verifique a chave de API nas configurações.');
       }
-      
+
       throw new Error(`Erro de conexão (${evolutionResponse.status}): ${evolutionData?.message || evolutionData?.error || 'API inacessível'}`);
     }
 
@@ -215,7 +253,7 @@ serve(async (req) => {
     }
 
     console.log('Connection check successful:', instanceInfo);
-    
+
     // FASE 4: Logging de debug do connectionStatus
     console.log('Instance validation:', {
       hasConnectionStatus: !!instanceInfo?.connectionStatus,
@@ -223,11 +261,11 @@ serve(async (req) => {
       instanceName: instanceInfo?.name,
       isConnected: instanceInfo?.connectionStatus === 'open'
     });
-    
+
     const isConnected = instanceInfo?.connectionStatus === 'open';
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
         connected: isConnected,
         instance_state: instanceInfo?.connectionStatus || 'unknown',
@@ -243,10 +281,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in evolution-check-connection function:', error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: false,
         connected: false,
-        error: error.message 
+        error: error.message
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

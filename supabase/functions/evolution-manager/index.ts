@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -12,18 +12,30 @@ interface ManagerRequest {
     payload?: any;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
+    // Handle CORS preflight requests
     if (req.method === 'OPTIONS') {
         return new Response(null, { headers: corsHeaders });
     }
 
     try {
-        const supabase = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        );
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-        const { action, instance_id, payload }: ManagerRequest = await req.json();
+        if (!supabaseUrl || !supabaseKey) {
+            throw new Error('Missing Supabase environment variables');
+        }
+
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        let body;
+        try {
+            body = await req.json();
+        } catch (e) {
+            throw new Error('Invalid JSON payload');
+        }
+
+        const { action, instance_id, payload } = body as ManagerRequest;
 
         console.log(`🤖 Evolution Manager: ${action}`, { instance_id });
 
@@ -44,29 +56,36 @@ serve(async (req) => {
             const url = `${instance.api_url.replace(/\/$/, '')}${endpoint}`;
             console.log(`📡 Evo Call: ${method} ${url}`);
 
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': instance.api_token
-                },
-                body: body ? JSON.stringify(body) : undefined
-            });
-
-            const text = await response.text();
-            let data;
             try {
-                data = text ? JSON.parse(text) : {};
-            } catch (e) {
-                // If not JSON, wrapped in object
-                data = { raw: text };
-            }
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': instance.api_token
+                    },
+                    body: body ? JSON.stringify(body) : undefined,
+                    signal: AbortSignal.timeout(15000) // 15s timeout
+                });
 
-            if (!response.ok) {
-                const errorMessage = data.message || data.error || (data.response?.message) || `Error ${response.status}: ${text}`;
-                throw new Error(errorMessage);
+                const text = await response.text();
+                let data;
+                try {
+                    data = text ? JSON.parse(text) : {};
+                } catch (e) {
+                    data = { raw: text };
+                }
+
+                if (!response.ok) {
+                    const errorMessage = data.message || data.error || (data.response?.message) || `Error ${response.status}: ${text}`;
+                    throw new Error(errorMessage);
+                }
+                return data;
+            } catch (err: any) {
+                if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+                    throw new Error(`Evolution API timed out after 15s`);
+                }
+                throw err;
             }
-            return data;
         };
 
         let result;
@@ -91,7 +110,8 @@ serve(async (req) => {
                             instanceName: instanceName,
                             token: payload.token,
                             qrcode: true
-                        })
+                        }),
+                        signal: AbortSignal.timeout(10000)
                     });
 
                     const text = await createResponse.text();
@@ -104,7 +124,6 @@ serve(async (req) => {
 
                     if (!createResponse.ok) {
                         const strData = JSON.stringify(createData).toLowerCase();
-                        // Check if instance already exists
                         if (strData.includes('already exists')) {
                             console.log(`Instance ${instanceName} already exists in Evolution. Proceeding to register in DB.`);
                         } else {
@@ -113,11 +132,13 @@ serve(async (req) => {
                         }
                     }
                 } catch (error: any) {
-                    // Check if instance already exists (fallback for network level checks or standard errors)
                     if (error.message?.toLowerCase().includes('already exists')) {
                         console.log(`Instance ${instanceName} already exists (caught error). Proceeding to register in DB.`);
                     } else {
-                        // If it fails to connect to Evolution, we might still want to register IF the user insists, but typically not.
+                        // Throw unless it's a fetch error that we want to bypass? No, creation failure is usually fatal.
+                        // But if we can't reach the API, we definitely shouldn't create in DB? 
+                        // Actually, user might want to register valid instance even if currently offline? 
+                        // Let's stick to throwing error for safety.
                         throw error;
                     }
                 }
@@ -148,16 +169,13 @@ serve(async (req) => {
             case 'connectionState':
                 const instState = await getInstance(instance_id!);
                 const stateData = await evoCall(instState, `/instance/connectionState/${instState.instance_name}`);
-                result = stateData; // { instance: ..., state: "open" | "close" | "connecting" }
+                result = stateData;
                 break;
 
             case 'fetch':
                 const instFetch = await getInstance(instance_id!);
                 const fetchData = await evoCall(instFetch, `/instance/fetchInstances?instanceName=${instFetch.instance_name}`);
-                // Evolution V2 returns array for this endpoint if no instanceName, or if instanceName is provided it returns object OR array of 1.
-                // Safely handle both.
                 if (Array.isArray(fetchData)) {
-                    // Try to find the specific instance in the array
                     result = fetchData.find((i: any) => i.instance?.instanceName === instFetch.instance_name || i.instanceName === instFetch.instance_name) || fetchData[0];
                 } else {
                     result = fetchData;
@@ -176,14 +194,12 @@ serve(async (req) => {
 
             case 'delete':
                 const instDelete = await getInstance(instance_id!);
-                // 1. Delete from Evolution
                 try {
                     await evoCall(instDelete, `/instance/delete/${instDelete.instance_name}`, 'DELETE');
                 } catch (e) {
                     console.warn('Failed to delete from Evolution (might not exist):', e);
                 }
 
-                // 2. Delete from DB
                 const { error: delError } = await supabase
                     .from('evolution_instances')
                     .delete()
@@ -203,7 +219,7 @@ serve(async (req) => {
         );
 
     } catch (error: any) {
-        console.error(`❌ Manager Error (${req.url}):`, error);
+        console.error(`❌ Manager Error:`, error);
         return new Response(
             JSON.stringify({ success: false, error: error.message }),
             {

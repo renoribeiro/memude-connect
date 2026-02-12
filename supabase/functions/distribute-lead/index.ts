@@ -102,9 +102,9 @@ serve(async (req) => {
       });
 
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: 'Muitas requisições. Aguarde um momento.',
-          retry_after: 60 
+          retry_after: 60
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -150,8 +150,8 @@ serve(async (req) => {
     }
 
     // Buscar corretores elegíveis
-    const corretores = await getEligibleCorretores(supabase, lead);
-    
+    const corretores = await getEligibleCorretores(supabase, lead, settings);
+
     if (corretores.length === 0) {
       console.log('Nenhum corretor elegível encontrado');
       await notifyAdmin(supabase, lead_id, 'Nenhum corretor elegível encontrado');
@@ -187,17 +187,17 @@ serve(async (req) => {
       lead_id: lead_id,
       request_id: requestId,
       execution_time_ms: Date.now() - startTime,
-      metadata: { 
+      metadata: {
         queue_id: queueItem.id,
-        eligible_corretores: corretores.length 
+        eligible_corretores: corretores.length
       }
     });
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         queue_id: queueItem.id,
-        eligible_corretores: corretores.length 
+        eligible_corretores: corretores.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -222,9 +222,9 @@ serve(async (req) => {
   }
 });
 
-async function getEligibleCorretores(supabase: any, lead: any) {
+async function getEligibleCorretores(supabase: any, lead: any, settings: any) {
   console.log('Buscando corretores elegíveis para lead:', lead.id);
-  
+
   // Buscar corretores ativos
   const { data: allCorretores, error } = await supabase
     .from('corretores')
@@ -247,6 +247,12 @@ async function getEligibleCorretores(supabase: any, lead: any) {
 
   const corretoresWithScore: CorretorWithScore[] = [];
 
+  // Configurações de pontuação (com valores padrão caso não estejam definidos)
+  const SCORE_MATCH_BAIRRO = settings?.score_match_bairro ?? 10000;
+  const SCORE_MATCH_CONSTRUTORA = settings?.score_match_construtora ?? 10000;
+  const SCORE_NOTA_MULTIPLIER = settings?.score_nota_multiplier ?? 100;
+  const SCORE_VISITAS_MULTIPLIER = settings?.score_visitas_multiplier ?? 10;
+
   for (const corretor of allCorretores) {
     let matchType: 'bairro' | 'construtora' | 'geral' = 'geral';
     let score = 0;
@@ -259,28 +265,21 @@ async function getEligibleCorretores(supabase: any, lead: any) {
     const hasConstrutorMatch = corretor.corretor_construtoras.some(
       (cc: any) => cc.construtora_id === lead.empreendimento.construtora_id
     );
-    
+
     if (hasBairroMatch) {
       matchType = 'bairro';
-      score += 10000;
+      score += SCORE_MATCH_BAIRRO;
     } else if (hasConstrutorMatch) {
       matchType = 'construtora';
-      score += 10000;
+      score += SCORE_MATCH_CONSTRUTORA;
     }
 
     // Prioridade 2: Reputação Profissional (Nota Média)
-    // Nota 5.0 * 100 = 500 pontos
-    score += (corretor.nota_media || 0) * 100;
+    score += (corretor.nota_media || 0) * SCORE_NOTA_MULTIPLIER;
 
     // Prioridade 3: Equilíbrio de Oportunidades (Menor número de visitas)
-    // Subtraímos pontos por visita para priorizar quem tem menos.
-    // 1000 pontos base - (10 pontos por visita). 
-    // Ex: 0 visitas = +1000 pts; 10 visitas = +900 pts.
-    const visitasPenalty = (corretor.total_visitas || 0) * 10;
+    const visitasPenalty = (corretor.total_visitas || 0) * SCORE_VISITAS_MULTIPLIER;
     score += (1000 - Math.min(visitasPenalty, 1000));
-
-    // Corretores sem compatibilidade geográfica/construtora terão score muito baixo (< 2000)
-    // e ficarão no final da fila.
 
     corretoresWithScore.push({
       ...corretor,
@@ -294,10 +293,10 @@ async function getEligibleCorretores(supabase: any, lead: any) {
 }
 
 async function startDistributionProcess(
-  supabase: any, 
-  queueId: string, 
-  corretores: CorretorWithScore[], 
-  lead: any, 
+  supabase: any,
+  queueId: string,
+  corretores: CorretorWithScore[],
+  lead: any,
   settings: any
 ) {
   console.log('Iniciando processo de distribuição para queue:', queueId);
@@ -346,7 +345,7 @@ async function sendDistributionMessage(
 
   // Fase 3: Verificar se o número existe no WhatsApp antes de enviar
   console.log(`🔍 Verificando número WhatsApp: ${corretor.whatsapp}`);
-  
+
   try {
     const { data: checkResult, error: checkError } = await supabase.functions.invoke(
       'evolution-check-number',
@@ -357,7 +356,7 @@ async function sendDistributionMessage(
 
     if (checkError || !checkResult?.success || !checkResult?.exists) {
       console.error(`❌ Número não existe no WhatsApp: ${corretor.whatsapp}`, checkError);
-      
+
       // Registrar erro no communication_log
       await supabase.from('communication_log').insert({
         type: 'whatsapp',
@@ -376,7 +375,7 @@ async function sendDistributionMessage(
       // Marcar tentativa como falhada
       await supabase
         .from('distribution_attempts')
-        .update({ 
+        .update({
           status: 'timeout',
           response_type: 'number_invalid',
           response_message: 'Número não existe no WhatsApp'
@@ -415,7 +414,7 @@ async function sendDistributionMessage(
 
     if (whatsappError) {
       console.error('Erro ao enviar WhatsApp:', whatsappError);
-      
+
       await logStructured(supabase, {
         level: 'error',
         function_name: 'distribute-lead',
@@ -426,14 +425,14 @@ async function sendDistributionMessage(
         error_stack: whatsappError.message,
         metadata: { phone_number: corretor.whatsapp }
       });
-      
+
       throw whatsappError;
     }
 
     // Atualizar tentativa com message_id
     await supabase
       .from('distribution_attempts')
-      .update({ 
+      .update({
         whatsapp_message_id: whatsappResult.message_id,
         status: 'pending'
       })
@@ -446,7 +445,7 @@ async function sendDistributionMessage(
       message: 'WhatsApp message sent successfully',
       corretor_id: corretor.id,
       lead_id: lead.id,
-      metadata: { 
+      metadata: {
         message_id: whatsappResult.message_id,
         phone_number: corretor.whatsapp,
         attempt_order: attemptOrder
@@ -454,7 +453,7 @@ async function sendDistributionMessage(
     });
 
     console.log('Mensagem enviada com sucesso para:', corretor.whatsapp);
-    
+
     // Criar notificação para o corretor
     if (corretor.profile_id) {
       const { data: profile } = await supabase
@@ -462,7 +461,7 @@ async function sendDistributionMessage(
         .select('user_id')
         .eq('id', corretor.profile_id)
         .single();
-      
+
       if (profile?.user_id) {
         await supabase.functions.invoke('create-notification', {
           body: {
@@ -486,11 +485,11 @@ async function sendDistributionMessage(
 
   } catch (error) {
     console.error('Erro ao enviar mensagem:', error);
-    
+
     // Marcar tentativa como falhada
     await supabase
       .from('distribution_attempts')
-      .update({ 
+      .update({
         status: 'timeout',
         response_type: 'timeout',
         response_message: `Erro no envio: ${error.message}`
@@ -500,11 +499,11 @@ async function sendDistributionMessage(
 }
 
 function formatDistributionMessage(lead: any, matchType: string): string {
-  const matchInfo = matchType === 'bairro' 
-    ? 'no seu bairro de atendimento' 
-    : matchType === 'construtora' 
-    ? 'da sua construtora' 
-    : 'disponível';
+  const matchInfo = matchType === 'bairro'
+    ? 'no seu bairro de atendimento'
+    : matchType === 'construtora'
+      ? 'da sua construtora'
+      : 'disponível';
 
   return `🏠 *NOVA OPORTUNIDADE DE VISITA*
 
@@ -524,13 +523,13 @@ Para recusar, responda: *NÃO*
 
 async function notifyAdmin(supabase: any, leadId: string, reason: string) {
   console.log('Notificando admin:', reason);
-  
+
   // Aqui você pode implementar notificação para admin
   // Por exemplo, enviar email ou WhatsApp para o administrador
-  
+
   await supabase
     .from('distribution_queue')
-    .update({ 
+    .update({
       status: 'failed',
       failure_reason: reason,
       completed_at: new Date().toISOString()

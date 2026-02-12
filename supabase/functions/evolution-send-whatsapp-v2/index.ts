@@ -75,7 +75,7 @@ serve(async (req) => {
     const { instance_id } = body;
 
     if (instance_id) {
-      // Fetch from evolution_instances table
+      // Fetch specific instance
       const { data: instance, error } = await supabase
         .from('evolution_instances')
         .select('*')
@@ -89,20 +89,36 @@ serve(async (req) => {
       apiUrl = instance.api_url;
       apiKey = instance.api_token;
       instanceName = instance.instance_name;
-      console.log(`Using Evolution Instance: ${instance.name} (${instanceName})`);
+      console.log(`Using specific Evolution Instance: ${instance.name} (${instanceName})`);
 
     } else {
-      // Legacy: Fetch from system_settings
-      const { data: settings } = await supabase
-        .from('system_settings')
-        .select('key, value')
-        .in('key', ['evolution_api_url', 'evolution_api_key', 'evolution_instance_name']);
+      // No instance_id provided. Try to find an ACTIVE instance first.
+      const { data: activeInstance } = await supabase
+        .from('evolution_instances')
+        .select('*')
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
 
-      const settingsMap = new Map(settings?.map(s => [s.key, s.value]) || []);
+      if (activeInstance) {
+        apiUrl = activeInstance.api_url;
+        apiKey = activeInstance.api_token;
+        instanceName = activeInstance.instance_name;
+        console.log(`Using ACTIVE Evolution Instance: ${activeInstance.name} (${instanceName})`);
+      } else {
+        // Fallback: Fetch from system_settings (Legacy)
+        console.log('No active instance found in DB. Falling back to system_settings.');
+        const { data: settings } = await supabase
+          .from('system_settings')
+          .select('key, value')
+          .in('key', ['evolution_api_url', 'evolution_api_key', 'evolution_instance_name']);
 
-      apiUrl = settingsMap.get('evolution_api_url');
-      apiKey = settingsMap.get('evolution_api_key');
-      instanceName = settingsMap.get('evolution_instance_name');
+        const settingsMap = new Map(settings?.map(s => [s.key, s.value]) || []);
+
+        apiUrl = settingsMap.get('evolution_api_url');
+        apiKey = settingsMap.get('evolution_api_key');
+        instanceName = settingsMap.get('evolution_instance_name');
+      }
     }
 
     if (!apiUrl || !apiKey || !instanceName) {

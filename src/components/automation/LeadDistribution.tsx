@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Settings, Users, Zap, Clock, Target, ArrowRight, Play, Pause } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Settings, Users, Zap, Clock, Target, ArrowRight, Play, Pause, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -45,6 +46,55 @@ export function LeadDistribution() {
   const queryClient = useQueryClient();
   const [selectedRule, setSelectedRule] = useState<string | null>(null);
   const [autoDistribution, setAutoDistribution] = useState(true);
+  const [isSavingWeights, setIsSavingWeights] = useState(false);
+
+  // Fetch distribution settings (weights)
+  const { data: distributionSettings, refetch: refetchSettings } = useQuery({
+    queryKey: ['distribution-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('distribution_settings')
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data as any; // Cast to any to handle new columns not yet in types
+    }
+  });
+
+  // Update weights mutation
+  const updateWeightsMutation = useMutation({
+    mutationFn: async (newSettings: any) => {
+      setIsSavingWeights(true);
+      const { error } = await supabase
+        .from('distribution_settings')
+        .update(newSettings)
+        .eq('id', distributionSettings.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchSettings();
+      toast({
+        title: "Pesos atualizados",
+        description: "As configurações de pontuação foram salvas com sucesso.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao salvar",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setIsSavingWeights(false);
+    }
+  });
+
+  const handleSaveWeight = (key: string, value: string) => {
+    const numValue = parseInt(value) || 0;
+    updateWeightsMutation.mutate({ [key]: numValue });
+  };
 
   // Fetch distribution rules
   const { data: rules = [], isLoading: isLoadingRules } = useQuery({
@@ -93,7 +143,7 @@ export function LeadDistribution() {
           profiles(first_name, last_name)
         `)
         .eq('status', 'ativo');
-      
+
       if (error) throw error;
 
       // Get current lead count for each corretor
@@ -101,7 +151,7 @@ export function LeadDistribution() {
         .from('leads')
         .select('corretor_designado_id')
         .in('status', ['novo', 'buscando_corretor', 'corretor_designado']);
-      
+
       if (leadError) throw leadError;
 
       const leadCountMap = leadCounts.reduce((acc: Record<string, number>, lead) => {
@@ -128,12 +178,12 @@ export function LeadDistribution() {
     mutationFn: async ({ leadId, corretorId }: { leadId: string; corretorId: string }) => {
       const { error } = await supabase
         .from('leads')
-        .update({ 
+        .update({
           corretor_designado_id: corretorId,
           status: 'corretor_designado'
         })
         .eq('id', leadId);
-      
+
       if (error) throw error;
 
       // Log the distribution
@@ -172,23 +222,23 @@ export function LeadDistribution() {
         .select('*')
         .in('status', ['novo', 'buscando_corretor'])
         .is('corretor_designado_id', null);
-      
+
       if (error) throw error;
 
       const distributions = [];
-      
+
       for (const lead of pendingLeads) {
         // Find available corretor using round-robin
-        const availableCorretores = availability.filter(c => 
+        const availableCorretores = availability.filter(c =>
           c.available && c.current_leads < c.max_leads
         );
-        
+
         if (availableCorretores.length > 0) {
           // Simple round-robin assignment
           const selectedCorretor = availableCorretores[
             distributions.length % availableCorretores.length
           ];
-          
+
           distributions.push({
             leadId: lead.id,
             corretorId: selectedCorretor.corretor_id
@@ -228,7 +278,7 @@ export function LeadDistribution() {
 
   const getAvailabilityStatus = (corretor: CorretorAvailability) => {
     const percentage = (corretor.current_leads / corretor.max_leads) * 100;
-    
+
     if (percentage >= 100) return { status: 'Lotado', variant: 'destructive' as const, color: 'text-red-600' };
     if (percentage >= 80) return { status: 'Quase Lotado', variant: 'secondary' as const, color: 'text-yellow-600' };
     if (percentage >= 50) return { status: 'Moderado', variant: 'outline' as const, color: 'text-blue-600' };
@@ -248,7 +298,7 @@ export function LeadDistribution() {
             Configure regras e monitore a distribuição de leads para corretores
           </p>
         </div>
-        
+
         <div className="flex items-center gap-4">
           <div className="flex items-center space-x-2">
             <Switch
@@ -258,7 +308,7 @@ export function LeadDistribution() {
             />
             <Label htmlFor="auto-distribution">Distribuição Automática</Label>
           </div>
-          
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button className="flex items-center gap-2">
@@ -275,7 +325,7 @@ export function LeadDistribution() {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction 
+                <AlertDialogAction
                   onClick={() => autoDistributeMutation.mutate()}
                   disabled={autoDistributeMutation.isPending}
                 >
@@ -309,7 +359,7 @@ export function LeadDistribution() {
                       {rule.active ? 'Ativa' : 'Inativa'}
                     </Badge>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -327,7 +377,7 @@ export function LeadDistribution() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Método:</span>
@@ -350,7 +400,7 @@ export function LeadDistribution() {
                 </div>
               </div>
             ))}
-            
+
             <Button variant="outline" className="w-full">
               <Settings className="w-4 h-4 mr-2" />
               Nova Regra
@@ -377,26 +427,25 @@ export function LeadDistribution() {
                       {status.status}
                     </Badge>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Leads Atuais</span>
                       <span>{corretor.current_leads}/{corretor.max_leads}</span>
                     </div>
-                    
+
                     <div className="w-full bg-muted rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full transition-all ${
-                          status.variant === 'destructive' ? 'bg-red-500' :
+                        className={`h-2 rounded-full transition-all ${status.variant === 'destructive' ? 'bg-red-500' :
                           status.variant === 'secondary' ? 'bg-yellow-500' :
-                          'bg-green-500'
-                        }`}
+                            'bg-green-500'
+                          }`}
                         style={{
                           width: `${Math.min((corretor.current_leads / corretor.max_leads) * 100, 100)}%`
                         }}
                       />
                     </div>
-                    
+
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Performance:</span>
                       <span className="font-medium">
@@ -407,6 +456,73 @@ export function LeadDistribution() {
                 </div>
               );
             })}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        {/* Distribution Weights Configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5" />
+              Pesos de Distribuição (Score)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="space-y-2">
+                <Label>Match de Bairro (+Pts)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    defaultValue={distributionSettings?.score_match_bairro ?? 10000}
+                    onBlur={(e) => handleSaveWeight('score_match_bairro', e.target.value)}
+                  />
+                  {isSavingWeights && <Loader2 className="w-4 h-4 animate-spin my-auto" />}
+                </div>
+                <p className="text-xs text-muted-foreground">Pontos se corretor atende o bairro</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Match de Construtora (+Pts)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    defaultValue={distributionSettings?.score_match_construtora ?? 10000}
+                    onBlur={(e) => handleSaveWeight('score_match_construtora', e.target.value)}
+                  />
+                  {isSavingWeights && <Loader2 className="w-4 h-4 animate-spin my-auto" />}
+                </div>
+                <p className="text-xs text-muted-foreground">Pontos se corretor atende construtora</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Multiplicador de Nota (x)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    defaultValue={distributionSettings?.score_nota_multiplier ?? 100}
+                    onBlur={(e) => handleSaveWeight('score_nota_multiplier', e.target.value)}
+                  />
+                  {isSavingWeights && <Loader2 className="w-4 h-4 animate-spin my-auto" />}
+                </div>
+                <p className="text-xs text-muted-foreground">Nota (0-5) multiplicada por X</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Penalidade por Visita (x)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    defaultValue={distributionSettings?.score_visitas_multiplier ?? 10}
+                    onBlur={(e) => handleSaveWeight('score_visitas_multiplier', e.target.value)}
+                  />
+                  {isSavingWeights && <Loader2 className="w-4 h-4 animate-spin my-auto" />}
+                </div>
+                <p className="text-xs text-muted-foreground">Pontos reduzidos por visita atual</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -424,7 +540,7 @@ export function LeadDistribution() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -436,7 +552,7 @@ export function LeadDistribution() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -448,7 +564,7 @@ export function LeadDistribution() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -461,6 +577,6 @@ export function LeadDistribution() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </div >
   );
 }

@@ -1,5 +1,7 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { logIntegration } from '../_shared/integration-logger.ts';
+import { DbEvolutionInstance } from '../_shared/types/evolution.ts';
+
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -52,9 +54,14 @@ Deno.serve(async (req) => {
         };
 
         // Helper to make Evolution API calls
-        const evoCall = async (instance: any, endpoint: string, method: string = 'GET', body?: any) => {
+
+        const evoCall = async (instance: DbEvolutionInstance, endpoint: string, method: string = 'GET', body?: any) => {
             const url = `${instance.api_url.replace(/\/$/, '')}${endpoint}`;
             console.log(`📡 Evo Call: ${method} ${url}`);
+
+            const startTime = Date.now();
+            let responseStatus = 0;
+            let responseData: any = null;
 
             try {
                 const response = await fetch(url, {
@@ -67,24 +74,39 @@ Deno.serve(async (req) => {
                     signal: AbortSignal.timeout(15000) // 15s timeout
                 });
 
+                responseStatus = response.status;
                 const text = await response.text();
-                let data;
+
                 try {
-                    data = text ? JSON.parse(text) : {};
+                    responseData = text ? JSON.parse(text) : {};
                 } catch (e) {
-                    data = { raw: text };
+                    responseData = { raw: text };
                 }
 
                 if (!response.ok) {
-                    const errorMessage = data.message || data.error || (data.response?.message) || `Error ${response.status}: ${text}`;
+                    const errorMessage = responseData.message || responseData.error || (responseData.response?.message) || `Error ${response.status}: ${text}`;
                     throw new Error(errorMessage);
                 }
-                return data;
+                return responseData;
             } catch (err: any) {
                 if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+                    responseData = { error: 'Timeout' };
                     throw new Error(`Evolution API timed out after 15s`);
                 }
+                responseData = { error: err.message };
                 throw err;
+            } finally {
+                // Log the integration event
+                await logIntegration(supabase, {
+                    service: 'evolution-api',
+                    endpoint: endpoint,
+                    method: method,
+                    status_code: responseStatus,
+                    request_payload: body,
+                    response_body: responseData,
+                    duration_ms: Date.now() - startTime,
+                    metadata: { instance_name: instance.instance_name }
+                });
             }
         };
 

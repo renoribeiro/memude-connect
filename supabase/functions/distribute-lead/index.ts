@@ -395,7 +395,7 @@ async function sendDistributionMessage(
   const message = formatDistributionMessage(lead, corretor.match_type);
 
   try {
-    // Enviar via WhatsApp usando evolution-send-whatsapp-v2 com botões
+    // Enviar via WhatsApp usando evolution-send-whatsapp-v2 com botões (Async)
     const { data: whatsappResult, error: whatsappError } = await supabase.functions.invoke(
       'evolution-send-whatsapp-v2',
       {
@@ -407,7 +407,8 @@ async function sendDistributionMessage(
             { id: 'reject_lead', text: '❌ RECUSAR' }
           ],
           lead_id: lead.id,
-          corretor_id: corretor.id
+          corretor_id: corretor.id,
+          async: true
         }
       }
     );
@@ -429,11 +430,13 @@ async function sendDistributionMessage(
       throw whatsappError;
     }
 
-    // Atualizar tentativa com message_id
+    // Atualizar tentativa com message_id (ou queue_id)
+    const messageId = whatsappResult.queue_id || whatsappResult.message_id || whatsappResult.key?.id;
+
     await supabase
       .from('distribution_attempts')
       .update({
-        whatsapp_message_id: whatsappResult.message_id,
+        whatsapp_message_id: messageId,
         status: 'pending'
       })
       .eq('id', attempt.id);

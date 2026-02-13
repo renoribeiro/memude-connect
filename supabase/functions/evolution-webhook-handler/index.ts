@@ -1,6 +1,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { processIncomingMessage } from '../_shared/distribution-logic.ts';
+import { logIntegration } from '../_shared/integration-logger.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,6 +20,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    const startTime = Date.now();
     const webhookData = await req.json();
     const { event, data } = webhookData;
 
@@ -93,8 +95,20 @@ Deno.serve(async (req) => {
 
         if (aiHandled) {
           console.log('✅ Mensagem processada pelo AI Agent');
+          const respBody = { success: true, ai_handled: true };
+          await logIntegration(supabase, {
+            service: 'evolution-api',
+            endpoint: 'webhook',
+            method: 'POST',
+            status_code: 200,
+            request_payload: webhookData,
+            response_body: respBody,
+            duration_ms: Date.now() - startTime,
+            metadata: { event: webhookData.event, instance: webhookData.instance, handled_by: 'ai_agent' }
+          });
+
           return new Response(
-            JSON.stringify({ success: true, ai_handled: true }),
+            JSON.stringify(respBody),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -147,10 +161,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const finalRespBody = { success: true };
+    await logIntegration(supabase, {
+      service: 'evolution-api',
+      endpoint: 'webhook',
+      method: 'POST',
+      status_code: 200,
+      request_payload: webhookData,
+      response_body: finalRespBody,
+      duration_ms: Date.now() - startTime,
+      metadata: { event: webhookData?.event, instance: webhookData?.instance }
+    });
+
+    return new Response(JSON.stringify(finalRespBody), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
     console.error('Webhook error:', error);
+    // Try logged if supabase is available? We might not have supabase instance if error is early.
+    // But we are inside try where supabase is created.
+    // However, if createClient fails, we go here.
+    // We can try to log if possible, but for now simple return.
     return new Response(JSON.stringify({ error: error.message }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

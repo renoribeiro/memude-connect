@@ -1,6 +1,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { normalizePhoneNumber, isValidBrazilianPhone } from '../_shared/phoneHelpers.ts';
+import { logIntegration } from '../_shared/integration-logger.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,6 +37,7 @@ interface WhatsAppMessage {
   lead_id?: string;
   corretor_id?: string;
   instance_id?: string;
+  async?: boolean;
 }
 
 Deno.serve(async (req) => {
@@ -63,7 +65,7 @@ Deno.serve(async (req) => {
       throw new Error('Invalid JSON payload');
     }
 
-    const { phone_number, message, media, buttons, list, lead_id, corretor_id } = body;
+    const { phone_number, message, media, buttons, list, lead_id, corretor_id, async } = body;
 
     if (!phone_number) {
       throw new Error('Número de telefone é obrigatório');
@@ -76,6 +78,59 @@ Deno.serve(async (req) => {
 
     if (!isValidBrazilianPhone(normalizedPhone)) {
       throw new Error('Número de telefone inválido');
+    }
+
+    // 0. Async Queue Handling
+    if (async) {
+      console.log('🔄 Async mode: Enqueuing message for', normalizedPhone);
+
+      // Determine message body for queue
+      const queuePayload = {
+        type: media ? 'media' : list ? 'list' : (buttons && buttons.length > 0) ? 'buttons' : 'text',
+        message: message,
+        media: media,
+        list: list,
+        buttons: buttons // Stored for worker
+      };
+
+      const { data: queueItem, error: queueError } = await supabase
+        .from('message_queue')
+        .insert({
+          instance_id: body.instance_id || null, // If null, worker picks active
+          phone_number: normalizedPhone,
+          message_body: queuePayload,
+          status: 'pending',
+          priority: 0
+        })
+        .select('id')
+        .single();
+
+      if (queueError) throw queueError;
+
+      // Log in communication_log as 'queued'
+      await supabase.from('communication_log').insert({
+        type: 'whatsapp',
+        direction: 'enviado',
+        phone_number: normalizedPhone,
+        content: message || (media ? 'Media (Queued)' : 'List (Queued)'),
+        status: 'queued',
+        corretor_id: corretor_id || null,
+        lead_id: lead_id || null,
+        metadata: {
+          queue_id: queueItem.id,
+          async: true
+        }
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          queued: true,
+          queue_id: queueItem.id,
+          message: 'Message queued for async delivery'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // 1. Get instance configuration
@@ -164,6 +219,20 @@ Deno.serve(async (req) => {
         buttonText: list.buttonText,
         sections: list.sections,
       };
+    } else if (buttons && buttons.length > 0) {
+      // Enviar botões
+      endpoint = `/message/sendButtons/${instanceName}`;
+      payload = {
+        number: normalizedPhone,
+        title: 'Opções', // Title is often required
+        description: message || '',
+        buttons: buttons.map(b => ({
+          id: b.id,
+          displayText: b.text // Evolution usually expects "displayText" for Baileys, or "text" depending on version. Using "displayText" is safer for buttons.
+        }))
+      };
+      // Note: Some Evolution versions use "text" instead of "displayText" inside button object. 
+      // Evolution V2 often uses { id, displayText } for reply buttons.
     } else {
       // Enviar mensagem de texto simples
       // IMPORTANTE: Evolution API V2 aceita APENAS "number" e "text" nas rotas /message/sendText
@@ -182,86 +251,111 @@ Deno.serve(async (req) => {
       headers: { 'Content-Type': 'application/json', 'apikey': '***' }
     });
 
-    const response = await fetch(`${apiUrl}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': apiKey,
-      },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(15000)
-    });
+    const startTime = Date.now();
+    let responseStatus = 0;
+    let responseBody: any = null;
 
-    console.log('📥 Response status:', response.status);
-    const responseText = await response.text();
-    console.log('📥 Response body:', responseText);
+    try {
+      const response = await fetch(`${apiUrl}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': apiKey,
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000)
+      });
 
-    if (!response.ok) {
-      console.error('❌ Evolution API error:', responseText);
+      responseStatus = response.status;
+      console.log('📥 Response status:', response.status);
+      const responseText = await response.text();
+      console.log('📥 Response body:', responseText);
 
-      // Log failure in communication_log for debugging
+      try {
+        responseBody = responseText ? JSON.parse(responseText) : { raw: responseText };
+      } catch {
+        responseBody = { raw: responseText };
+      }
+
+      if (!response.ok) {
+        console.error('❌ Evolution API error:', responseText);
+
+        // Log failure in communication_log for debugging
+        await supabase.from('communication_log').insert({
+          type: 'whatsapp',
+          direction: 'enviado',
+          phone_number: normalizedPhone,
+          content: message || `Mídia/Lista falhou`,
+          status: 'failed',
+          corretor_id: corretor_id || null,
+          lead_id: lead_id || null,
+          metadata: {
+            error: responseText,
+            status_code: response.status,
+            endpoint: endpoint,
+            api_version: 'v2'
+          }
+        });
+
+        throw new Error(`Erro ao enviar mensagem (status ${response.status}): ${responseText}`);
+      }
+
+      console.log('✅ Message sent successfully:', responseBody);
+
+      // Registrar no communication_log
+      const logContent = media
+        ? `Mídia (${media.type}): ${media.caption || media.url}`
+        : list
+          ? `Lista: ${list.title}`
+          : message || '';
+
       await supabase.from('communication_log').insert({
         type: 'whatsapp',
         direction: 'enviado',
         phone_number: normalizedPhone,
-        content: message || `Mídia/Lista falhou`,
-        status: 'failed',
+        content: logContent,
+        message_id: responseBody?.key?.id || responseBody?.messageId || null,
+        status: 'sent',
         corretor_id: corretor_id || null,
         lead_id: lead_id || null,
         metadata: {
-          error: responseText,
-          status_code: response.status,
+          media_type: media?.type,
+          has_list: !!list,
+          api_version: 'v2',
           endpoint: endpoint,
-          api_version: 'v2'
+          response: responseBody,
         }
       });
 
-      throw new Error(`Erro ao enviar mensagem (status ${response.status}): ${responseText}`);
-    }
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message_id: responseBody?.key?.id || responseBody?.messageId,
+          phone_number: normalizedPhone,
+          result: responseBody
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
-    let result;
-    try {
-      result = JSON.parse(responseText);
-    } catch {
-      result = { raw: responseText };
-    }
-
-    console.log('✅ Message sent successfully:', result);
-
-    // Registrar no communication_log
-    const logContent = media
-      ? `Mídia (${media.type}): ${media.caption || media.url}`
-      : list
-        ? `Lista: ${list.title}`
-        : message || '';
-
-    await supabase.from('communication_log').insert({
-      type: 'whatsapp',
-      direction: 'enviado',
-      phone_number: normalizedPhone,
-      content: logContent,
-      message_id: result.key?.id || result.messageId || null,
-      status: 'sent',
-      corretor_id: corretor_id || null,
-      lead_id: lead_id || null,
-      metadata: {
-        media_type: media?.type,
-        has_list: !!list,
-        api_version: 'v2',
+    } catch (error: any) {
+      responseBody = { error: error.message };
+      throw error;
+    } finally {
+      await logIntegration(supabase, {
+        service: 'evolution-api',
         endpoint: endpoint,
-        response: result,
-      }
-    });
+        method: 'POST',
+        status_code: responseStatus,
+        request_payload: payload,
+        response_body: responseBody,
+        duration_ms: Date.now() - startTime,
+        metadata: {
+          instance_name: instanceName,
+          phone: normalizedPhone
+        }
+      });
+    }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message_id: result.key?.id || result.messageId,
-        phone_number: normalizedPhone,
-        result
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
 
   } catch (error: any) {
     if (error.name === 'AbortError' || error.name === 'TimeoutError') {

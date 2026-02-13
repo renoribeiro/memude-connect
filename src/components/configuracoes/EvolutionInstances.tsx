@@ -9,8 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Zap, AlertTriangle, Info, RefreshCw, LogOut, QrCode } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Zap, AlertTriangle, Info, RefreshCw, LogOut, QrCode, BarChart2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { EvolutionStatusDashboard } from "./EvolutionStatusDashboard";
 
 export interface EvolutionInstance {
     id: string;
@@ -29,6 +30,7 @@ export function EvolutionInstances() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingInstance, setEditingInstance] = useState<EvolutionInstance | null>(null);
     const [testingConnection, setTestingConnection] = useState<string | null>(null);
+    const [selectedInstanceForStatus, setSelectedInstanceForStatus] = useState<EvolutionInstance | null>(null);
     const [qrCodeData, setQrCodeData] = useState<string | null>(null);
     const [showQrModal, setShowQrModal] = useState(false);
 
@@ -240,6 +242,14 @@ export function EvolutionInstances() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
+                                                onClick={() => setSelectedInstanceForStatus(instance)}
+                                                title="Dashboard de Status"
+                                            >
+                                                <BarChart2 className="w-4 h-4 text-blue-600" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
                                                 onClick={() => testConnection(instance)}
                                                 disabled={!!testingConnection}
                                                 title="Verificar Conexão"
@@ -383,6 +393,28 @@ export function EvolutionInstances() {
                 </Dialog>
 
             </CardContent>
+
+            {/* Dialog for Status Dashboard */}
+            <Dialog open={!!selectedInstanceForStatus} onOpenChange={(open) => !open && setSelectedInstanceForStatus(null)}>
+                <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Status da Instância: {selectedInstanceForStatus?.name}</DialogTitle>
+                        <DialogDescription>
+                            Monitoramento em tempo real e logs de integração.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex-1 overflow-y-auto pr-2">
+                        {selectedInstanceForStatus && (
+                            <EvolutionStatusDashboard instanceId={selectedInstanceForStatus.id} />
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="secondary" onClick={() => setSelectedInstanceForStatus(null)}>
+                            Fechar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }

@@ -603,7 +603,7 @@ async function sendDistributionMessage(
   }
 
   try {
-    console.log('🔄 Invocando evolution-send-whatsapp-v2...');
+    console.log('🔄 Invocando evolution-send-whatsapp-v2 (Async Mode)...');
     const { data: whatsappResult, error: whatsappError } = await supabase.functions.invoke(
       'evolution-send-whatsapp-v2',
       {
@@ -611,7 +611,8 @@ async function sendDistributionMessage(
           phone_number: phoneNumber,
           message: message,
           lead_id: visita.lead.id,
-          corretor_id: corretor.id
+          corretor_id: corretor.id,
+          async: true
         }
       }
     );
@@ -621,9 +622,9 @@ async function sendDistributionMessage(
       throw whatsappError;
     }
 
-    console.log('✅ Mensagem enviada com sucesso');
+    console.log('✅ Mensagem enfileirada/enviada com sucesso');
 
-    const messageId = whatsappResult?.result?.key?.id || whatsappResult?.messageId || whatsappResult?.message_id;
+    const messageId = whatsappResult?.result?.key?.id || whatsappResult?.queue_id || whatsappResult?.messageId || whatsappResult?.message_id;
 
     await supabase
       .from('visit_distribution_attempts')

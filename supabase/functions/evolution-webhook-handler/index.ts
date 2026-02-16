@@ -5,8 +5,23 @@ import { logIntegration } from '../_shared/integration-logger.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
 };
+
+// EVO-02: In-memory dedup cache (survives within a single function invocation cold-start window)
+const processedMessages = new Map<string, number>();
+const DEDUP_TTL_MS = 60_000; // 60 seconds
+
+function isDuplicate(messageId: string): boolean {
+  const now = Date.now();
+  // Clean expired entries
+  for (const [key, ts] of processedMessages) {
+    if (now - ts > DEDUP_TTL_MS) processedMessages.delete(key);
+  }
+  if (processedMessages.has(messageId)) return true;
+  processedMessages.set(messageId, now);
+  return false;
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -20,12 +35,40 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // EVO-07: Webhook authentication
+    const webhookSecret = req.headers.get('x-webhook-secret');
+    if (webhookSecret) {
+      const { data: secretSetting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'evolution_webhook_secret')
+        .maybeSingle();
+
+      if (secretSetting?.value && webhookSecret !== secretSetting.value) {
+        console.warn('🚫 Webhook authentication failed: invalid secret');
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     const startTime = Date.now();
     const webhookData = await req.json();
     const { event, data } = webhookData;
 
     // Log completo do payload para debug
     console.log('📨 Webhook FULL payload:', JSON.stringify(webhookData).substring(0, 2000));
+
+    // EVO-02: Extract messageId for deduplication
+    const messageId = data?.key?.id || data?.message?.key?.id || null;
+    if (messageId && isDuplicate(messageId)) {
+      console.log(`⏭️ Duplicate message skipped: ${messageId}`);
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: 'duplicate' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Comparação case-insensitive para evento (Evolution API pode enviar MESSAGES_UPSERT ou messages.upsert)
     const eventLower = (event || '').toLowerCase().replace('.', '_');
@@ -177,11 +220,11 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Webhook error:', error);
-    // Try logged if supabase is available? We might not have supabase instance if error is early.
-    // But we are inside try where supabase is created.
-    // However, if createClient fails, we go here.
-    // We can try to log if possible, but for now simple return.
-    return new Response(JSON.stringify({ error: error.message }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // EVO-01: Return proper HTTP error code so Evolution API can retry delivery
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });
 

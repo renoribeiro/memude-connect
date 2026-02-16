@@ -97,7 +97,8 @@ Deno.serve(async (req) => {
       .map(([key]) => key);
 
     if (missingSettings.length > 0) {
-      console.error('Missing settings details:', requiredSettings);
+      // EVO-08: Only log which keys are missing, never log actual values
+      console.error('Missing settings:', missingSettings.join(', '));
       throw new Error(`Configurações vazias ou faltando: ${missingSettings.join(', ')}.`);
     }
 
@@ -198,6 +199,7 @@ Deno.serve(async (req) => {
 
   } catch (error: any) {
     console.error('Error in evolution-check-connection:', error);
+    // EVO-03: Return proper HTTP error status so errors are surfaced correctly
     return new Response(
       JSON.stringify({
         success: false,
@@ -206,7 +208,7 @@ Deno.serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200, // Return 200 to show error in UI gracefully
+        status: 500,
       }
     );
   }

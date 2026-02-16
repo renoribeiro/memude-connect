@@ -201,13 +201,15 @@ export function isCacheable(queryText: string, intent: string): boolean {
         }
     }
 
-    // Cache informational queries
+    // AI-09: Cache informational queries — intent names match intent-detector output
     const cacheableIntents = [
-        'property_inquiry',
-        'general_inquiry',
+        'property_search',
+        'property_details',
         'greeting',
         'location_inquiry',
-        'price_inquiry'
+        'price_inquiry',
+        'general_question',
+        'conversation'
     ];
 
     return cacheableIntents.includes(intent);

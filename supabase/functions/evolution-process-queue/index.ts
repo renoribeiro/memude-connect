@@ -153,10 +153,21 @@ Deno.serve(async (req) => {
 
                 if (processStatus === 'failed') {
                     updateData.error_message = errorMsg;
-                    // Retry logic? For now strict fail, but manual retry possible.
-                    // Or set status='pending' if attempts < 3
                     if ((item.attempts || 0) < 3) {
                         updateData.status = 'pending'; // Retry later
+                    } else {
+                        // EVO-06: Dead-letter alerting — log permanently failed messages
+                        await supabase.from('agent_activity_log').insert({
+                            activity_type: 'dead_letter',
+                            activity_data: {
+                                queue_id: item.id,
+                                phone_number: item.phone_number,
+                                error: errorMsg,
+                                attempts: (item.attempts || 0) + 1,
+                                message_type: item.message_type || 'text',
+                                alert: 'Message permanently failed after max retries'
+                            }
+                        }).catch((e: any) => console.warn('Dead-letter log error:', e));
                     }
                 }
 

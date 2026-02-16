@@ -394,14 +394,43 @@ function buildSimpleSummary(messages: any[]): string {
 }
 
 async function generateConversationSummary(messages: any[]): Promise<string> {
-    // For now, build a simple summary
-    // In production, this could use GPT to generate a summary
-    const userMessages = messages.filter(m => m.role === 'user').slice(-5);
+    // AI-05: Build a rich summary with actionable insights
+    const userMessages = messages.filter(m => m.role === 'user');
+    const assistantMessages = messages.filter(m => m.role === 'assistant');
+    const recentUserMessages = userMessages.slice(-5);
     const topics = new Set<string>();
+    const entities: string[] = [];
 
-    userMessages.forEach(m => {
+    recentUserMessages.forEach(m => {
         if (m.intent_detected) topics.add(m.intent_detected);
+        if (m.action_data) {
+            const data = typeof m.action_data === 'string' ? JSON.parse(m.action_data) : m.action_data;
+            Object.entries(data).forEach(([k, v]) => {
+                if (v && k !== 'qualification') entities.push(`${k}: ${v}`);
+            });
+        }
     });
 
-    return `Conversa com ${messages.length} mensagens. Tópicos abordados: ${[...topics].join(', ') || 'conversa geral'}.`;
+    // Determine engagement level
+    const avgUserMsgLen = userMessages.length > 0
+        ? userMessages.reduce((sum: number, m: any) => sum + (m.content?.length || 0), 0) / userMessages.length
+        : 0;
+    const engagement = avgUserMsgLen > 100 ? 'alto engajamento' : avgUserMsgLen > 30 ? 'engajamento moderado' : 'respostas curtas';
+
+    // Detect sentiment trend from recent messages
+    const lastSentiment = recentUserMessages[recentUserMessages.length - 1]?.sentiment || null;
+
+    let summary = `Conversa com ${messages.length} mensagens (${userMessages.length} do cliente, ${assistantMessages.length} do assistente). ${engagement}.`;
+
+    if (topics.size > 0) {
+        summary += ` Tópicos: ${[...topics].join(', ')}.`;
+    }
+    if (entities.length > 0) {
+        summary += ` Dados coletados: ${entities.slice(0, 5).join('; ')}.`;
+    }
+    if (lastSentiment && lastSentiment !== 'neutral') {
+        summary += ` Sentimento recente: ${lastSentiment}.`;
+    }
+
+    return summary;
 }

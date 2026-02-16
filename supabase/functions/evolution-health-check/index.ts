@@ -74,7 +74,8 @@ Deno.serve(async (req) => {
 
                     try {
                         const restartUrl = `${instance.api_url.replace(/\/$/, '')}/instance/restart/${instance.instance_name}`;
-                        await fetch(restartUrl, {
+                        // EVO-04: Capture actual response status code
+                        const restartResponse = await fetch(restartUrl, {
                             method: 'PUT',
                             headers: {
                                 'apikey': instance.api_token,
@@ -83,14 +84,14 @@ Deno.serve(async (req) => {
                             signal: AbortSignal.timeout(10000)
                         });
 
-                        console.log(`✅ Auto-restart command sent for ${instance.instance_name}`);
+                        console.log(`✅ Auto-restart command sent for ${instance.instance_name} (status: ${restartResponse.status})`);
 
-                        // Log restart attempt
+                        // Log restart attempt with actual status code
                         await logIntegration(supabase, {
                             service: 'evolution-api',
                             endpoint: '/instance/restart',
                             method: 'PUT',
-                            status_code: 200, // Assumed if no error thrown
+                            status_code: restartResponse.status,
                             duration_ms: Date.now() - startTime,
                             metadata: {
                                 instance_name: instance.instance_name,

@@ -25,6 +25,48 @@ const SUPPORTED_MODELS = {
   gemini: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
 };
 
+// AI-04: Typed interfaces for key processor parameters
+interface AgentConfig {
+  id: string;
+  is_active: boolean;
+  ai_model: string;
+  llm_provider?: 'openai' | 'gemini';
+  system_prompt?: string;
+  persona_name?: string;
+  persona_role?: string;
+  greeting_message?: string;
+  max_tokens?: number;
+  temperature?: number;
+  humanization_enabled?: boolean;
+  use_casual_language?: boolean;
+  split_long_messages?: boolean;
+  typing_delay_min_ms?: number;
+  typing_delay_max_ms?: number;
+  regional_expressions?: string[];
+  trigger_keywords?: string[];
+  evolution_instance_id?: string;
+}
+
+interface ConversationData {
+  id: string;
+  phone_number?: string;
+  customer_name?: string;
+  current_stage?: string;
+  qualification_data?: Record<string, any>;
+  presented_properties?: string[];
+  lead_score?: number;
+  total_messages?: number;
+  lead_id?: string | null;
+  ai_lead_qualification?: Array<{ id: string }>;
+  last_intent?: string;
+}
+
+interface MessageRecord {
+  role: 'user' | 'assistant';
+  content: string;
+  intent_detected?: string;
+}
+
 // P3: Module-level API key cache (avoids DB fetch on every request)
 const apiKeyCache: Map<string, { value: string; expires: number }> = new Map();
 
@@ -51,7 +93,7 @@ async function getApiKey(supabase: any, keyName: string): Promise<string | null>
 // HUMANIZATION FUNCTIONS
 // ============================================================
 
-function calculateTypingDelay(messageLength: number, agent: any): number {
+function calculateTypingDelay(messageLength: number, agent: AgentConfig): number {
   const minDelay = agent.typing_delay_min_ms || 2000;
   const maxDelay = agent.typing_delay_max_ms || 8000;
 
@@ -62,7 +104,7 @@ function calculateTypingDelay(messageLength: number, agent: any): number {
   return Math.max(minDelay, Math.min(baseDelay + variation, maxDelay));
 }
 
-function splitLongMessage(text: string, agent: any): string[] {
+function splitLongMessage(text: string, agent: AgentConfig): string[] {
   if (!agent.split_long_messages) return [text];
 
   const words = text.split(' ');
@@ -86,7 +128,7 @@ function splitLongMessage(text: string, agent: any): string[] {
   return chunks.length > 0 ? chunks : [text];
 }
 
-function addHumanTouches(text: string, agent: any): string {
+function addHumanTouches(text: string, agent: AgentConfig): string {
   if (!agent.use_casual_language) return text;
 
   let result = text;
@@ -106,7 +148,7 @@ function addHumanTouches(text: string, agent: any): string {
   }
 
   // 5% chance: Add regional expression from agent config
-  if (Math.random() < 0.05 && agent.regional_expressions?.length > 0) {
+  if (Math.random() < 0.05 && agent.regional_expressions && agent.regional_expressions.length > 0) {
     const expr = agent.regional_expressions[
       Math.floor(Math.random() * agent.regional_expressions.length)
     ];
@@ -123,7 +165,7 @@ function addHumanTouches(text: string, agent: any): string {
 // ULTRA-HUMAN SYSTEM PROMPT BUILDER
 // ============================================================
 
-function buildUltraHumanSystemPrompt(agent: any, conversation: any, objectionContext?: string, enrichedContext?: string): string {
+function buildUltraHumanSystemPrompt(agent: AgentConfig, conversation: ConversationData | null, objectionContext?: string, enrichedContext?: string): string {
   const personaName = agent.persona_name || 'Ana';
   const personaRole = agent.persona_role || 'Consultora de Imóveis';
 
@@ -200,8 +242,8 @@ ${agent.system_prompt ? `\n## Instruções Adicionais do Admin\n${agent.system_p
     prompt += `\nDados coletados: ${JSON.stringify(conversation.qualification_data)}`;
   }
 
-  if (conversation?.presented_properties?.length > 0) {
-    prompt += `\nImóveis já mostrados: ${conversation.presented_properties.length}`;
+  if ((conversation?.presented_properties?.length ?? 0) > 0) {
+    prompt += `\nImóveis já mostrados: ${conversation!.presented_properties!.length}`;
   }
 
   // Extract customer name if available
@@ -305,6 +347,28 @@ serve(async (req) => {
 
     if (!conversationId) {
       throw new Error('Falha ao criar/recuperar conversa');
+    }
+
+    // AI-07: Rate limiting — prevent LLM abuse from rapid-fire messages
+    const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
+    const { count: recentCount } = await supabase
+      .from('agent_messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('conversation_id', conversationId)
+      .eq('role', 'user')
+      .gte('created_at', oneMinuteAgo);
+
+    if ((recentCount || 0) > 5) {
+      console.warn(`⚡ Rate limit triggered for ${phone_number}: ${recentCount} messages in last 60s`);
+      return new Response(
+        JSON.stringify({
+          handled: true,
+          throttled: true,
+          reason: 'rate_limited',
+          message: 'Muitas mensagens em sequência. Aguarde um momento.'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // 3. Get conversation history + data in parallel (P3: reduce N+1 sequential queries)
@@ -825,7 +889,7 @@ function detectProvider(modelName: string): 'openai' | 'gemini' {
 }
 
 // ARQ-04: Conversation stage progression logic
-function determineConversationStage(conversation: any, messageCount: number): string {
+function determineConversationStage(conversation: ConversationData | null, messageCount: number): string {
   const qualData = conversation?.qualification_data || {};
   const presentedCount = conversation?.presented_properties?.length || 0;
   const leadScore = conversation?.lead_score || 0;
@@ -946,7 +1010,9 @@ async function callGemini(
   const result = await chat.sendMessage(currentMessage);
   const response = result.response;
 
-  const estimatedTokens = Math.ceil((systemPrompt.length + currentMessage.length + (response.text()?.length || 0)) / 4);
+  // AI-03: Use actual token count from Gemini API response metadata when available
+  const actualTokens = response.usageMetadata?.totalTokenCount;
+  const estimatedTokens = actualTokens || Math.ceil((systemPrompt.length + currentMessage.length + (response.text()?.length || 0)) / 4);
 
   return {
     response: response.text() || 'Desculpe, não consegui processar sua mensagem.',

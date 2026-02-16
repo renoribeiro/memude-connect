@@ -166,6 +166,12 @@ Deno.serve(async (req) => {
                 }
 
                 // 2. Register in DB
+                // EVO-05: Deactivate all other instances before creating a new active one
+                await supabase
+                    .from('evolution_instances')
+                    .update({ is_active: false })
+                    .neq('id', 'new'); // Updates all existing rows
+
                 const { data: newInstance, error: dbError } = await supabase
                     .from('evolution_instances')
                     .insert({
@@ -216,10 +222,13 @@ Deno.serve(async (req) => {
 
             case 'delete':
                 const instDelete = await getInstance(instance_id!);
+                // EVO-09: Surface Evolution API delete errors as warnings instead of swallowing
+                let evoDeleteWarning: string | null = null;
                 try {
                     await evoCall(instDelete, `/instance/delete/${instDelete.instance_name}`, 'DELETE');
-                } catch (e) {
-                    console.warn('Failed to delete from Evolution (might not exist):', e);
+                } catch (e: any) {
+                    evoDeleteWarning = e.message || 'Failed to delete from Evolution API';
+                    console.warn('Evolution API delete warning:', evoDeleteWarning);
                 }
 
                 const { error: delError } = await supabase
@@ -228,7 +237,10 @@ Deno.serve(async (req) => {
                     .eq('id', instance_id);
 
                 if (delError) throw delError;
-                result = { success: true };
+                result = {
+                    success: true,
+                    ...(evoDeleteWarning ? { warning: `Instance removed from DB. Evolution API note: ${evoDeleteWarning}` } : {})
+                };
                 break;
 
             default:

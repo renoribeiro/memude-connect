@@ -14,6 +14,7 @@ import Leads from "./pages/admin/Leads";
 import Corretores from "./pages/admin/Corretores";
 import Empreendimentos from "./pages/admin/Empreendimentos";
 import Visitas from "./pages/admin/Visitas";
+import Vendas from "./pages/admin/Vendas";
 import Comunicacoes from "./pages/admin/Comunicacoes";
 import Relatorios from "./pages/admin/Relatorios";
 import Configuracoes from "./pages/admin/Configuracoes";
@@ -23,6 +24,7 @@ import Monitoring from "./pages/admin/Monitoring";
 import AIAgents from "./pages/admin/AIAgents";
 import MeusLeads from "./pages/corretor/MeusLeads";
 import MinhasVisitas from "./pages/corretor/MinhasVisitas";
+import MinhasComissoes from "./pages/corretor/MinhasComissoes";
 import Perfil from "./pages/corretor/Perfil";
 import NotFound from "./pages/NotFound";
 
@@ -74,6 +76,11 @@ const App = () => (
                   <Visitas />
                 </ProtectedRoute>
               } />
+              <Route path="/vendas" element={
+                <ProtectedRoute requireAdmin>
+                  <Vendas />
+                </ProtectedRoute>
+              } />
               <Route path="/comunicacoes" element={
                 <ProtectedRoute>
                   <Comunicacoes />
@@ -119,6 +126,11 @@ const App = () => (
               <Route path="/minhas-visitas" element={
                 <ProtectedRoute requireCorretor>
                   <MinhasVisitas />
+                </ProtectedRoute>
+              } />
+              <Route path="/minhas-comissoes" element={
+                <ProtectedRoute requireCorretor>
+                  <MinhasComissoes />
                 </ProtectedRoute>
               } />
               <Route path="/perfil" element={

@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Save, Settings, MessageSquare, Smartphone, Mail, Database, Zap, Users, CheckCircle, XCircle, AlertTriangle, Loader2, Info, Calendar, Copy, Activity } from "lucide-react";
+import { Save, Settings, MessageSquare, Smartphone, Mail, Database, Zap, Users, CheckCircle, XCircle, AlertTriangle, Loader2, Info, Calendar, Copy, Activity, DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
@@ -298,7 +298,7 @@ export default function Configuracoes() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="geral" className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
               Geral
@@ -318,6 +318,10 @@ export default function Configuracoes() {
             <TabsTrigger value="automacao-visitas" className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
               Automação Visitas
+            </TabsTrigger>
+            <TabsTrigger value="financeiro" className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4" />
+              Financeiro
             </TabsTrigger>
           </TabsList>
 
@@ -1027,6 +1031,76 @@ export default function Configuracoes() {
               <VisitDistributionSettings />
               <VisitDistributionMonitor />
             </div>
+          </TabsContent>
+
+          <TabsContent value="financeiro" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5" />
+                  Comissões e Impostos
+                </CardTitle>
+                <CardDescription>
+                  Configure os valores padrão para cálculo de comissões de vendas.
+                  Esses valores são pré-preenchidos ao criar uma nova venda, mas podem ser ajustados individualmente.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="default_commission_percentage">Comissão Padrão (%)</Label>
+                    <Input
+                      id="default_commission_percentage"
+                      type="number"
+                      step="0.1"
+                      placeholder="6.0"
+                      defaultValue={getSetting('default_commission_percentage')}
+                      disabled={isSaving === 'default_commission_percentage'}
+                      onBlur={(e) => handleSaveSetting('default_commission_percentage', e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Percentual de comissão sobre o valor do imóvel
+                    </p>
+                    {isSaving === 'default_commission_percentage' && <Loader2 className="w-4 h-4 animate-spin" />}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tax_rate_percentage">Alíquota de Imposto (%)</Label>
+                    <Input
+                      id="tax_rate_percentage"
+                      type="number"
+                      step="0.1"
+                      placeholder="20.0"
+                      defaultValue={getSetting('tax_rate_percentage')}
+                      disabled={isSaving === 'tax_rate_percentage'}
+                      onBlur={(e) => handleSaveSetting('tax_rate_percentage', e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Imposto descontado da comissão bruta antes da divisão
+                    </p>
+                    {isSaving === 'tax_rate_percentage' && <Loader2 className="w-4 h-4 animate-spin" />}
+                  </div>
+                </div>
+
+                <Separator />
+
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Como funciona o cálculo:</strong>
+                    <br />
+                    Valor do Imóvel × Comissão (%) = Comissão Bruta
+                    <br />
+                    Comissão Bruta - Imposto (%) = Comissão Líquida
+                    <br />
+                    Comissão Líquida ÷ 2 = Corretor (50%) + MeMude (50%)
+                    <br />
+                    <span className="text-xs text-muted-foreground mt-1 block">
+                      Em vendas diretas, 100% da comissão líquida vai para a MeMude.
+                    </span>
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

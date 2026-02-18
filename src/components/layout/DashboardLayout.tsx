@@ -24,7 +24,8 @@ import {
   UserCog,
   TrendingUp,
   Activity,
-  Bot
+  Bot,
+  DollarSign
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import Logo from '@/components/ui/logo';
@@ -42,6 +43,7 @@ const navigation = {
     { name: 'Gestão de Usuários', href: '/admin/users', icon: UserCog },
     { name: 'Empreendimentos', href: '/empreendimentos', icon: Building2 },
     { name: 'Visitas', href: '/visitas', icon: Calendar },
+    { name: 'Vendas', href: '/vendas', icon: DollarSign },
     { name: 'Comunicações', href: '/comunicacoes', icon: MessageSquare },
     { name: 'Relatórios', href: '/relatorios', icon: BarChart3 },
     { name: 'Analytics', href: '/admin/analytics', icon: TrendingUp },
@@ -54,6 +56,7 @@ const navigation = {
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Meus Leads', href: '/meus-leads', icon: Users },
     { name: 'Minhas Visitas', href: '/minhas-visitas', icon: Calendar },
+    { name: 'Minhas Comissões', href: '/minhas-comissoes', icon: DollarSign },
     { name: 'Meu Perfil', href: '/perfil', icon: UserCheck },
   ]
 };

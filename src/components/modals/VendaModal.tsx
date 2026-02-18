@@ -36,8 +36,7 @@ interface VendaModalProps {
     vendaId: string | null;
 }
 
-vendaId: string | null;
-}
+
 
 const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
     const { profile } = useAuth();

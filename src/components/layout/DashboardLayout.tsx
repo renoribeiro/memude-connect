@@ -25,7 +25,8 @@ import {
   TrendingUp,
   Activity,
   Bot,
-  DollarSign
+  DollarSign,
+  Kanban
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import Logo from '@/components/ui/logo';
@@ -39,6 +40,7 @@ const navigation = {
   admin: [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Leads', href: '/leads', icon: Users },
+    { name: 'CRM', href: '/crm', icon: Kanban },
     { name: 'Corretores', href: '/corretores', icon: UserCheck },
     { name: 'Gestão de Usuários', href: '/admin/users', icon: UserCog },
     { name: 'Empreendimentos', href: '/empreendimentos', icon: Building2 },

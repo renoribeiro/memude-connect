@@ -22,6 +22,7 @@ import SincronizacaoWordpress from "./pages/admin/SincronizacaoWordpress";
 import Analytics from "./pages/admin/Analytics";
 import Monitoring from "./pages/admin/Monitoring";
 import AIAgents from "./pages/admin/AIAgents";
+import CRM from "./pages/admin/CRM";
 import MeusLeads from "./pages/corretor/MeusLeads";
 import MinhasVisitas from "./pages/corretor/MinhasVisitas";
 import MinhasComissoes from "./pages/corretor/MinhasComissoes";
@@ -59,6 +60,11 @@ const App = () => (
               <Route path="/leads" element={
                 <ProtectedRoute>
                   <Leads />
+                </ProtectedRoute>
+              } />
+              <Route path="/crm" element={
+                <ProtectedRoute>
+                  <CRM />
                 </ProtectedRoute>
               } />
               <Route path="/corretores" element={

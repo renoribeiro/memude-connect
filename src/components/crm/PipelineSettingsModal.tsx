@@ -203,9 +203,9 @@ export default function PipelineSettingsModal({
                                         </button>
                                     </div>
 
-                                    <div className="relative">
+                                    <div className="relative flex-shrink-0">
                                         <button
-                                            className="w-6 h-6 rounded-full border-2 border-white shadow-sm flex-shrink-0"
+                                            className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
                                             style={{ backgroundColor: stage.cor }}
                                             onClick={() =>
                                                 setColorPickerIndex(colorPickerIndex === index ? null : index)
@@ -214,14 +214,14 @@ export default function PipelineSettingsModal({
                                             <Palette className="h-3 w-3 text-white/70 mx-auto" />
                                         </button>
                                         {colorPickerIndex === index && (
-                                            <div className="absolute top-8 left-0 z-50 bg-white border rounded-lg shadow-lg p-2 grid grid-cols-5 gap-1">
+                                            <div className="absolute top-full left-0 mt-2 z-[100] bg-white border border-gray-200 rounded-xl shadow-xl p-3 grid grid-cols-5 gap-2 w-max animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95">
                                                 {PRESET_COLORS.map((color) => (
                                                     <button
                                                         key={color}
-                                                        className="w-6 h-6 rounded-full border-2 hover:scale-110 transition-transform"
+                                                        className="w-6 h-6 rounded-full transition-transform hover:scale-110"
                                                         style={{
                                                             backgroundColor: color,
-                                                            borderColor: stage.cor === color ? '#000' : 'transparent',
+                                                            boxShadow: stage.cor === color ? `0 0 0 2px white, 0 0 0 4px ${color}` : 'none'
                                                         }}
                                                         onClick={() => {
                                                             updateStage(index, 'cor', color);

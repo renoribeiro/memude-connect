@@ -59,9 +59,15 @@ export default function CRM() {
     const leadsData = crmLeads.data ?? [];
     const automationsData = automations.data ?? [];
 
+    // Filter leads that actually belong to one of the current stages
+    const validLeadsData = useMemo(() => {
+        const stageIds = new Set(stagesData.map(s => s.id));
+        return leadsData.filter(l => l.stage_id && stageIds.has(l.stage_id));
+    }, [leadsData, stagesData]);
+
     // Stats
-    const totalLeads = leadsData.length;
-    const leadsThisWeek = leadsData.filter((l) => {
+    const totalLeads = validLeadsData.length;
+    const leadsThisWeek = validLeadsData.filter((l) => {
         const d = new Date(l.created_at);
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
@@ -69,22 +75,22 @@ export default function CRM() {
     }).length;
 
     const avgTimeInStage = useMemo(() => {
-        if (leadsData.length === 0) return '0d';
-        const totalHours = leadsData.reduce((acc, l) => {
+        if (validLeadsData.length === 0) return '0d';
+        const totalHours = validLeadsData.reduce((acc, l) => {
             const diff = Date.now() - new Date(l.moved_at).getTime();
             return acc + diff / (1000 * 60 * 60);
         }, 0);
-        const avgHours = totalHours / leadsData.length;
+        const avgHours = totalHours / validLeadsData.length;
         if (avgHours < 24) return `${Math.round(avgHours)}h`;
         return `${Math.round(avgHours / 24)}d`;
-    }, [leadsData]);
+    }, [validLeadsData]);
 
-    const totalEstimatedValue = leadsData.reduce(
+    const totalEstimatedValue = validLeadsData.reduce(
         (acc, l) => acc + (l.valor_estimado || 0),
         0
     );
 
-    const existingLeadIds = leadsData.map((l) => l.lead_id);
+    const existingLeadIds = validLeadsData.map((l) => l.lead_id);
 
     const currentDetailStage = detailLead
         ? stagesData.find((s) => s.id === detailLead.stage_id) ?? null
@@ -245,7 +251,7 @@ export default function CRM() {
                 ) : (
                     <KanbanBoard
                         stages={stagesData}
-                        leads={leadsData}
+                        leads={validLeadsData}
                         onMoveLead={(crmLeadId, newStageId, newPosition) => {
                             moveLeadToStage.mutate({ crmLeadId, newStageId, newPosition });
                         }}

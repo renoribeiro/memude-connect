@@ -10,9 +10,11 @@ import CrmLeadDetailPanel from '@/components/crm/CrmLeadDetailPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Settings, Zap, UserPlus, PlusCircle, Users, TrendingUp, Clock, Target } from 'lucide-react';
 import type { CrmLead } from '@/hooks/useCrmPipeline';
+import CreatePipelineModal from '@/components/crm/CreatePipelineModal';
 
 export default function CRM() {
     const { profile } = useAuth();
@@ -22,6 +24,7 @@ export default function CRM() {
     const [showAddLead, setShowAddLead] = useState(false);
     const [detailLead, setDetailLead] = useState<CrmLead | null>(null);
     const [showDetail, setShowDetail] = useState(false);
+    const [showCreatePipeline, setShowCreatePipeline] = useState(false);
 
     const {
         pipelines,
@@ -31,7 +34,9 @@ export default function CRM() {
         moveLeadToStage,
         addLeadToPipeline,
         removeLeadFromPipeline,
+        createPipeline,
         updatePipeline,
+        deletePipeline,
         upsertStages,
         createAutomation,
         toggleAutomation,
@@ -92,7 +97,7 @@ export default function CRM() {
     return (
         <DashboardLayout>
             <div className="space-y-6">
-                {/* Header */}
+                {/* Header First Line: Title */}
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold">CRM</h1>
@@ -100,26 +105,32 @@ export default function CRM() {
                             Gerencie seus leads no funil de vendas
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        {/* Pipeline Selector */}
-                        {pipelines.data && pipelines.data.length > 1 && (
-                            <Select
-                                value={activePipelineId}
-                                onValueChange={setSelectedPipelineId}
-                            >
-                                <SelectTrigger className="w-[200px]">
-                                    <SelectValue placeholder="Selecionar funil" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {pipelines.data.map((p) => (
-                                        <SelectItem key={p.id} value={p.id}>
-                                            {p.nome}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
+                </div>
 
+                {/* Pipeline Tabs & Actions */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex-1 w-full overflow-x-auto pb-1">
+                        <Tabs value={activePipelineId} onValueChange={setSelectedPipelineId} className="w-full">
+                            <TabsList className="h-10">
+                                {pipelines.data?.map((p) => (
+                                    <TabsTrigger key={p.id} value={p.id} className="min-w-[120px]">
+                                        {p.nome}
+                                    </TabsTrigger>
+                                ))}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-2 ml-1 text-muted-foreground"
+                                    onClick={() => setShowCreatePipeline(true)}
+                                >
+                                    <PlusCircle className="h-4 w-4 mr-1" />
+                                    Novo Funil
+                                </Button>
+                            </TabsList>
+                        </Tabs>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
                         <Button
                             variant="outline"
                             size="sm"
@@ -259,6 +270,7 @@ export default function CRM() {
                         pipelineName={currentPipeline.nome}
                         pipelineDescription={currentPipeline.descricao ?? ''}
                         autoAddVisits={currentPipeline.auto_add_visits}
+                        isDefault={currentPipeline.is_default || false}
                         stages={stagesData}
                         pipelineId={activePipelineId}
                         isSaving={upsertStages.isPending || updatePipeline.isPending}
@@ -271,6 +283,28 @@ export default function CRM() {
                             });
                             await upsertStages.mutateAsync(data.stages);
                             setShowSettings(false);
+                        }}
+                        onDelete={() => {
+                            deletePipeline.mutate(activePipelineId, {
+                                onSuccess: () => {
+                                    setShowSettings(false);
+                                    setSelectedPipelineId('');
+                                }
+                            });
+                        }}
+                    />
+
+                    <CreatePipelineModal
+                        open={showCreatePipeline}
+                        onOpenChange={setShowCreatePipeline}
+                        isCreating={createPipeline.isPending}
+                        onCreate={(data) => {
+                            createPipeline.mutate(data, {
+                                onSuccess: (newPipeline) => {
+                                    setShowCreatePipeline(false);
+                                    setSelectedPipelineId(newPipeline.id);
+                                }
+                            });
                         }}
                     />
 

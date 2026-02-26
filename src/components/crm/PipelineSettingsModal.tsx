@@ -25,6 +25,7 @@ interface PipelineSettingsModalProps {
     pipelineName: string;
     pipelineDescription: string;
     autoAddVisits: boolean;
+    isDefault: boolean;
     stages: CrmStage[];
     onSave: (data: {
         nome: string;
@@ -39,6 +40,7 @@ interface PipelineSettingsModalProps {
             is_final?: boolean;
         }>;
     }) => void;
+    onDelete?: () => void;
     pipelineId: string;
     isSaving?: boolean;
 }
@@ -56,8 +58,10 @@ export default function PipelineSettingsModal({
     pipelineName,
     pipelineDescription,
     autoAddVisits,
+    isDefault,
     stages: initialStages,
     onSave,
+    onDelete,
     pipelineId,
     isSaving,
 }: PipelineSettingsModalProps) {
@@ -251,13 +255,33 @@ export default function PipelineSettingsModal({
                     </div>
                 </div>
 
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => handleOpenChange(false)}>
-                        Cancelar
-                    </Button>
-                    <Button onClick={handleSave} disabled={isSaving || !nome.trim()}>
-                        {isSaving ? 'Salvando...' : 'Salvar'}
-                    </Button>
+                <DialogFooter className="mt-4">
+                    <div className="flex w-full items-center justify-between">
+                        {/* Area for Deletion */}
+                        <div>
+                            {!isDefault && onDelete && (
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    onClick={() => {
+                                        if (window.confirm('Tem certeza que deseja excluir este funil? Todos os leads atrelados a ele ficarão sem funil definido.')) {
+                                            onDelete();
+                                        }
+                                    }}
+                                >
+                                    Excluir Funil
+                                </Button>
+                            )}
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={() => handleOpenChange(false)}>
+                                Cancelar
+                            </Button>
+                            <Button onClick={handleSave} disabled={isSaving || !nome.trim()}>
+                                {isSaving ? 'Salvando...' : 'Salvar'}
+                            </Button>
+                        </div>
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

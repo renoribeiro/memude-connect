@@ -262,6 +262,23 @@ export function useCrmPipeline(pipelineId?: string) {
         },
     });
 
+    const deletePipeline = useMutation({
+        mutationFn: async (id: string) => {
+            const { error } = await db
+                .from('crm_pipelines')
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['crm-pipelines'] });
+            toast({ title: 'Pipeline excluído com sucesso' });
+        },
+        onError: () => {
+            toast({ title: 'Erro ao excluir pipeline', variant: 'destructive' });
+        },
+    });
+
     const upsertStages = useMutation({
         mutationFn: async (
             stagesData: Array<{
@@ -410,6 +427,7 @@ export function useCrmPipeline(pipelineId?: string) {
         removeLeadFromPipeline,
         createPipeline,
         updatePipeline,
+        deletePipeline,
         upsertStages,
         createAutomation,
         toggleAutomation,

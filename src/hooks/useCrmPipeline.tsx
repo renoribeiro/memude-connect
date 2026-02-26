@@ -31,6 +31,7 @@ export interface CrmLead {
     posicao: number;
     valor_estimado: number | null;
     notas: string | null;
+    google_drive_url: string | null;
     moved_at: string;
     created_at: string;
     leads: {

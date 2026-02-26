@@ -1,13 +1,13 @@
 import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetDescription,
-} from '@/components/ui/sheet';
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Phone, Mail, Building2, User, Calendar, MapPin, Clock, FileText, DollarSign } from 'lucide-react';
+import { Phone, Mail, Building2, User, Calendar, MapPin, Clock, FileText, DollarSign, FolderOpen, ExternalLink } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { CrmLead, CrmStage } from '@/hooks/useCrmPipeline';
@@ -48,6 +48,7 @@ export default function CrmLeadDetailPanel({
     const { toast } = useToast();
     const [notas, setNotas] = useState('');
     const [valorEstimado, setValorEstimado] = useState('');
+    const [googleDriveUrl, setGoogleDriveUrl] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     // Sync state when crmLead changes
@@ -57,6 +58,7 @@ export default function CrmLeadDetailPanel({
         if (v && crmLead) {
             setNotas(crmLead.notas || '');
             setValorEstimado(crmLead.valor_estimado?.toString() || '');
+            setGoogleDriveUrl(crmLead.google_drive_url || '');
         }
         onOpenChange(v);
     };
@@ -71,6 +73,7 @@ export default function CrmLeadDetailPanel({
                 .update({
                     notas: notas || null,
                     valor_estimado: valorEstimado ? parseFloat(valorEstimado) : null,
+                    google_drive_url: googleDriveUrl || null,
                 })
                 .eq('id', crmLead.id);
             if (error) throw error;
@@ -86,11 +89,11 @@ export default function CrmLeadDetailPanel({
     if (!crmLead || !lead) return null;
 
     return (
-        <Sheet open={open} onOpenChange={handleOpen}>
-            <SheetContent className="w-[400px] sm:w-[440px] overflow-y-auto">
-                <SheetHeader>
-                    <SheetTitle className="text-lg">{lead.nome}</SheetTitle>
-                    <SheetDescription className="flex items-center gap-2">
+        <Dialog open={open} onOpenChange={handleOpen}>
+            <DialogContent className="sm:max-w-[540px] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle className="text-lg">{lead.nome}</DialogTitle>
+                    <DialogDescription className="flex items-center gap-2">
                         {currentStage && (
                             <Badge
                                 style={{ backgroundColor: currentStage.cor, color: '#fff' }}
@@ -101,10 +104,10 @@ export default function CrmLeadDetailPanel({
                         <Badge variant="outline">
                             {statusLabels[lead.status] || lead.status}
                         </Badge>
-                    </SheetDescription>
-                </SheetHeader>
+                    </DialogDescription>
+                </DialogHeader>
 
-                <div className="space-y-5 mt-6">
+                <div className="space-y-5 mt-2">
                     {/* Contact Info */}
                     <div className="space-y-2">
                         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -186,6 +189,33 @@ export default function CrmLeadDetailPanel({
                             />
                         </div>
                         <div>
+                            <Label htmlFor="crm-drive" className="flex items-center gap-1.5">
+                                <FolderOpen className="h-3.5 w-3.5" />
+                                Pasta de Documentos (Google Drive)
+                            </Label>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    id="crm-drive"
+                                    type="url"
+                                    value={googleDriveUrl}
+                                    onChange={(e) => setGoogleDriveUrl(e.target.value)}
+                                    placeholder="https://drive.google.com/drive/folders/..."
+                                    className="flex-1"
+                                />
+                                {googleDriveUrl && (
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="shrink-0"
+                                        onClick={() => window.open(googleDriveUrl, '_blank')}
+                                        title="Abrir no Google Drive"
+                                    >
+                                        <ExternalLink className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                        <div>
                             <Label htmlFor="crm-notas" className="flex items-center gap-1.5">
                                 <FileText className="h-3.5 w-3.5" />
                                 Notas
@@ -218,7 +248,7 @@ export default function CrmLeadDetailPanel({
                         </>
                     )}
                 </div>
-            </SheetContent>
-        </Sheet>
+            </DialogContent>
+        </Dialog>
     );
 }

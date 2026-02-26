@@ -458,10 +458,13 @@ async function notifyVisitConfirmation(supabase: SupabaseClient, attempt: any, c
   const msgCliente = `🎉 *VISITA CONFIRMADA!*\n\nSua visita ao *${attempt.visita.empreendimento?.nome}* está confirmada!\n\n📅 ${dataVisita} às ${attempt.visita.horario_visita}\n📍 ${endereco}\n\nSeu corretor será notificado.`;
   await sendWhatsappMessage(supabase, attempt.visita.lead.telefone, msgCliente);
 
-  // 3. Admin
-  const { data: settings } = await supabase.from('system_settings').select('value').eq('key', 'admin_whatsapp').single();
-  if (settings?.value) {
-    await sendWhatsappMessage(supabase, settings.value, `🚀 *VISITA CONFIRMADA*\n\nCorretor aceitou!\nLead: ${attempt.visita.lead.nome}\nLocal: ${attempt.visita.empreendimento?.nome}`);
+  // 3. Admin (usa o telefone da empresa cadastrado em Configurações > Informações da Empresa)
+  const { data: companyPhoneSetting } = await supabase.from('system_settings').select('value').eq('key', 'company_phone').maybeSingle();
+  const adminPhone = companyPhoneSetting?.value;
+
+  if (adminPhone) {
+    const adminMsg = `🚀 *VISITA CONFIRMADA!*\n\n✅ O corretor aceitou a visita.\n\n👤 *Corretor:* ${corretorPhone}\n\n📋 *Lead:* ${attempt.visita.lead.nome}\n📱 *Telefone Lead:* ${attempt.visita.lead.telefone}\n\n🏗️ *Empreendimento:* ${attempt.visita.empreendimento?.nome}\n📍 *Endereço:* ${endereco}\n\n📅 *Data:* ${dataVisita}\n🕐 *Horário:* ${attempt.visita.horario_visita}`;
+    await sendWhatsappMessage(supabase, adminPhone, adminMsg);
   }
 }
 

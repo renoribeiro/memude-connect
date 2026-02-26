@@ -77,14 +77,34 @@ Deno.serve(async (req) => {
       // Evolution API V2 pode ter estruturas diferentes
       const messageData = data?.message || data;
 
-      // Tentar extrair phone de várias formas
-      let phone = messageData?.key?.remoteJid?.replace('@s.whatsapp.net', '') ||
-        data?.key?.remoteJid?.replace('@s.whatsapp.net', '');
+      // EVO-LID-FIX: Evolution API V2 agora usa LID (Linked Identity Device) no remoteJid
+      // O telefone REAL vem no campo top-level `sender` do payload
+      // Exemplo: sender="558585149319@s.whatsapp.net", remoteJid="152995375362258@lid"
+      const stripJidSuffix = (jid: string | undefined) =>
+        jid?.replace('@s.whatsapp.net', '').replace('@lid', '') || '';
 
-      // Em grupos, pegar o participante
-      if (phone?.includes('@g.us')) {
-        phone = messageData?.key?.participant?.replace('@s.whatsapp.net', '') ||
-          messageData?.key?.participantAlt?.replace('@s.whatsapp.net', '');
+      // 1. Priorizar campo `sender` do payload (Evolution API V2 format)
+      let phone = stripJidSuffix(webhookData?.sender);
+
+      // 2. Fallback para remoteJid (formato antigo ou instâncias que não enviam sender)
+      if (!phone) {
+        phone = stripJidSuffix(messageData?.key?.remoteJid) ||
+          stripJidSuffix(data?.key?.remoteJid);
+      }
+
+      // 3. Se for LID (número não-telefônico), descartar e buscar alternativas
+      if (phone && !/^\d{10,15}$/.test(phone)) {
+        console.log(`⚠️ Phone "${phone}" parece ser LID, buscando alternativa...`);
+        phone = stripJidSuffix(messageData?.key?.participant) ||
+          stripJidSuffix(messageData?.key?.participantAlt) ||
+          stripJidSuffix(data?.key?.participant) ||
+          stripJidSuffix(data?.key?.participantAlt) || '';
+      }
+
+      // 4. Em grupos, pegar o participante
+      if (phone?.includes('@g.us') || phone?.includes('g.us')) {
+        phone = stripJidSuffix(messageData?.key?.participant) ||
+          stripJidSuffix(messageData?.key?.participantAlt);
       }
 
       // Extrair texto de várias formas possíveis (Iterar sobre possíveis locais do conteúdo)
@@ -132,7 +152,45 @@ Deno.serve(async (req) => {
         const senderName = messageData?.pushName || data?.pushName || null;
 
         // ============================================
-        // FASE 1: Verificar se há agente de IA ativo
+        // FASE 1: Verificar distribuição pendente PRIMEIRO (SIM/NÃO de corretores)
+        // PRIORIDADE: Respostas de distribuição DEVEM ser processadas antes do AI
+        // ============================================
+        console.log('📋 Verificando lógica de distribuição (prioridade sobre AI)...');
+        const distributionResult = await processIncomingMessage(supabase, phone, text);
+        console.log('Resultado distribuição:', distributionResult);
+
+        if (distributionResult.processed) {
+          console.log(`✅ Mensagem processada pela distribuição: action=${distributionResult.action}`);
+
+          // Log no banco para debug
+          await supabase.from('webhook_logs').insert({
+            event_type: 'DISTRIBUTION_RESPONSE',
+            instance_name: webhookData?.instance || 'unknown',
+            payload: { phone, text, result: distributionResult },
+            processed_successfully: true,
+            processing_time_ms: Date.now() - startTime
+          });
+
+          const respBody = { success: true, distribution_handled: true, action: distributionResult.action };
+          await logIntegration(supabase, {
+            service: 'evolution-api',
+            endpoint: 'webhook',
+            method: 'POST',
+            status_code: 200,
+            request_payload: webhookData,
+            response_body: respBody,
+            duration_ms: Date.now() - startTime,
+            metadata: { event: webhookData.event, instance: webhookData.instance, handled_by: 'distribution_logic' }
+          });
+
+          return new Response(
+            JSON.stringify(respBody),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // ============================================
+        // FASE 2: Tentar agente de IA (apenas se distribuição não processou)
         // ============================================
         const aiHandled = await tryAIAgentProcessing(supabase, phone, text, senderName);
 
@@ -157,19 +215,17 @@ Deno.serve(async (req) => {
         }
 
         // ============================================
-        // FASE 2: Fallback para lógica original (SIM/NÃO)
+        // FASE 3: Nenhum handler processou — log para debug
         // ============================================
-        console.log('📋 Processando com lógica de distribuição original...');
-        const result = await processIncomingMessage(supabase, phone, text);
-        console.log('Resultado processamento:', result);
+        console.log('📋 Mensagem não processada por distribuição nem AI. Registrando...');
 
         // Log no banco para debug
         await supabase.from('webhook_logs').insert({
-          event_type: 'DISTRIBUTION_RESPONSE',
+          event_type: 'UNHANDLED_MESSAGE',
           instance_name: webhookData?.instance || 'unknown',
-          payload: { phone, text, result },
-          processed_successfully: result.processed,
-          processing_time_ms: 0
+          payload: { phone, text, distributionResult, aiHandled },
+          processed_successfully: false,
+          processing_time_ms: Date.now() - startTime
         });
       } else {
         console.log(`⚠️ Mensagem ignorada: phone=${phone}, text="${text}", fromMe=${messageData?.key?.fromMe}`);

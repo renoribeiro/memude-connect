@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -49,6 +49,13 @@ export default function AddLeadToPipelineModal({
     const [selectedStageId, setSelectedStageId] = useState<string>('');
     const [valorEstimado, setValorEstimado] = useState('');
 
+    // Sync default stage when modal opens or stages change
+    useEffect(() => {
+        if (open && stages.length > 0 && !selectedStageId) {
+            setSelectedStageId(stages[0].id);
+        }
+    }, [open, stages, selectedStageId]);
+
     const { data: availableLeads = [], isLoading } = useQuery({
         queryKey: ['available-leads-for-crm', search, existingLeadIds],
         queryFn: async () => {
@@ -78,12 +85,11 @@ export default function AddLeadToPipelineModal({
         if (!selectedLeadId || !selectedStageId) return;
         const valor = valorEstimado ? parseFloat(valorEstimado) : undefined;
         onAdd(selectedLeadId, selectedStageId, valor);
-        // Reset
+        // Reset for next use
         setSelectedLeadId(null);
+        setSelectedStageId('');
         setValorEstimado('');
     };
-
-    const defaultStageId = stages.length > 0 ? stages[0].id : '';
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -124,15 +130,15 @@ export default function AddLeadToPipelineModal({
                                         key={lead.id}
                                         onClick={() => setSelectedLeadId(lead.id)}
                                         className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedLeadId === lead.id
-                                                ? 'bg-primary text-white'
-                                                : 'hover:bg-gray-50'
+                                            ? 'bg-primary text-white'
+                                            : 'hover:bg-gray-50'
                                             }`}
                                     >
                                         <p className="font-medium">{lead.nome}</p>
                                         <p
                                             className={`text-xs ${selectedLeadId === lead.id
-                                                    ? 'text-white/80'
-                                                    : 'text-muted-foreground'
+                                                ? 'text-white/80'
+                                                : 'text-muted-foreground'
                                                 }`}
                                         >
                                             {lead.telefone}
@@ -148,7 +154,7 @@ export default function AddLeadToPipelineModal({
                     <div>
                         <Label>Etapa inicial</Label>
                         <Select
-                            value={selectedStageId || defaultStageId}
+                            value={selectedStageId}
                             onValueChange={setSelectedStageId}
                         >
                             <SelectTrigger>

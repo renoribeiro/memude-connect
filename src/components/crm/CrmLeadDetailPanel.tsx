@@ -175,7 +175,7 @@ export default function CrmLeadDetailPanel({
                         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                             Dados do Funil
                         </h4>
-                        <div>
+                        <div className="space-y-1.5">
                             <Label htmlFor="crm-valor" className="flex items-center gap-1.5">
                                 <DollarSign className="h-3.5 w-3.5" />
                                 Valor Estimado (R$)
@@ -188,7 +188,7 @@ export default function CrmLeadDetailPanel({
                                 placeholder="0,00"
                             />
                         </div>
-                        <div>
+                        <div className="space-y-1.5">
                             <Label htmlFor="crm-drive" className="flex items-center gap-1.5">
                                 <FolderOpen className="h-3.5 w-3.5" />
                                 Pasta de Documentos (Google Drive)
@@ -215,7 +215,7 @@ export default function CrmLeadDetailPanel({
                                 )}
                             </div>
                         </div>
-                        <div>
+                        <div className="space-y-1.5">
                             <Label htmlFor="crm-notas" className="flex items-center gap-1.5">
                                 <FileText className="h-3.5 w-3.5" />
                                 Notas

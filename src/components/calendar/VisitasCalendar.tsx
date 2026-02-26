@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Clock, MapPin, User } from "lucide-react";
+import { CalendarDays, Clock, MapPin, User, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -25,6 +25,7 @@ interface Visita {
     first_name: string;
     last_name: string;
   };
+  corretor_whatsapp: string | null;
   empreendimento: {
     nome: string;
   };
@@ -40,7 +41,7 @@ const statusVariants = {
 
 const statusLabels = {
   agendada: "Agendada",
-  confirmada: "Confirmada", 
+  confirmada: "Confirmada",
   realizada: "Realizada",
   cancelada: "Cancelada",
   reagendada: "Reagendada"
@@ -61,6 +62,7 @@ export default function VisitasCalendar() {
           status,
           leads(nome, telefone),
           corretores(
+            whatsapp,
             profiles(first_name, last_name)
           ),
           empreendimentos(nome)
@@ -77,13 +79,14 @@ export default function VisitasCalendar() {
         status: item.status,
         lead: item.leads,
         corretor: item.corretores?.profiles,
+        corretor_whatsapp: (item.corretores as any)?.whatsapp || null,
         empreendimento: item.empreendimentos
       })) as Visita[] || [];
     }
   });
 
   const getVisitasForDate = (date: Date) => {
-    return visitas.filter(visita => 
+    return visitas.filter(visita =>
       isSameLocalDay(visita.data_visita, date)
     );
   };
@@ -108,14 +111,14 @@ export default function VisitasCalendar() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
       <Card className="lg:col-span-2 hover-scale transition-all duration-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarDays className="w-5 h-5" />
-              Calendário de Visitas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-2 md:p-6">
-            <style>{`
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarDays className="w-5 h-5" />
+            Calendário de Visitas
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-2 md:p-6">
+          <style>{`
               .rdp-day_hasVisitas::after {
                 content: '';
                 position: absolute;
@@ -128,19 +131,19 @@ export default function VisitasCalendar() {
                 background-color: #ec4899; /* Pink-500 */
               }
             `}</style>
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
-              modifiers={modifiers}
-              modifiersClassNames={{
-                hasVisitas: 'rdp-day_hasVisitas'
-              }}
-              locale={ptBR}
-              className="rounded-md border mx-auto w-full"
-            />
-          </CardContent>
-        </Card>
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={(date) => date && setSelectedDate(date)}
+            modifiers={modifiers}
+            modifiersClassNames={{
+              hasVisitas: 'rdp-day_hasVisitas'
+            }}
+            locale={ptBR}
+            className="rounded-md border mx-auto w-full"
+          />
+        </CardContent>
+      </Card>
 
       <Card className="hover-scale transition-all duration-200">
         <CardHeader>
@@ -181,23 +184,56 @@ export default function VisitasCalendar() {
                   </PopoverTrigger>
                   <PopoverContent className="w-80">
                     <div className="space-y-3">
+                      {/* Horário e Empreendimento */}
                       <div className="flex items-center gap-2 animate-fade-in">
-                        <User className="w-4 h-4" />
-                        <span className="font-medium">{visita.lead.nome}</span>
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">{visita.horario_visita.substring(0, 5)}</span>
                       </div>
                       <div className="flex items-center gap-2 animate-fade-in">
-                        <Clock className="w-4 h-4" />
-                        <span>{visita.horario_visita.substring(0, 5)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 animate-fade-in">
-                        <MapPin className="w-4 h-4" />
+                        <MapPin className="w-4 h-4 text-muted-foreground" />
                         <span>{visita.empreendimento?.nome || 'Empreendimento não informado'}</span>
                       </div>
-                      <div className="text-sm text-muted-foreground animate-fade-in">
-                        Corretor: {visita.corretor ? `${visita.corretor.first_name} ${visita.corretor.last_name}` : 'Não atribuído'}
+
+                      <hr className="border-border" />
+
+                      {/* Lead */}
+                      <div className="space-y-1 animate-fade-in">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-blue-500" />
+                          <span className="font-medium text-sm">Lead: {visita.lead.nome}</span>
+                        </div>
+                        {visita.lead.telefone && (
+                          <a
+                            href={`https://wa.me/${visita.lead.telefone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 ml-6 text-sm text-green-600 hover:text-green-700 hover:underline transition-colors"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                            {visita.lead.telefone}
+                          </a>
+                        )}
                       </div>
-                      <div className="text-sm text-muted-foreground animate-fade-in">
-                        Telefone: {visita.lead.telefone}
+
+                      {/* Corretor */}
+                      <div className="space-y-1 animate-fade-in">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-purple-500" />
+                          <span className="font-medium text-sm">
+                            Corretor: {visita.corretor ? `${visita.corretor.first_name} ${visita.corretor.last_name}` : 'Não atribuído'}
+                          </span>
+                        </div>
+                        {visita.corretor_whatsapp && (
+                          <a
+                            href={`https://wa.me/${visita.corretor_whatsapp.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 ml-6 text-sm text-green-600 hover:text-green-700 hover:underline transition-colors"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                            {visita.corretor_whatsapp}
+                          </a>
+                        )}
                       </div>
                     </div>
                   </PopoverContent>

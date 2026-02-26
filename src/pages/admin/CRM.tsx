@@ -245,6 +245,7 @@ export default function CRM() {
                         onRemoveLead={(crmLeadId) => {
                             removeLeadFromPipeline.mutate(crmLeadId);
                         }}
+                        onConfigureClick={() => setShowSettings(true)}
                     />
                 )}
             </div>

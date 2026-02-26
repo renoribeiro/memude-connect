@@ -78,8 +78,8 @@ Deno.serve(async (req) => {
       const messageData = data?.message || data;
 
       // EVO-LID-FIX: Evolution API V2 agora usa LID (Linked Identity Device) no remoteJid
-      // O telefone REAL vem no campo top-level `sender` do payload
-      // Exemplo: sender="558585149319@s.whatsapp.net", remoteJid="152995375362258@lid"
+      // O campo `sender` pode conter o telefone da INSTÂNCIA (bot), não do remetente!
+      // O remoteJid contém o LID. Precisamos resolver via lid_phone_map.
       const stripJidSuffix = (jid: string | undefined) =>
         jid?.replace('@s.whatsapp.net', '').replace('@lid', '') || '';
 
@@ -105,6 +105,43 @@ Deno.serve(async (req) => {
       if (phone?.includes('@g.us') || phone?.includes('g.us')) {
         phone = stripJidSuffix(messageData?.key?.participant) ||
           stripJidSuffix(messageData?.key?.participantAlt);
+      }
+
+      // =============================================
+      // 5. LID RESOLUTION: Se o `phone` é o número da instância (bot),
+      //    o remetente real está no LID do remoteJid.
+      //    Resolver via tabela lid_phone_map.
+      // =============================================
+      const rawRemoteJid = messageData?.key?.remoteJid || data?.key?.remoteJid || '';
+      const isLidMessage = rawRemoteJid.includes('@lid');
+
+      if (isLidMessage && phone) {
+        console.log(`🔄 LID detectado no remoteJid: ${rawRemoteJid}. Phone atual: ${phone}. Tentando resolver...`);
+
+        const lid = stripJidSuffix(rawRemoteJid);
+
+        // Tentar resolver LID → telefone real via lid_phone_map
+        const { data: lidMapping } = await supabase
+          .from('lid_phone_map')
+          .select('phone')
+          .eq('lid', lid)
+          .maybeSingle();
+
+        if (lidMapping?.phone) {
+          console.log(`✅ LID resolvido via lid_phone_map: ${lid} → ${lidMapping.phone}`);
+          phone = lidMapping.phone;
+        } else {
+          // Fallback: tentar pelo phone extraído do sender (pode ser a instância)
+          // Verificar se o phone atual NÃO é a instância
+          const { data: instanceCheck } = await supabase
+            .from('evolution_instances')
+            .select('instance_name')
+            .limit(1)
+            .maybeSingle();
+
+          console.log(`⚠️ LID ${lid} não encontrado em lid_phone_map. Phone permanece: ${phone}`);
+          console.log(`   Para resolver, é necessário enviar uma mensagem ao destinatário primeiro para popular lid_phone_map.`);
+        }
       }
 
       // Extrair texto de várias formas possíveis (Iterar sobre possíveis locais do conteúdo)
@@ -156,7 +193,7 @@ Deno.serve(async (req) => {
         // PRIORIDADE: Respostas de distribuição DEVEM ser processadas antes do AI
         // ============================================
         console.log('📋 Verificando lógica de distribuição (prioridade sobre AI)...');
-        const distributionResult = await processIncomingMessage(supabase, phone, text);
+        const distributionResult = await processIncomingMessage(supabase, phone, text, senderName || '', rawRemoteJid);
         console.log('Resultado distribuição:', distributionResult);
 
         if (distributionResult.processed) {

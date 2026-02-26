@@ -302,6 +302,29 @@ Deno.serve(async (req) => {
 
       console.log('✅ Message sent successfully:', responseBody);
 
+      // === LID-to-Phone Mapping ===
+      // Evolution API V2 returns remoteJid in the response.
+      // We capture this mapping so the webhook handler can resolve LIDs to real phones later.
+      if (responseBody?.key?.remoteJid) {
+        try {
+          const remoteJid = responseBody.key.remoteJid as string;
+          const jidPhone = remoteJid.replace('@s.whatsapp.net', '').replace('@lid', '');
+
+          // Only map if remoteJid contains a real phone (not already a LID)
+          if (remoteJid.includes('@s.whatsapp.net') && /^\d{10,15}$/.test(jidPhone)) {
+            await supabase.from('lid_phone_map').upsert({
+              lid: jidPhone,
+              phone: normalizedPhone,
+              instance_name: instanceName,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'lid' });
+            console.log(`🗺️ LID mapping saved: ${jidPhone} → ${normalizedPhone}`);
+          }
+        } catch (mapErr) {
+          console.warn('⚠️ Failed to save LID mapping (non-critical):', mapErr);
+        }
+      }
+
       // Registrar no communication_log
       const logContent = media
         ? `Mídia (${media.type}): ${media.caption || media.url}`

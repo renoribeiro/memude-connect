@@ -18,6 +18,7 @@ interface WordPressPost {
   excerpt: {
     rendered: string;
   };
+  link: string;
   modified: string;
   categories: number[];
   tags: number[];
@@ -60,16 +61,16 @@ serve(async (req) => {
 
   const startTime = Date.now();
   const syncId = crypto.randomUUID();
-  
+
   // Parse request body to get parameters
   const { manual = false, test_mode = false, limit = null } = await req.json().catch(() => ({}));
-  
+
   console.log(`🚀 Iniciando sincronização WordPress [${syncId}] - Manual: ${manual}, Teste: ${test_mode} às:`, new Date().toISOString());
 
   // Initialize Supabase client with proper credentials
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  
+
   if (!supabaseUrl || !supabaseServiceKey) {
     console.error('❌ Credenciais do Supabase não encontradas');
     return new Response(JSON.stringify({
@@ -80,21 +81,21 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
-  
+
   console.log('🔑 Conectando ao Supabase...');
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  
+
   // Test Supabase connection
   try {
     const { error: connectionError } = await supabase
       .from('wp_sync_log')
       .select('count')
       .limit(1);
-    
+
     if (connectionError) {
       throw new Error(`Falha na conexão com Supabase: ${connectionError.message}`);
     }
-    
+
     console.log('✅ Conexão com Supabase estabelecida');
   } catch (error) {
     console.error('❌ Erro de conexão com Supabase:', error);
@@ -122,22 +123,22 @@ serve(async (req) => {
   // Test mode - just verify connection
   if (test_mode) {
     console.log('🧪 Modo de teste ativado');
-    
+
     try {
       const testUrl = `https://memude.com.br/wp-json/wp/v2/posts?per_page=${limit || 5}&_fields=id,title,modified`;
       console.log('🔗 Testando URL:', testUrl);
-      
+
       const testResponse = await fetch(testUrl);
-      
+
       if (!testResponse.ok) {
         throw new Error(`HTTP ${testResponse.status}: ${testResponse.statusText}`);
       }
-      
+
       const testPosts = await testResponse.json();
       stats.totalPostsFetched = testPosts.length;
-      
+
       console.log(`✅ Teste concluído: ${testPosts.length} posts encontrados em ${Date.now() - startTime}ms`);
-      
+
       return new Response(JSON.stringify({
         success: true,
         test_mode: true,
@@ -151,7 +152,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200
       });
-      
+
     } catch (error) {
       console.error('❌ Erro no teste:', error);
       return new Response(JSON.stringify({
@@ -186,12 +187,12 @@ serve(async (req) => {
 
     // Load categories cache
     await loadCategoriesCache(supabase);
-    
+
     // Fetch all WordPress posts with performance tracking
     const fetchStart = Date.now();
     const allPosts = await fetchAllWordPressPosts(performanceMetrics, syncLogId, supabase);
     const fetchDuration = Date.now() - fetchStart;
-    
+
     stats.totalPostsFetched = allPosts.length;
     console.log(`📊 Total de posts encontrados: ${allPosts.length} (${fetchDuration}ms)`);
 
@@ -199,7 +200,7 @@ serve(async (req) => {
     const batchSize = 10;
     for (let i = 0; i < allPosts.length; i += batchSize) {
       const batch = allPosts.slice(i, i + batchSize);
-      
+
       await Promise.allSettled(
         batch.map(async (post) => {
           try {
@@ -213,7 +214,7 @@ serve(async (req) => {
           }
         })
       );
-      
+
       // Rate limiting between batches - 500ms delay
       if (i + batchSize < allPosts.length) {
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -246,15 +247,15 @@ serve(async (req) => {
 
   } catch (error) {
     console.error(`🚨 Erro crítico na sincronização [${syncId}]:`, error);
-    
+
     const syncDuration = Date.now() - startTime;
     await logSyncResults(supabase, stats, syncDuration, [error.message], syncLogId, 'error');
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       error: error.message,
       syncId,
       stats,
-      duration: syncDuration 
+      duration: syncDuration
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -264,7 +265,7 @@ serve(async (req) => {
 
 async function loadCategoriesCache(supabase: any) {
   console.log('📥 Carregando cache de categorias...');
-  
+
   // Try to load from database cache first
   const { data: cachedCategories } = await supabase
     .from('wp_categories_cache')
@@ -294,11 +295,11 @@ async function loadCategoriesCache(supabase: any) {
 
     if (response.ok) {
       const categories: WordPressCategory[] = await response.json();
-      
+
       // Update database cache
       if (categories.length > 0) {
         await supabase.from('wp_categories_cache').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        
+
         const cacheData = categories.map(cat => ({
           wp_category_id: cat.id,
           name: cat.name,
@@ -306,9 +307,9 @@ async function loadCategoriesCache(supabase: any) {
           description: cat.description,
           parent: cat.parent
         }));
-        
+
         await supabase.from('wp_categories_cache').insert(cacheData);
-        
+
         // Update memory cache
         categories.forEach(cat => categoriesCache.set(cat.id, cat));
         console.log(`📋 Cache atualizado: ${categories.length} categorias`);
@@ -320,8 +321,8 @@ async function loadCategoriesCache(supabase: any) {
 }
 
 async function fetchAllWordPressPosts(
-  performanceMetrics: PerformanceMetric[], 
-  syncLogId: string | null, 
+  performanceMetrics: PerformanceMetric[],
+  syncLogId: string | null,
   supabase: any
 ): Promise<WordPressPost[]> {
   const allPosts: WordPressPost[] = [];
@@ -332,16 +333,16 @@ async function fetchAllWordPressPosts(
 
   while (true) {
     console.log(`📄 Buscando página ${page}...`);
-    
+
     const fetchStart = Date.now();
     const metricData: PerformanceMetric = {
       operationType: 'fetch_posts',
       operationStart: new Date(fetchStart).toISOString(),
       metadata: { page, perPage }
     };
-    
+
     const url = `https://memude.com.br/wp-json/wp/v2/posts?per_page=${perPage}&page=${page}&orderby=modified&order=desc`;
-    
+
     let success = false;
     let posts: WordPressPost[] = [];
     let lastError: Error | null = null;
@@ -350,7 +351,7 @@ async function fetchAllWordPressPosts(
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`🔄 Tentativa ${attempt}/${maxRetries} para página ${page}`);
-        
+
         const response = await fetch(url, {
           headers: {
             'User-Agent': 'Memude Sync Bot/1.0',
@@ -374,28 +375,28 @@ async function fetchAllWordPressPosts(
 
         posts = await response.json();
         success = true;
-        
+
         // Record performance metric
         performanceMetrics.push({
           ...metricData,
-          metadata: { 
-            ...metricData.metadata, 
+          metadata: {
+            ...metricData.metadata,
             postsCount: posts.length,
             duration,
             success: true,
-            attempt 
+            attempt
           }
         });
 
         console.log(`✅ Página ${page}: ${posts.length} posts (${duration}ms, tentativa ${attempt})`);
         break;
-        
+
       } catch (error) {
         lastError = error as Error;
         const duration = Date.now() - fetchStart;
-        
+
         console.error(`❌ Erro na tentativa ${attempt}/${maxRetries} para página ${page}:`, error.message);
-        
+
         if (attempt < maxRetries) {
           const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
           console.log(`⏳ Aguardando ${delay}ms antes da próxima tentativa...`);
@@ -404,8 +405,8 @@ async function fetchAllWordPressPosts(
           // Record failed metric
           performanceMetrics.push({
             ...metricData,
-            metadata: { 
-              ...metricData.metadata, 
+            metadata: {
+              ...metricData.metadata,
               duration,
               success: false,
               error: error.message,
@@ -426,14 +427,14 @@ async function fetchAllWordPressPosts(
     }
 
     allPosts.push(...posts);
-    
+
     if (posts.length < perPage) {
       console.log(`✅ Última página encontrada (${posts.length} < ${perPage})`);
       break;
     }
 
     page++;
-    
+
     // Rate limiting between pages
     await new Promise(resolve => setTimeout(resolve, 200));
   }
@@ -442,10 +443,10 @@ async function fetchAllWordPressPosts(
 }
 
 async function processWordPressPost(
-  post: WordPressPost, 
-  stats: SyncStats, 
-  supabase: any, 
-  performanceMetrics: PerformanceMetric[], 
+  post: WordPressPost,
+  stats: SyncStats,
+  supabase: any,
+  performanceMetrics: PerformanceMetric[],
   syncLogId: string | null
 ) {
   const processStart = Date.now();
@@ -465,11 +466,11 @@ async function processWordPressPost(
     try {
       // Extract empreendimento data from post
       const empreendimentoData = await extractEmpreendimentoData(post, supabase);
-      
+
       if (!empreendimentoData.nome || empreendimentoData.nome.trim().length === 0) {
         throw new Error('Nome do empreendimento não pode estar vazio');
       }
-      
+
       // Check if empreendimento already exists
       const { data: existingEmp, error: selectError } = await supabase
         .from('empreendimentos')
@@ -497,7 +498,7 @@ async function processWordPressPost(
 
         stats.updatedEmpreendimentos++;
         console.log(`✅ Empreendimento atualizado: ${empreendimentoData.nome} (${duration}ms)`);
-        
+
         // Record performance metric
         performanceMetrics.push({
           ...metricData,
@@ -519,7 +520,7 @@ async function processWordPressPost(
 
         stats.newEmpreendimentos++;
         console.log(`✅ Novo empreendimento criado: ${empreendimentoData.nome} (${duration}ms)`);
-        
+
         // Record performance metric
         performanceMetrics.push({
           ...metricData,
@@ -528,13 +529,13 @@ async function processWordPressPost(
           metadata: { duration, success: true, attempt }
         });
       }
-      
+
       return; // Success, exit retry loop
-      
+
     } catch (error) {
       lastError = error as Error;
       console.error(`❌ Tentativa ${attempt}/${maxRetries} falhou para post ID ${post.id}:`, error.message);
-      
+
       if (attempt < maxRetries) {
         // Wait before retry
         await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
@@ -545,25 +546,25 @@ async function processWordPressPost(
   // If we get here, all retries failed
   const processEnd = Date.now();
   const duration = processEnd - processStart;
-  
+
   // Record failed metric
   performanceMetrics.push({
     ...metricData,
-    metadata: { 
-      duration, 
-      success: false, 
+    metadata: {
+      duration,
+      success: false,
       error: lastError?.message,
       attempts: maxRetries
     }
   });
-  
+
   throw lastError || new Error('Falha desconhecida após múltiplas tentativas');
 }
 
 async function extractEmpreendimentoData(post: WordPressPost, supabase: any) {
   // Extract name from title
   const nome = post.title.rendered.replace(/<[^>]*>/g, '').trim();
-  
+
   // Extract description from excerpt or content
   let descricao = post.excerpt.rendered || post.content.rendered;
   descricao = descricao.replace(/<[^>]*>/g, '').trim();
@@ -575,7 +576,7 @@ async function extractEmpreendimentoData(post: WordPressPost, supabase: any) {
   const content = post.content.rendered;
   const title = post.title.rendered;
   const fullText = `${title} ${content}`;
-  
+
   const pricePatterns = [
     // Direct price patterns
     /R\$\s*[\d.,]+/gi,
@@ -583,26 +584,26 @@ async function extractEmpreendimentoData(post: WordPressPost, supabase: any) {
     /pre[çc]o.*?R\$\s*[\d.,]+/gi,
     /apartamentos.*?R\$\s*[\d.,]+/gi,
     /unidades.*?R\$\s*[\d.,]+/gi,
-    
+
     // Price ranges
     /de\s+R\$\s*[\d.,]+\s+a\s+R\$\s*[\d.,]+/gi,
     /entre\s+R\$\s*[\d.,]+\s+e\s+R\$\s*[\d.,]+/gi,
     /R\$\s*[\d.,]+\s*(?:a|até)\s*R\$\s*[\d.,]+/gi,
-    
+
     // Financing patterns
     /financiamento.*?R\$\s*[\d.,]+/gi,
     /entrada.*?R\$\s*[\d.,]+/gi,
     /parcela.*?R\$\s*[\d.,]+/gi,
-    
+
     // Area-based value indicators (m² values)
     /m[²2]\s*(?:por|a partir de)?\s*R\$\s*[\d.,]+/gi,
     /R\$\s*[\d.,]+\s*(?:por|\/)\s*m[²2]/gi
   ];
-  
+
   let valorMin = null;
   let valorMax = null;
   const foundPrices: number[] = [];
-  
+
   for (const pattern of pricePatterns) {
     const matches = fullText.match(pattern);
     if (matches && matches.length > 0) {
@@ -613,7 +614,7 @@ async function extractEmpreendimentoData(post: WordPressPost, supabase: any) {
           for (const priceStr of priceMatches) {
             // Convert to number (handle Brazilian number format)
             let numStr = priceStr;
-            
+
             // If it has dots and commas, assume Brazilian format (1.234.567,89)
             if (numStr.includes('.') && numStr.includes(',')) {
               numStr = numStr.replace(/\./g, '').replace(',', '.');
@@ -633,9 +634,9 @@ async function extractEmpreendimentoData(post: WordPressPost, supabase: any) {
                 numStr = numStr.replace(/\./g, '');
               }
             }
-            
+
             const price = parseFloat(numStr);
-            
+
             // Filter realistic property prices (between R$ 50.000 and R$ 50.000.000)
             if (!isNaN(price) && price >= 50000 && price <= 50000000) {
               foundPrices.push(price);
@@ -645,19 +646,19 @@ async function extractEmpreendimentoData(post: WordPressPost, supabase: any) {
       }
     }
   }
-  
+
   if (foundPrices.length > 0) {
     // Remove outliers (prices that are more than 3x different from median)
     foundPrices.sort((a, b) => a - b);
     const median = foundPrices[Math.floor(foundPrices.length / 2)];
-    const filteredPrices = foundPrices.filter(price => 
+    const filteredPrices = foundPrices.filter(price =>
       price >= median / 3 && price <= median * 3
     );
-    
+
     if (filteredPrices.length > 0) {
       valorMin = Math.min(...filteredPrices);
       valorMax = Math.max(...filteredPrices);
-      
+
       // If we only found one price, use it for both min and max
       if (filteredPrices.length === 1) {
         valorMin = valorMax = filteredPrices[0];
@@ -669,8 +670,15 @@ async function extractEmpreendimentoData(post: WordPressPost, supabase: any) {
   const construtoraId = await findOrCreateConstructoraEnhanced(post, supabase);
   const bairroId = await findOrCreateBairroEnhanced(post, supabase);
 
-  // Try to extract address from content
-  const endereco = extractAddress(content);
+  // Try to get address from the actual rendered page first (most reliable)
+  let endereco = await fetchAddressFromPage(post.link);
+  // Fallback to regex extraction from API content
+  if (!endereco) {
+    console.log(`⚠️ Page fetch failed for "${nome}", falling back to regex extraction`);
+    endereco = extractAddress(content);
+  } else {
+    console.log(`✅ Address extracted from page for "${nome}": ${endereco}`);
+  }
 
   return {
     nome,
@@ -687,7 +695,7 @@ async function extractEmpreendimentoData(post: WordPressPost, supabase: any) {
 
 function extractAddress(content: string): string | null {
   // PHASE 2: Enhanced address extraction with improved patterns and validation
-  
+
   // 1. Pre-process content to remove HTML tags but keep structure hints
   // Replace block tags with newlines to avoid merging separate lines
   let cleanContent = content.replace(/<(br|p|div|h\d|li|tr)[^>]*>/gi, '\n');
@@ -697,19 +705,19 @@ function extractAddress(content: string): string | null {
   cleanContent = cleanContent.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
   // Normalize whitespace (keep newlines for context, but collapse spaces)
   cleanContent = cleanContent.replace(/[ \t]+/g, ' ');
-  
+
   const addressPatterns = [
     // Pattern 1: Explicit Label followed by address (supporting newlines)
     // Matches: "Localização: Rua X, 123" or "Endereço \n Av Y, 456"
     /(?:endere[çc]o|localiza[çc][ãa]o|situado|localizado|fica)(?:\s*:)?\s*(?:\n\s*)?((?:rua|r\.|avenida|av\.|alameda|travessa|rodovia|estrada|loteamento)\s+[^(\n]{5,150}(?:\s*,\s*\d+)?(?:[^\n]{0,100}))/im,
-    
+
     // Pattern 2: Strong Address Format (Street + Number + Neighborhood/City)
     // Matches: "Rua Júlio Pinto, 2090, Jacarecanga"
     /((?:rua|r\.|avenida|av\.|alameda|travessa|rodovia)\s+[A-ZÀ-Ú][a-zà-ú]+(?:[ \t]+(?:de|do|da|dos|das|e|em)?\s*[A-ZÀ-Ú][a-zà-ú]+)+\s*,\s*\d+\s*(?:,\s*[A-ZÀ-Úa-zà-ú\s\/\-\(\)]+)?)/gm,
-    
+
     // Pattern 3: Generic context (Located at...)
     /(?:localizado|situado)\s+(?:no|na|em)\s+([^.\n]{10,150})/im,
-    
+
     // Pattern 4: Proximity (Near...)
     /(?:pr[óo]xim[ao]|perto)\s+(?:de|do|da|a|ao)\s+([^.\n]{10,100})/im
   ];
@@ -720,43 +728,43 @@ function extractAddress(content: string): string | null {
     // Use matchAll or exec depending on flags
     const regex = new RegExp(pattern.source, pattern.flags);
     let match;
-    
+
     // For global patterns, iterate matches. For others, just single match.
     if (regex.flags.includes('g')) {
-        const matches = cleanContent.matchAll(regex);
-        for (const m of matches) {
-            processMatch(m);
-        }
+      const matches = cleanContent.matchAll(regex);
+      for (const m of matches) {
+        processMatch(m);
+      }
     } else {
-        match = regex.exec(cleanContent);
-        if (match) processMatch(match);
+      match = regex.exec(cleanContent);
+      if (match) processMatch(match);
     }
 
     function processMatch(m: RegExpMatchArray | RegExpExecArray) {
       let address = (m[1] || m[0]).trim();
-      
+
       // Clean noise
       address = address.replace(/^[,.\-\s]+|[,.\-\s]+$/g, '');
-      
+
       // Skip if invalid
       if (address.length < 8 || address.length > 200) return;
 
       let score = 0;
-      
+
       // SCORING RULES
-      
+
       // Starts with Street Type (High Confidence)
       if (/^(rua|avenida|av\.|travessa|alameda|rodovia)/i.test(address)) score += 5;
-      
+
       // Contains Number (High Confidence)
       if (/\d+/.test(address)) score += 3;
-      
+
       // Contains Neighborhood/City hints
       if (/(bairro|centro|fortaleza|caucaia|eusebio|aquiraz|ceará|ce\b)/i.test(address)) score += 2;
-      
+
       // Contains CEP
       if (/\d{5}-?\d{3}/.test(address)) score += 5;
-      
+
       // Context Bonus (if found via "Localização" label)
       if (pattern.source.includes('localiza')) score += 4;
 
@@ -774,7 +782,7 @@ function extractAddress(content: string): string | null {
   if (potentialAddresses.length > 0) {
     potentialAddresses.sort((a, b) => b.score - a.score);
     const bestMatch = potentialAddresses[0];
-    
+
     if (bestMatch.score >= 5) { // Minimum threshold
       return validateAndCleanAddress(bestMatch.address);
     }
@@ -785,39 +793,117 @@ function extractAddress(content: string): string | null {
 
 function validateAndCleanAddress(address: string): string | null {
   // Additional validation and cleaning
-  
+
   // Remove leading/trailing punctuation
   address = address.replace(/^[,.\-\s]+|[,.\-\s]+$/g, '');
-  
+
   // Check for common address components
   const hasStreetType = /(?:rua|r\.?|avenida|av\.?|alameda|al\.?|travessa|tv\.?|rodovia|rod\.?)/i.test(address);
   const hasNumber = /\d+/.test(address);
   const hasNeighborhood = /bairro|condom[íi]nio|residencial|vila/i.test(address);
   const isCEP = /^\d{5}-?\d{3}$/.test(address);
-  
+
   // Address must have at least one quality indicator
   if (!hasStreetType && !hasNumber && !hasNeighborhood && !isCEP) {
     return null;
   }
-  
+
   // Further clean common issues
   const cleanedAddress = address
     .replace(/\b(?:clique|aqui|saiba|mais|leia)\b/gi, '') // Remove web-specific terms
     .replace(/\s{2,}/g, ' ') // Fix multiple spaces
     .trim();
-  
+
   return cleanedAddress.length >= 8 ? cleanedAddress : null;
+}
+
+async function fetchAddressFromPage(postLink: string): Promise<string | null> {
+  if (!postLink) return null;
+
+  try {
+    const response = await fetch(postLink, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+      signal: AbortSignal.timeout(15000)
+    });
+
+    if (!response.ok) {
+      console.warn(`⚠️ HTTP ${response.status} fetching page: ${postLink}`);
+      return null;
+    }
+
+    const html = await response.text();
+
+    // Strategy 1: Find div.text-44 after "localização" label (div.text-38)
+    // Pattern: <div class="text-38">localização</div> ... <div class="text-44">ADDRESS</div>
+    const localizacaoPattern = /class=["']text-38["'][^>]*>[^<]*localiza[çc][ãa]o[^<]*<\/div>\s*(?:<[^>]*>\s*)*<div[^>]*class=["']text-44["'][^>]*>(.*?)<\/div>/is;
+    const match = localizacaoPattern.exec(html);
+    if (match?.[1]) {
+      let address = match[1].replace(/<[^>]*>/g, '').trim();
+      // Decode HTML entities
+      address = address
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&ndash;/g, '–')
+        .replace(/&mdash;/g, '—')
+        .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (address.length > 5) {
+        console.log(`📍 [Strategy 1] Address from text-44: "${address}"`);
+        return address;
+      }
+    }
+
+    // Strategy 2: Extract address from Google Maps iframe URL
+    // The URL contains the address encoded as: !2sEncoded%20Address!5e
+    const iframePattern = /google\.com\/maps\/embed\?pb=[^"']*!2s([^!]+)!5e/i;
+    const iframeMatch = iframePattern.exec(html);
+    if (iframeMatch?.[1]) {
+      try {
+        const decoded = decodeURIComponent(iframeMatch[1]);
+        if (decoded.length > 5) {
+          console.log(`📍 [Strategy 2] Address from Maps iframe: "${decoded}"`);
+          return decoded;
+        }
+      } catch {
+        // decodeURIComponent can throw on malformed URIs
+      }
+    }
+
+    // Strategy 3: Look for any div with "text-44" class containing address-like text
+    const anyText44Pattern = /<div[^>]*class=["']text-44["'][^>]*>(.*?)<\/div>/gis;
+    let text44Match;
+    while ((text44Match = anyText44Pattern.exec(html)) !== null) {
+      let candidate = text44Match[1].replace(/<[^>]*>/g, '').trim();
+      candidate = candidate.replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+      // Check if it looks like an address (contains street type or number)
+      if (candidate.length > 10 && /(?:rua|r\.|avenida|av\.|alameda|travessa|rodovia|estrada|loteamento|\d+)/i.test(candidate)) {
+        console.log(`📍 [Strategy 3] Address from text-44 fallback: "${candidate}"`);
+        return candidate;
+      }
+    }
+
+    console.log(`⚠️ No address found in page HTML for: ${postLink}`);
+    return null;
+  } catch (error: any) {
+    console.warn(`⚠️ Error fetching page ${postLink}: ${error.message}`);
+    return null;
+  }
 }
 
 async function findOrCreateConstructoraEnhanced(post: WordPressPost, supabase: any): Promise<string | null> {
   const content = `${post.title.rendered} ${post.content.rendered}`;
-  
+
   // PRIORITY 1: Extract from class_list (most reliable source)
   if (post.class_list && Array.isArray(post.class_list)) {
     for (const className of post.class_list) {
       if (className.startsWith('anunciantes-')) {
         const construtoraSlug = className.replace('anunciantes-', '');
-        
+
         // PHASE 3: Comprehensive construtora mapping with major Brazilian developers
         const construtoraMap: { [key: string]: string } = {
           // Major National Developers
@@ -836,7 +922,7 @@ async function findOrCreateConstructoraEnhanced(post: WordPressPost, supabase: a
           'viver': 'Viver Incorporadora',
           'tenda': 'Tenda',
           'construtora-tenda': 'Tenda',
-          
+
           // Regional CE Developers
           'engeplan': 'Engeplan Engenharia',
           'moura-dubeux': 'Moura Dubeux Engenharia',
@@ -861,12 +947,12 @@ async function findOrCreateConstructoraEnhanced(post: WordPressPost, supabase: a
           'construtora-sucesso': 'Construtora Sucesso',
           'rb-engenharia': 'RB Engenharia'
         };
-        
-        const construtoraName = construtoraMap[construtoraSlug] || 
-          construtoraSlug.split('-').map(word => 
+
+        const construtoraName = construtoraMap[construtoraSlug] ||
+          construtoraSlug.split('-').map(word =>
             word.charAt(0).toUpperCase() + word.slice(1)
           ).join(' ');
-        
+
         // Check if construtora exists
         const { data: existing } = await supabase
           .from('construtoras')
@@ -892,7 +978,7 @@ async function findOrCreateConstructoraEnhanced(post: WordPressPost, supabase: a
       }
     }
   }
-  
+
   // PRIORITY 2: Enhanced content analysis with scoring system
   const categoryNames = post.categories.map(catId => {
     const category = categoriesCache.get(catId);
@@ -900,7 +986,7 @@ async function findOrCreateConstructoraEnhanced(post: WordPressPost, supabase: a
   }).join(' ');
 
   const fullContent = `${content} ${categoryNames}`.toLowerCase();
-  
+
   // PHASE 3: Comprehensive construtora identification with AI-like scoring
   const construtoraDatabase = [
     // National Major Developers (high confidence patterns)
@@ -918,7 +1004,7 @@ async function findOrCreateConstructoraEnhanced(post: WordPressPost, supabase: a
     { names: ['patrimar', 'patrimar engenharia'], score: 7 },
     { names: ['viver', 'viver incorporadora'], score: 7 },
     { names: ['tenda', 'construtora tenda'], score: 7 },
-    
+
     // Regional CE Developers (medium to high confidence)
     { names: ['engeplan', 'engeplan engenharia'], score: 9 },
     { names: ['moura dubeux', 'moura-dubeux'], score: 9 },
@@ -970,23 +1056,23 @@ async function findOrCreateConstructoraEnhanced(post: WordPressPost, supabase: a
 
   for (const patternData of genericPatterns) {
     const matches = Array.from(fullContent.matchAll(patternData.pattern));
-    
+
     for (const match of matches) {
       let construtoraName = (match[2] || match[1])?.trim();
-      
+
       if (construtoraName && construtoraName.length >= 3 && construtoraName.length <= 50) {
         // Clean and format the name
         construtoraName = construtoraName
           .split(' ')
           .map(word => word.charAt(0).toUpperCase() + word.slice(1))
           .join(' ');
-        
+
         // Check if it's not already a candidate with higher score
-        const existingCandidate = candidateConstructors.find(c => 
+        const existingCandidate = candidateConstructors.find(c =>
           c.name.toLowerCase().includes(construtoraName.toLowerCase()) ||
           construtoraName.toLowerCase().includes(c.name.toLowerCase())
         );
-        
+
         if (!existingCandidate) {
           candidateConstructors.push({
             name: construtoraName,
@@ -1001,7 +1087,7 @@ async function findOrCreateConstructoraEnhanced(post: WordPressPost, supabase: a
   if (candidateConstructors.length > 0) {
     candidateConstructors.sort((a, b) => b.score - a.score);
     const bestCandidate = candidateConstructors[0];
-    
+
     // Only proceed with candidates that have minimum confidence
     if (bestCandidate.score >= 4) {
       // Format the name properly
@@ -1009,14 +1095,14 @@ async function findOrCreateConstructoraEnhanced(post: WordPressPost, supabase: a
         .split(' ')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
-      
+
       // Check if construtora exists (more flexible matching)
       const searchTerms = [
         construtoraName,
         construtoraName.split(' ')[0], // First word
         construtoraName.split(' ').slice(0, 2).join(' ') // First two words
       ];
-      
+
       for (const searchTerm of searchTerms) {
         const { data: existing } = await supabase
           .from('construtoras')
@@ -1033,8 +1119,8 @@ async function findOrCreateConstructoraEnhanced(post: WordPressPost, supabase: a
       // Create new construtora if not found
       const { data: newConstrutora, error } = await supabase
         .from('construtoras')
-        .insert({ 
-          nome: construtoraName, 
+        .insert({
+          nome: construtoraName,
           ativo: true,
           descricao: `Identificada automaticamente do post: ${post.title.rendered.substring(0, 100)}`
         })
@@ -1053,13 +1139,13 @@ async function findOrCreateConstructoraEnhanced(post: WordPressPost, supabase: a
 
 async function findOrCreateBairroEnhanced(post: WordPressPost, supabase: any): Promise<string | null> {
   const content = `${post.title.rendered} ${post.content.rendered}`;
-  
+
   // PRIORITY 1: Extract from class_list categories (most reliable)
   if (post.class_list && Array.isArray(post.class_list)) {
     for (const className of post.class_list) {
       if (className.startsWith('category-')) {
         const bairroSlug = className.replace('category-', '');
-        
+
         // Map slugs to proper neighborhood names
         const bairroMap: { [key: string]: string } = {
           'aldeota': 'Aldeota',
@@ -1103,18 +1189,18 @@ async function findOrCreateBairroEnhanced(post: WordPressPost, supabase: any): P
           'cidade-2000': 'Cidade 2000',
           'jurema': 'Jurema' // For Caucaia
         };
-        
-        const bairroName = bairroMap[bairroSlug] || 
-          bairroSlug.split('-').map(word => 
+
+        const bairroName = bairroMap[bairroSlug] ||
+          bairroSlug.split('-').map(word =>
             word.charAt(0).toUpperCase() + word.slice(1)
           ).join(' ');
-        
+
         // Determine city based on known neighborhoods
         let cidade = 'Fortaleza';
         if (['Jurema'].includes(bairroName)) {
           cidade = 'Caucaia';
         }
-        
+
         // Check if bairro exists
         const { data: existing } = await supabase
           .from('bairros')
@@ -1147,7 +1233,7 @@ async function findOrCreateBairroEnhanced(post: WordPressPost, supabase: any): P
       }
     }
   }
-  
+
   // PRIORITY 2: Get category names from API
   const categoryNames = post.categories.map(catId => {
     const category = categoriesCache.get(catId);
@@ -1169,13 +1255,13 @@ async function findOrCreateBairroEnhanced(post: WordPressPost, supabase: any): P
     'Eusébio', 'Aquiraz', 'Vila Velha', 'Prefeito José Walter', 'Jangurussu',
     'Barroso', 'Granja Portugal', 'Granja Lisboa', 'Castelão', 'Itaperi'
   ];
-  
+
   const bairrosCaucaia = ['Jurema', 'Cumbuco', 'Icaraí', 'Tabuba'];
 
   // Try exact matches for Fortaleza
   for (const bairroName of bairrosFortaleza) {
     const regex = new RegExp(`\\b${bairroName}\\b`, 'i');
-    
+
     if (regex.test(fullContent)) {
       // Check if bairro exists
       const { data: existing } = await supabase
@@ -1208,11 +1294,11 @@ async function findOrCreateBairroEnhanced(post: WordPressPost, supabase: any): P
       }
     }
   }
-  
+
   // Try exact matches for Caucaia
   for (const bairroName of bairrosCaucaia) {
     const regex = new RegExp(`\\b${bairroName}\\b`, 'i');
-    
+
     if (regex.test(fullContent)) {
       // Check if bairro exists
       const { data: existing } = await supabase
@@ -1250,8 +1336,8 @@ async function findOrCreateBairroEnhanced(post: WordPressPost, supabase: any): P
 }
 
 async function savePerformanceMetrics(
-  supabase: any, 
-  performanceMetrics: PerformanceMetric[], 
+  supabase: any,
+  performanceMetrics: PerformanceMetric[],
   syncLogId: string
 ) {
   try {
@@ -1283,10 +1369,10 @@ async function savePerformanceMetrics(
 }
 
 async function logSyncResults(
-  supabase: any, 
-  stats: SyncStats, 
-  syncDuration: number, 
-  errors: string[], 
+  supabase: any,
+  stats: SyncStats,
+  syncDuration: number,
+  errors: string[],
   syncLogId: string | null,
   status: 'success' | 'partial' | 'error' = 'success'
 ) {

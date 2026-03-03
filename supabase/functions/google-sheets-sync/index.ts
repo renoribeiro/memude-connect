@@ -125,7 +125,6 @@ const handler = async (req: Request): Promise<Response> => {
 
           // Map row data to corretor fields according to expected format (13 columns)
           const corretorData = {
-            nome: nome, // 1. Nome Completo
             cpf: row[1]?.trim() || null, // 2. CPF
             telefone: telefone, // 3. Telefone 
             whatsapp: telefone, // Use same as telefone
@@ -142,7 +141,7 @@ const handler = async (req: Request): Promise<Response> => {
           const bairrosText = row[7]?.trim() || ''; // 8. Bairros (comma-separated)
           const construtorasText = row[9]?.trim() || ''; // 10. Construtora (comma-separated)
 
-          console.log('Processing corretor:', corretorData.nome, corretorData.creci);
+          console.log('Processing corretor:', nome, corretorData.creci);
 
           // Check if corretor already exists by CRECI
           const { data: existingCorretor } = await supabase
@@ -161,20 +160,32 @@ const handler = async (req: Request): Promise<Response> => {
               .eq('id', existingCorretor.id);
 
             if (error) throw error;
+
+            // Update profile name if profile_id exists
+            if (existingCorretor.profile_id) {
+              const [firstName, ...lastNameParts] = nome.split(' ');
+              const lastName = lastNameParts.join(' ') || 'Corretor';
+              await supabase
+                .from('profiles')
+                .update({ first_name: firstName, last_name: lastName })
+                .eq('id', existingCorretor.profile_id);
+            }
+
             corretorId = existingCorretor.id;
             updated++;
           } else {
             // Create new corretor - first create user profile
             const tempEmail = corretorData.email || `${corretorData.creci}@temp.memude.com`;
-            const tempPassword = `temp_${corretorData.creci}_${Date.now()}`;
+            const tempPassword = `Memude@${corretorData.creci}`;
 
-            const [firstName, ...lastNameParts] = corretorData.nome.split(' ');
+            const [firstName, ...lastNameParts] = nome.split(' ');
             const lastName = lastNameParts.join(' ') || 'Corretor';
 
             // Create auth user
             const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
               email: tempEmail,
               password: tempPassword,
+              email_confirm: true,
               user_metadata: {
                 first_name: firstName,
                 last_name: lastName,
@@ -211,8 +222,6 @@ const handler = async (req: Request): Promise<Response> => {
               console.error('Error creating corretor role:', roleInsertError);
               // Continue anyway - role will be added manually if needed
             }
-
-            if (profileError) throw profileError;
 
             // Create corretor
             const { data: newCorretor, error: corretorError } = await supabase
@@ -398,7 +407,7 @@ const handler = async (req: Request): Promise<Response> => {
         const visitasAgendadas = visitStats?.[0]?.visitas_agendadas || 0;
 
         rows.push([
-          corretor.nome || '',
+          `${corretor.profiles?.first_name || ''} ${corretor.profiles?.last_name || ''}`.trim(),
           corretor.cpf || '',
           corretor.telefone || corretor.whatsapp || '',
           corretor.email || '',

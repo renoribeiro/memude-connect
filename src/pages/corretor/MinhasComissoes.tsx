@@ -18,8 +18,8 @@ import {
     TrendingUp,
     Clock,
     CheckCircle2,
-    CheckCircle2,
     AlertCircle,
+    Loader2,
 } from 'lucide-react';
 import { formatCurrency } from '@/utils/formatters';
 

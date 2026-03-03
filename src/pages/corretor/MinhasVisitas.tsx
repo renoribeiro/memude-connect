@@ -58,13 +58,13 @@ export default function MinhasVisitas() {
     queryKey: ['my-corretor-profile'],
     queryFn: async () => {
       if (!profile?.id) return null;
-      
+
       const { data, error } = await supabase
         .from('corretores')
         .select('id')
         .eq('profile_id', profile.id)
         .single();
-      
+
       if (error) throw error;
       return data;
     },
@@ -75,7 +75,7 @@ export default function MinhasVisitas() {
     queryKey: ['my-visitas', searchTerm, filterStatus, corretor?.id],
     queryFn: async () => {
       if (!corretor?.id) return [];
-      
+
       let query = supabase
         .from('visitas')
         .select(`
@@ -106,9 +106,9 @@ export default function MinhasVisitas() {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
       stars.push(
-        <Star 
-          key={i} 
-          className={`w-4 h-4 ${i <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'} ${interactive ? 'cursor-pointer hover:text-yellow-400' : ''}`} 
+        <Star
+          key={i}
+          className={`w-4 h-4 ${i <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'} ${interactive ? 'cursor-pointer hover:text-yellow-400' : ''}`}
         />
       );
     }
@@ -117,7 +117,7 @@ export default function MinhasVisitas() {
 
   const getVisitaStatus = (visita: Visita) => {
     const visitaDateTime = new Date(`${visita.data_visita}T${visita.horario_visita}`);
-    
+
     if (isPast(visitaDateTime) && visita.status !== 'realizada' && visita.status !== 'cancelada') {
       return 'atrasada';
     }
@@ -130,7 +130,13 @@ export default function MinhasVisitas() {
     return null;
   };
 
-  if (!profile || !corretor) return null;
+  if (!profile || !corretor) return (
+    <DashboardLayout>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    </DashboardLayout>
+  );
 
   return (
     <DashboardLayout>
@@ -157,7 +163,7 @@ export default function MinhasVisitas() {
               <div className="text-2xl font-bold">{visitas.length}</div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -243,7 +249,7 @@ export default function MinhasVisitas() {
                 {visitas.map((visita) => {
                   const visitaStatus = getVisitaStatus(visita);
                   const priority = getVisitaPriority(visita);
-                  
+
                   return (
                     <div
                       key={visita.id}
@@ -291,7 +297,7 @@ export default function MinhasVisitas() {
                             {visita.leads.telefone}
                           </div>
                         </div>
-                        
+
                         {visita.avaliacao_lead && (
                           <div className="flex items-center gap-2">
                             <span className="text-sm text-muted-foreground">Avaliação do Lead:</span>
@@ -303,25 +309,25 @@ export default function MinhasVisitas() {
                             </div>
                           </div>
                         )}
-                        
+
                         {visita.comentarios_lead && (
                           <div className="text-sm text-muted-foreground">
                             <strong>Comentário do Lead:</strong> {visita.comentarios_lead}
                           </div>
                         )}
-                        
+
                         {visita.feedback_corretor && (
                           <div className="text-sm text-muted-foreground">
                             <strong>Meu Feedback:</strong> {visita.feedback_corretor}
                           </div>
                         )}
                       </div>
-                      
+
                       <div className="flex items-center gap-2 ml-4">
                         {visita.status === 'agendada' && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             className="text-green-600 border-green-600 hover:bg-green-50"
                           >
                             <CheckCircle className="w-3 h-3 mr-1" />
@@ -329,16 +335,16 @@ export default function MinhasVisitas() {
                           </Button>
                         )}
                         {visita.status === 'confirmada' && !isPast(new Date(`${visita.data_visita}T${visita.horario_visita}`)) && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             className="text-blue-600 border-blue-600 hover:bg-blue-50"
                           >
                             <MessageSquare className="w-3 h-3 mr-1" />
                             Lembrar Cliente
                           </Button>
                         )}
-                        <VisitaActions 
+                        <VisitaActions
                           visitaId={visita.id}
                           status={visitaStatus}
                           leadId={String(visita.leads)}

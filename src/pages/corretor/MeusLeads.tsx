@@ -55,13 +55,13 @@ export default function MeusLeads() {
     queryKey: ['my-corretor-profile'],
     queryFn: async () => {
       if (!profile?.id) return null;
-      
+
       const { data, error } = await supabase
         .from('corretores')
         .select('id')
         .eq('profile_id', profile.id)
         .single();
-      
+
       if (error) throw error;
       return data;
     },
@@ -72,7 +72,7 @@ export default function MeusLeads() {
     queryKey: ['my-leads', searchTerm, filterStatus, corretor?.id],
     queryFn: async () => {
       if (!corretor?.id) return [];
-      
+
       let query = supabase
         .from('leads')
         .select(`
@@ -97,7 +97,13 @@ export default function MeusLeads() {
     enabled: !!corretor?.id
   });
 
-  if (!profile || !corretor) return null;
+  if (!profile || !corretor) return (
+    <DashboardLayout>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    </DashboardLayout>
+  );
 
   return (
     <DashboardLayout>
@@ -124,7 +130,7 @@ export default function MeusLeads() {
               <div className="text-2xl font-bold">{leads.length}</div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -256,16 +262,16 @@ export default function MeusLeads() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="flex items-center gap-2 text-green-600 border-green-600 hover:bg-green-50"
                       >
                         <Phone className="w-3 h-3" />
                         Ligar
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         className="flex items-center gap-2 text-blue-600 border-blue-600 hover:bg-blue-50"
                       >
@@ -275,8 +281,8 @@ export default function MeusLeads() {
                       <Button variant="outline" size="sm">
                         Detalhes
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         className="flex items-center gap-2"
                       >

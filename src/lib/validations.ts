@@ -62,7 +62,8 @@ export const corretorSchema = z.object({
     .string()
     .min(11, 'CPF deve ter 11 dígitos')
     .max(14, 'CPF inválido')
-    .optional(),
+    .optional()
+    .or(z.literal('')),
   telefone: z
     .string()
     .min(10, 'Telefone deve ter no mínimo 10 dígitos')
@@ -70,7 +71,8 @@ export const corretorSchema = z.object({
   email: z
     .string()
     .email('Email deve ter um formato válido')
-    .optional(),
+    .optional()
+    .or(z.literal('')),
   creci: z
     .string()
     .min(3, 'CRECI deve ter no mínimo 3 caracteres')
@@ -87,7 +89,7 @@ export const corretorSchema = z.object({
   tipo_imovel: z.enum([
     'residencial', 'comercial', 'terreno', 'rural', 'todos'
   ], { message: 'Selecione um tipo de imóvel válido' }),
-  observacoes: z.string().optional(),
+  observacoes: z.string().optional().or(z.literal('')),
   status: z.enum(['em_avaliacao', 'ativo', 'inativo', 'bloqueado']).optional(),
   nota_media: z.number().min(0).max(5).optional(),
   bairros: z.array(z.string()).min(1, 'Selecione pelo menos um bairro'),

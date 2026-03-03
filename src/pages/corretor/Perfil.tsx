@@ -61,7 +61,7 @@ export default function Perfil() {
     queryKey: ['corretor-profile'],
     queryFn: async () => {
       if (!profile?.id) return null;
-      
+
       const { data, error } = await supabase
         .from('corretores')
         .select(`
@@ -70,7 +70,7 @@ export default function Perfil() {
         `)
         .eq('profile_id', profile.id)
         .single();
-      
+
       if (error) throw error;
       return data as CorretorProfile;
     },
@@ -81,14 +81,14 @@ export default function Perfil() {
     queryKey: ['my-bairros', corretor?.id],
     queryFn: async () => {
       if (!corretor?.id) return [];
-      
+
       const { data, error } = await supabase
         .from('corretor_bairros')
         .select(`
           bairros(nome, cidade)
         `)
         .eq('corretor_id', corretor.id);
-      
+
       if (error) throw error;
       return data.map(item => item.bairros).filter(Boolean);
     },
@@ -99,14 +99,14 @@ export default function Perfil() {
     queryKey: ['my-construtoras', corretor?.id],
     queryFn: async () => {
       if (!corretor?.id) return [];
-      
+
       const { data, error } = await supabase
         .from('corretor_construtoras')
         .select(`
           construtoras(nome)
         `)
         .eq('corretor_id', corretor.id);
-      
+
       if (error) throw error;
       return data.map(item => item.construtoras).filter(Boolean);
     },
@@ -116,12 +116,12 @@ export default function Perfil() {
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { first_name: string; last_name: string; phone?: string }) => {
       if (!profile?.id) throw new Error('Usuário não encontrado');
-      
+
       const { error } = await supabase
         .from('profiles')
         .update(data)
         .eq('id', profile.id);
-      
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -143,12 +143,12 @@ export default function Perfil() {
   const updateCorretorMutation = useMutation({
     mutationFn: async (data: { whatsapp: string; observacoes?: string }) => {
       if (!corretor?.id) throw new Error('Corretor não encontrado');
-      
+
       const { error } = await supabase
         .from('corretores')
         .update(data)
         .eq('id', corretor.id);
-      
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -181,7 +181,13 @@ export default function Perfil() {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
-  if (!profile || !corretor) return null;
+  if (!profile || !corretor) return (
+    <DashboardLayout>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    </DashboardLayout>
+  );
 
   return (
     <DashboardLayout>
@@ -225,7 +231,7 @@ export default function Perfil() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -319,7 +325,7 @@ export default function Perfil() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="phone">Telefone</Label>

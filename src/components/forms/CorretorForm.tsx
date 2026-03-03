@@ -83,11 +83,11 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
   const form = useForm<CorretorFormData>({
     resolver: zodResolver(corretorSchema),
     defaultValues: {
-      nome: initialData?.profiles?.first_name && initialData?.profiles?.last_name 
+      nome: initialData?.profiles?.first_name && initialData?.profiles?.last_name
         ? `${initialData.profiles.first_name} ${initialData.profiles.last_name}`
         : "",
       cpf: initialData?.cpf || "",
-      telefone: initialData?.telefone || initialData?.whatsapp || "", 
+      telefone: initialData?.telefone || initialData?.whatsapp || "",
       email: initialData?.email || "",
       creci: initialData?.creci || "",
       cidade: initialData?.cidade || "",
@@ -110,7 +110,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
         .select('id, nome, cidade')
         .eq('ativo', true)
         .order('nome');
-      
+
       if (error) throw error;
       return data;
     }
@@ -125,18 +125,18 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
         .select('id, nome')
         .eq('ativo', true)
         .order('nome');
-      
+
       if (error) throw error;
       return data;
     }
   });
 
   // Estados para busca e filtro
-  const filteredBairros = bairros?.filter(bairro => 
+  const filteredBairros = bairros?.filter(bairro =>
     bairro.nome.toLowerCase().includes(bairroSearch.toLowerCase())
   ) || [];
 
-  const filteredConstrutoras = construtoras?.filter(construtora => 
+  const filteredConstrutoras = construtoras?.filter(construtora =>
     construtora.nome.toLowerCase().includes(construtorSearch.toLowerCase())
   ) || [];
 
@@ -145,7 +145,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
     if (initialData?.corretor_bairros) {
       setSelectedBairros(initialData.corretor_bairros.map((cb: any) => cb.bairro_id));
     }
-    
+
     if (initialData?.corretor_construtoras) {
       const selectedIds = initialData.corretor_construtoras.map((cc: any) => cc.construtora_id);
       setSelectedConstrutoras(selectedIds);
@@ -203,8 +203,8 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
       try {
         // Create new corretor - first create user via edge function
         const tempEmail = email || `${creci}@temp.memude.com`;
-        const tempPassword = `temp_${creci}_${Date.now()}`;
-        
+        const tempPassword = `Memude@${creci}`;
+
         const [firstName, ...lastNameParts] = nome.split(' ');
         const lastName = lastNameParts.join(' ') || 'Corretor';
 
@@ -330,11 +330,14 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['corretores'] });
+      const tempEmail = variables.email || `${variables.creci}@temp.memude.com`;
+      const tempPassword = `Memude@${variables.creci}`;
       toast({
         title: "Corretor cadastrado com sucesso!",
-        description: "Email de boas-vindas e mensagem no WhatsApp foram enviados.",
+        description: `Credenciais de acesso criadas:\nEmail: ${tempEmail}\nSenha: ${tempPassword}\n\nRepasse essas credenciais ao corretor.`,
+        duration: 20000,
       });
       onSuccess();
     },
@@ -378,7 +381,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
         if (initialData?.profiles) {
           const [firstName, ...lastNameParts] = nome.split(' ');
           const lastName = lastNameParts.join(' ') || 'Corretor';
-          
+
           const { error: profileError } = await supabase
             .from('profiles')
             .update({
@@ -467,16 +470,16 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
   };
 
   const toggleBairro = (bairroId: string) => {
-    setSelectedBairros(prev => 
-      prev.includes(bairroId) 
+    setSelectedBairros(prev =>
+      prev.includes(bairroId)
         ? prev.filter(id => id !== bairroId)
         : [...prev, bairroId]
     );
   };
 
   const toggleConstrutora = (construtoraId: string) => {
-    setSelectedConstrutoras(prev => 
-      prev.includes(construtoraId) 
+    setSelectedConstrutoras(prev =>
+      prev.includes(construtoraId)
         ? prev.filter(id => id !== construtoraId)
         : [...prev, construtoraId]
     );
@@ -520,7 +523,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
                 />
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                   {form.watch('cpf') && (
-                    validateCPF(form.watch('cpf')) ? 
+                    validateCPF(form.watch('cpf')) ?
                       <CheckCircle className="h-4 w-4 text-green-500" /> :
                       <XCircle className="h-4 w-4 text-red-500" />
                   )}
@@ -670,12 +673,12 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
                   />
                 ))}
                 <span className="text-sm text-muted-foreground ml-2">
-                  {form.watch("nota_media") 
-                    ? `${form.watch("nota_media").toFixed(1)} estrelas` 
+                  {form.watch("nota_media")
+                    ? `${form.watch("nota_media").toFixed(1)} estrelas`
                     : "Não avaliado"}
                 </span>
               </div>
-              
+
               <Slider
                 value={[form.watch("nota_media") || 0]}
                 onValueChange={(value) => form.setValue("nota_media", value[0])}
@@ -683,7 +686,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
                 step={0.5}
                 className="w-full"
               />
-              
+
               <p className="text-xs text-muted-foreground">
                 Arraste o controle ou clique nas estrelas para avaliar (0 a 5)
               </p>
@@ -732,7 +735,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
                     checked={selectedBairros.includes(bairro.id)}
                     onCheckedChange={() => toggleBairro(bairro.id)}
                   />
-                  <Label 
+                  <Label
                     htmlFor={`bairro-${bairro.id}`}
                     className="text-sm font-normal cursor-pointer"
                   >
@@ -796,7 +799,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
                   Todas as Construtoras
                 </Label>
               </div>
-              
+
               {filteredConstrutoras.map((construtora) => (
                 <div key={construtora.id} className="flex items-center space-x-2">
                   <Checkbox
@@ -804,7 +807,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
                     checked={selectedConstrutoras.includes(construtora.id)}
                     onCheckedChange={(checked) => handleConstrutorSelection(construtora.id, checked as boolean)}
                   />
-                  <Label 
+                  <Label
                     htmlFor={`construtora-${construtora.id}`}
                     className="text-sm font-normal cursor-pointer"
                   >
@@ -843,8 +846,8 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
         <Button variant="outline" onClick={onCancel} type="button">
           Cancelar
         </Button>
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           disabled={createCorretorMutation.isPending || updateCorretorMutation.isPending}
         >
           {(createCorretorMutation.isPending || updateCorretorMutation.isPending) && (

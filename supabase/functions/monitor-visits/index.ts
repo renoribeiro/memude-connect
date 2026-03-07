@@ -177,7 +177,7 @@ async function sendReminderMessages(supabase: any, visita: any, type: 'reminder_
   const isToday = type === 'reminder_today';
   const timeText = isToday ? "é HOJE" : "é AMANHÃ";
 
-  // Mensagem para Cliente
+  // Mensagem para Cliente — Pede confirmação SIM/NÃO
   const msgClient = `⏰ *LEMBRETE DE VISITA*
 
 Olá ${visita.lead.nome}, sua visita ao *${visita.empreendimento.nome}* ${timeText}.
@@ -186,9 +186,9 @@ Olá ${visita.lead.nome}, sua visita ao *${visita.empreendimento.nome}* ${timeTe
 📍 Corretor: ${visita.corretor.profiles.first_name}
 
 ⚠️ *Precisamos confirmar sua presença.*
-Responda *SIM* para confirmar ou *NÃO* para reagendar.`;
+Responda *SIM* para confirmar ou *NÃO* para cancelar.`;
 
-  // Mensagem para Corretor
+  // Mensagem para Corretor — Agora também pede confirmação SIM/NÃO
   const msgCorretor = `⏰ *LEMBRETE DE VISITA*
 
 Corretor(a) ${visita.corretor.profiles.first_name}, sua visita com o cliente *${visita.lead.nome}* ${timeText}.
@@ -196,9 +196,10 @@ Corretor(a) ${visita.corretor.profiles.first_name}, sua visita com o cliente *${
 🏢 Empreendimento: ${visita.empreendimento.nome}
 🕒 Horário: ${visita.horario_visita}
 
-Aguardando confirmação do cliente.`;
+⚠️ *Precisamos confirmar sua presença.*
+Responda *SIM* para confirmar ou *NÃO* se não puder comparecer.`;
 
-  // Enviar
+  // Enviar com contexto de "visit_reminder" para que o webhook saiba rotear as respostas
   await sendWhatsapp(supabase, visita.lead.telefone, msgClient, visita, type, 'client');
   await sendWhatsapp(supabase, visita.corretor.whatsapp, msgCorretor, visita, type, 'corretor');
 }
@@ -231,22 +232,23 @@ Isso ajuda a calibrar nossos leads! 🚀`;
 
 async function sendWhatsapp(supabase: any, phone: string, message: string, visita: any, type: string, target: string) {
   try {
+    const isReminder = type === 'reminder_24h' || type === 'reminder_today';
+
     await supabase.functions.invoke('evolution-send-whatsapp-v2', {
       body: {
-        phone_number: phone, // Corrigido para V2
+        phone_number: phone,
         message: message,
         metadata: {
           visita_id: visita.id,
           lead_id: visita.lead.id,
           type: type,
           target: target,
-          context: type === 'reminder_24h' || type === 'reminder_today' ? 'visit_confirmation' : undefined
+          context: isReminder ? 'visit_reminder' : 'post_visit_feedback'
         }
       }
     });
 
-    // Log manual se necessário, mas o send-whatsapp-v2 já deve logar ou o webhook de retorno loga
-    // Vamos garantir log local para o checkCommunicationLog funcionar
+    // Log local para o checkCommunicationLog funcionar
     await supabase.from('communication_log').insert({
       type: 'whatsapp',
       direction: 'outbound',
@@ -256,7 +258,8 @@ async function sendWhatsapp(supabase: any, phone: string, message: string, visit
       metadata: {
         visita_id: visita.id,
         type: type,
-        target: target
+        target: target,
+        context: isReminder ? 'visit_reminder' : 'post_visit_feedback'
       }
     });
 

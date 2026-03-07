@@ -215,6 +215,83 @@ export function VisitaActions({
     }
   });
 
+  // Send reminder mutation
+  const sendReminderMutation = useMutation({
+    mutationFn: async () => {
+      // Fetch visit details to compose the message
+      const { data: visita, error: visitaError } = await supabase
+        .from('visitas')
+        .select(`
+          id, data_visita, horario_visita,
+          lead:leads!inner(nome, telefone),
+          corretor:corretores(whatsapp, profiles(first_name)),
+          empreendimento:empreendimentos(nome)
+        `)
+        .eq('id', visitaId)
+        .single();
+
+      if (visitaError || !visita) throw new Error('Dados da visita não encontrados');
+
+      const lead = visita.lead as any;
+      const corretor = visita.corretor as any;
+      const empreendimento = visita.empreendimento as any;
+      const dataVisita = new Date(visita.data_visita).toLocaleDateString('pt-BR');
+
+      // Send to Lead
+      if (lead?.telefone) {
+        const msgLead = `⏰ *LEMBRETE DE VISITA*\n\nOlá ${lead.nome}, sua visita ao *${empreendimento?.nome}* é em breve.\n\n🕒 Data: ${dataVisita}\n⏰ Horário: ${visita.horario_visita}\n📍 Corretor: ${corretor?.profiles?.first_name || 'A definir'}\n\n⚠️ *Precisamos confirmar sua presença.*\nResponda *SIM* para confirmar ou *NÃO* para cancelar.`;
+
+        const { error: leadError } = await supabase.functions.invoke('evolution-send-whatsapp-v2', {
+          body: {
+            phone_number: lead.telefone,
+            message: msgLead,
+            metadata: {
+              visita_id: visitaId,
+              type: 'manual_reminder',
+              target: 'client',
+              context: 'visit_reminder'
+            }
+          }
+        });
+
+        if (leadError) console.error('Erro ao enviar lembrete ao lead:', leadError);
+      }
+
+      // Send to Corretor
+      if (corretor?.whatsapp) {
+        const msgCorretor = `⏰ *LEMBRETE DE VISITA*\n\nCorretor(a) ${corretor.profiles?.first_name}, sua visita com *${lead.nome}* é em breve.\n\n🏢 ${empreendimento?.nome}\n🕒 Data: ${dataVisita}\n⏰ Horário: ${visita.horario_visita}\n\n⚠️ *Precisamos confirmar sua presença.*\nResponda *SIM* para confirmar ou *NÃO* se não puder comparecer.`;
+
+        const { error: corretorError } = await supabase.functions.invoke('evolution-send-whatsapp-v2', {
+          body: {
+            phone_number: corretor.whatsapp,
+            message: msgCorretor,
+            metadata: {
+              visita_id: visitaId,
+              type: 'manual_reminder',
+              target: 'corretor',
+              context: 'visit_reminder'
+            }
+          }
+        });
+
+        if (corretorError) console.error('Erro ao enviar lembrete ao corretor:', corretorError);
+      }
+    },
+    onSuccess: () => {
+      toast({
+        title: "Lembrete Enviado",
+        description: "Lembrete enviado para o lead e corretor via WhatsApp.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao enviar lembrete",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
   const renderStars = () => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star
@@ -479,14 +556,16 @@ export function VisitaActions({
       )}
 
       {/* Send Reminder */}
-      {status === 'confirmada' && isCorretor && (
+      {(status === 'agendada' || status === 'confirmada' || status === 'reagendada') && (
         <Button
           variant="outline"
           size="sm"
           className="text-purple-600 border-purple-600 hover:bg-purple-50"
+          onClick={() => sendReminderMutation.mutate()}
+          disabled={sendReminderMutation.isPending}
         >
           <MessageSquare className="w-3 h-3 mr-1" />
-          Lembrete
+          {sendReminderMutation.isPending ? "Enviando..." : "Lembrete"}
         </Button>
       )}
 

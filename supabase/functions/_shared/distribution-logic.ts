@@ -39,19 +39,15 @@ export async function processIncomingMessage(
     return { processed: false, action: 'none', type: 'visit' };
   }
 
-  // 2. Processar Visitas (Prioridade)
+  // 2. Processar Visitas (Prioridade — Distribuição SIM/NÃO do corretor)
   const visitResult = await handleVisitAttempt(supabase, phoneNumber, response, messageText);
   if (visitResult.processed) return visitResult;
 
-  // 3. Processar Leads (Fallback)
+  // 3. Processar Leads (Fallback — Distribuição de Leads)
   const leadResult = await handleLeadAttempt(supabase, phoneNumber, response, messageText);
-
   if (leadResult.processed) return leadResult;
 
-  // 4. LID FALLBACK: Se nenhum handler processou E temos um LID no remoteJid,
-  //    tentar encontrar a tentativa pendente diretamente (sem filtro de telefone)
-  //    Isso resolve o problema onde o Evolution API V2 envia o telefone da instância
-  //    ao invés do telefone do remetente real.
+  // 4. LID FALLBACK: Se nenhum handler processou E temos um LID no remoteJid
   const isLidMessage = remoteJid.includes('@lid');
   if (isLidMessage && (response.type === 'accepted' || response.type === 'rejected')) {
     console.log(`🔄 LID FALLBACK: Tentando encontrar tentativa pendente sem filtro de telefone...`);
@@ -62,7 +58,11 @@ export async function processIncomingMessage(
     if (lidLeadFallbackResult.processed) return lidLeadFallbackResult;
   }
 
-  // 5. Processar Confirmação de Visita (Lead respondendo Lembrete)
+  // 5. Processar Confirmação do Corretor ao Lembrete (SIM/NÃO antes da visita)
+  const corretorConfirmResult = await handleCorretorReminderConfirmation(supabase, phoneNumber, response, messageText);
+  if (corretorConfirmResult.processed) return corretorConfirmResult;
+
+  // 6. Processar Confirmação do Lead ao Lembrete (SIM/NÃO antes da visita)
   const confirmationResult = await handleLeadConfirmation(supabase, phoneNumber, response, messageText);
   if (confirmationResult.processed) return confirmationResult;
 
@@ -351,6 +351,93 @@ async function handleLeadAttempt(
 }
 
 
+async function handleCorretorReminderConfirmation(
+  supabase: SupabaseClient,
+  phoneNumber: string,
+  response: ProcessingResponse,
+  originalText: string
+): Promise<DistributionResult> {
+  // Buscar corretor com busca flexível
+  const corretor = await findCorretorByPhone(supabase, phoneNumber);
+  if (!corretor) return { processed: false, action: 'none', type: 'visit' };
+
+  // Buscar visita agendada ou confirmada para este corretor (futura ou hoje)
+  const today = new Date().toISOString().split('T')[0];
+  const { data: visit } = await supabase
+    .from('visitas')
+    .select(`
+      *,
+      lead:leads!inner(id, nome, telefone),
+      empreendimento:empreendimentos(nome, endereco)
+    `)
+    .eq('corretor_id', corretor.id)
+    .gte('data_visita', today)
+    .in('status', ['agendada', 'confirmada'])
+    .is('corretor_confirmou', null)
+    .order('data_visita', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (!visit) {
+    return { processed: false, action: 'none', type: 'visit' };
+  }
+
+  const dataVisita = new Date(visit.data_visita).toLocaleDateString('pt-BR');
+
+  if (response.type === 'accepted') {
+    console.log(`✅ Corretor ${corretor.id} confirmou presença na visita ${visit.id}`);
+
+    // Atualizar visita
+    const currentMeta = visit.confirmation_metadata || {};
+    await supabase.from('visitas').update({
+      corretor_confirmou: true,
+      confirmation_metadata: {
+        ...currentMeta,
+        corretor_confirmed_at: new Date().toISOString(),
+        corretor_response: originalText
+      }
+    }).eq('id', visit.id);
+
+    // Notificar Lead
+    await sendWhatsappMessage(supabase, visit.lead.telefone, `✅ *Boa notícia!*\n\nSeu corretor confirmou presença na visita de *${dataVisita}*!\n\n🏢 ${visit.empreendimento?.nome}\n🕒 ${visit.horario_visita}\n\nNos vemos lá! 🤝`);
+
+    // Avisar Corretor
+    await sendWhatsappMessage(supabase, phoneNumber, `✅ Presença confirmada! Aguardamos você na visita de ${dataVisita}.`);
+
+    return { processed: true, action: 'accepted', type: 'visit', id: visit.id };
+
+  } else if (response.type === 'rejected') {
+    console.log(`⚠️ Corretor ${corretor.id} não pode comparecer à visita ${visit.id}`);
+
+    // Atualizar visita
+    const currentMeta = visit.confirmation_metadata || {};
+    await supabase.from('visitas').update({
+      corretor_confirmou: false,
+      confirmation_metadata: {
+        ...currentMeta,
+        corretor_declined_at: new Date().toISOString(),
+        corretor_response: originalText
+      }
+    }).eq('id', visit.id);
+
+    // Notificar Admin
+    const { data: settings } = await supabase.from('system_settings').select('value').eq('key', 'admin_whatsapp').single();
+    if (settings?.value) {
+      await sendWhatsappMessage(supabase, settings.value, `⚠️ *CORRETOR NÃO PODE COMPARECER*\n\nVisita: ${visit.id}\nCliente: ${visit.lead.nome}\nData: ${dataVisita}\nEmpreendimento: ${visit.empreendimento?.nome}\n\n❗ É necessário designar outro corretor ou reagendar.`);
+    }
+
+    // Notificar Lead
+    await sendWhatsappMessage(supabase, visit.lead.telefone, `⚠️ Olá ${visit.lead.nome}, precisamos reagendar sua visita de ${dataVisita}. Um de nossos gestores entrará em contato em breve.`);
+
+    // Avisar Corretor
+    await sendWhatsappMessage(supabase, phoneNumber, `📝 Entendido. Notificamos a equipe para providenciar a cobertura.`);
+
+    return { processed: true, action: 'rejected', type: 'visit', id: visit.id };
+  }
+
+  return { processed: false, action: 'none', type: 'visit' };
+}
+
 async function handleLeadConfirmation(
   supabase: SupabaseClient,
   phoneNumber: string,
@@ -370,7 +457,7 @@ async function handleLeadConfirmation(
       empreendimento:empreendimentos(nome, endereco)
     `)
     .eq('lead_id', lead.id)
-    .gte('data_visita', today) // Visitas de hoje em diante
+    .gte('data_visita', today)
     .in('status', ['agendada', 'confirmada'])
     .order('data_visita', { ascending: true })
     .limit(1)
@@ -380,36 +467,70 @@ async function handleLeadConfirmation(
     return { processed: false, action: 'none', type: 'visit' };
   }
 
+  const dataVisita = new Date(visit.data_visita).toLocaleDateString('pt-BR');
+
   if (response.type === 'accepted') {
-    // 1. Lead Confirmou
+    // Lead Confirmou — atualizar status da visita
     console.log(`✅ Lead ${lead.nome} confirmou visita ${visit.id}`);
 
+    const currentMeta = visit.confirmation_metadata || {};
+    await supabase.from('visitas').update({
+      status: 'confirmada',
+      lead_confirmou: true,
+      confirmation_metadata: {
+        ...currentMeta,
+        lead_confirmed_at: new Date().toISOString(),
+        lead_response: originalText
+      }
+    }).eq('id', visit.id);
+
+    // Atualizar status do lead
+    await supabase.from('leads').update({ status: 'visita_confirmada' }).eq('id', lead.id);
+
     // Avisar Corretor
-    const msgCorretor = `🎉 *CLIENTE CONFIRMOU!*\n\nO cliente ${lead.nome} confirmou a presença na visita de ${new Date(visit.data_visita).toLocaleDateString('pt-BR')}!\n\nEmpreendimento: ${visit.empreendimento?.nome}`;
+    const msgCorretor = `🎉 *CLIENTE CONFIRMOU!*\n\nO cliente ${lead.nome} confirmou a presença na visita de ${dataVisita}!\n\nEmpreendimento: ${visit.empreendimento?.nome}\n🕒 ${visit.horario_visita}`;
     await sendWhatsappMessage(supabase, visit.corretor.whatsapp, msgCorretor);
 
     // Avisar Lead
-    await sendWhatsappMessage(supabase, phoneNumber, "✅ Combinado! Seu corretor aguarda você.");
+    await sendWhatsappMessage(supabase, phoneNumber, `✅ Visita confirmada para ${dataVisita} às ${visit.horario_visita}!\n\nSeu corretor ${visit.corretor.profiles.first_name} aguarda você. 🤝`);
 
     return { processed: true, action: 'accepted', type: 'visit', id: visit.id };
   }
   else if (response.type === 'rejected') {
-    // 2. Lead Recusou/Cancelou
-    console.log(`⚠️ Lead ${lead.nome} não confirmou visita ${visit.id}`);
+    // Lead Recusou — cancelar visita
+    console.log(`⚠️ Lead ${lead.nome} cancelou visita ${visit.id}`);
+
+    const currentMeta = visit.confirmation_metadata || {};
+    await supabase.from('visitas').update({
+      status: 'cancelada',
+      lead_confirmou: false,
+      confirmation_metadata: {
+        ...currentMeta,
+        lead_declined_at: new Date().toISOString(),
+        lead_response: originalText
+      }
+    }).eq('id', visit.id);
+
+    // Atualizar status do lead
+    await supabase.from('leads').update({ status: 'cancelado' }).eq('id', lead.id);
+
+    // Avisar Corretor
+    const msgCorretor = `⚠️ *VISITA CANCELADA PELO CLIENTE*\n\nO cliente ${lead.nome} cancelou a visita de ${dataVisita}.\n\nEmpreendimento: ${visit.empreendimento?.nome}`;
+    await sendWhatsappMessage(supabase, visit.corretor.whatsapp, msgCorretor);
 
     // Avisar Admin
     const { data: settings } = await supabase.from('system_settings').select('value').eq('key', 'admin_whatsapp').single();
     if (settings?.value) {
-      await sendWhatsappMessage(supabase, settings.value, `⚠️ *VISITA NÃO CONFIRMADA PELO LEAD*\n\nLead: ${lead.nome}\nCorretor: ${visit.corretor.profiles.first_name}\nData: ${new Date(visit.data_visita).toLocaleDateString('pt-BR')}\nMotivo: Respondeu NÃO ao lembrete (confirmar interesse).`);
+      await sendWhatsappMessage(supabase, settings.value, `⚠️ *VISITA CANCELADA PELO LEAD*\n\nLead: ${lead.nome}\nCorretor: ${visit.corretor.profiles.first_name}\nData: ${dataVisita}\nEmpreendimento: ${visit.empreendimento?.nome}\nMotivo: Respondeu NÃO ao lembrete.`);
     }
 
     // Avisar Lead
-    const msgLead = "Entendido. Um de nossos gestores entrará em contato.";
-    await sendWhatsappMessage(supabase, phoneNumber, msgLead);
+    await sendWhatsappMessage(supabase, phoneNumber, `Entendido, ${lead.nome}. A visita de ${dataVisita} foi cancelada. Um de nossos gestores entrará em contato caso queira reagendar.`);
 
     return { processed: true, action: 'rejected', type: 'visit', id: visit.id };
   }
 
+  // Sem resposta clara = não faz nada, visita permanece ativa
   return { processed: false, action: 'none', type: 'visit' };
 }
 

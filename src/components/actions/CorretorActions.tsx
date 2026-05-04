@@ -38,7 +38,7 @@ export default function CorretorActions({ corretor }: CorretorActionsProps) {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ status, data_avaliacao }: { status: string; data_avaliacao?: string }) => {
-      const updateData: any = { status };
+      const updateData: Record<string, string> = { status };
       if (data_avaliacao) {
         updateData.data_avaliacao = data_avaliacao;
       }

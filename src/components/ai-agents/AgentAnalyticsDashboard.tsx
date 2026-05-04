@@ -148,7 +148,7 @@ export function AgentAnalyticsDashboard({ agentId }: AgentAnalyticsDashboardProp
         const icons: Record<string, React.ReactNode> = {
             message_received: <MessageSquare className="h-3 w-3 text-blue-500" />,
             message_sent: <MessageSquare className="h-3 w-3 text-green-500" />,
-            intent_detected: <Target className="h-3 w-3 text-purple-500" />,
+            intent_detected: <Target className="h-3 w-3 text-teal-500" />,
             objection_detected: <Zap className="h-3 w-3 text-orange-500" />,
             action_executed: <Activity className="h-3 w-3 text-blue-600" />,
             handoff_triggered: <Users className="h-3 w-3 text-red-500" />,

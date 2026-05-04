@@ -11,6 +11,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { TableSkeleton } from "@/components/ui/loading-skeleton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useToast } from "@/hooks/use-toast";
+import { useDebounce } from "@/hooks/use-debounce";
 
 interface Lead {
   id: string;
@@ -48,8 +50,10 @@ const statusLabels = {
 
 export default function MeusLeads() {
   const { profile } = useAuth();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
   const { data: corretor } = useQuery({
     queryKey: ['my-corretor-profile'],
@@ -69,7 +73,7 @@ export default function MeusLeads() {
   });
 
   const { data: leads = [], isLoading } = useQuery({
-    queryKey: ['my-leads', searchTerm, filterStatus, corretor?.id],
+    queryKey: ['my-leads', debouncedSearchTerm, filterStatus, corretor?.id],
     queryFn: async () => {
       if (!corretor?.id) return [];
 
@@ -82,8 +86,8 @@ export default function MeusLeads() {
         .eq('corretor_designado_id', corretor.id)
         .order('created_at', { ascending: false });
 
-      if (searchTerm) {
-        query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
+      if (debouncedSearchTerm) {
+        query = query.or(`nome.ilike.%${debouncedSearchTerm}%,telefone.ilike.%${debouncedSearchTerm}%,email.ilike.%${debouncedSearchTerm}%`);
       }
 
       if (filterStatus !== 'all') {
@@ -266,6 +270,10 @@ export default function MeusLeads() {
                         variant="outline"
                         size="sm"
                         className="flex items-center gap-2 text-green-600 border-green-600 hover:bg-green-50"
+                        onClick={() => {
+                          const phone = lead.telefone.replace(/\D/g, '');
+                          window.open(`tel:+55${phone}`, '_self');
+                        }}
                       >
                         <Phone className="w-3 h-3" />
                         Ligar
@@ -274,17 +282,36 @@ export default function MeusLeads() {
                         variant="outline"
                         size="sm"
                         className="flex items-center gap-2 text-blue-600 border-blue-600 hover:bg-blue-50"
+                        onClick={() => {
+                          const phone = lead.telefone.replace(/\D/g, '');
+                          window.open(`https://wa.me/55${phone}`, '_blank');
+                        }}
                       >
                         <MessageSquare className="w-3 h-3" />
                         WhatsApp
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          toast({
+                            title: lead.nome,
+                            description: `Status: ${lead.status} | Origem: ${lead.origem} | Tel: ${lead.telefone}`,
+                          });
+                        }}
+                      >
                         Detalhes
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         className="flex items-center gap-2"
+                        onClick={() => {
+                          toast({
+                            title: "Avaliar Lead",
+                            description: "Funcionalidade de avaliação será implementada em breve.",
+                          });
+                        }}
                       >
                         <Star className="w-3 h-3" />
                         Avaliar

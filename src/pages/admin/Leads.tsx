@@ -14,6 +14,15 @@ import { ptBR } from "date-fns/locale";
 import LeadModal from "@/components/modals/LeadModal";
 import LeadStatusActions from "@/components/actions/LeadStatusActions";
 import LeadActions from "@/components/actions/LeadActions";
+import { useDebounce } from "@/hooks/use-debounce";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface Lead {
   id: string;
@@ -65,9 +74,13 @@ export default function Leads() {
   const [viewMode, setViewMode] = useState<'active' | 'trash'>('active');
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
 
   const { data: leads = [], isLoading } = useQuery({
-    queryKey: ['leads', searchTerm, filterStatus, viewMode],
+    queryKey: ['leads', debouncedSearchTerm, filterStatus, viewMode],
     queryFn: async () => {
       try {
         // TENTATIVA 1: Query com filtro de Lixeira (Padrão)
@@ -82,8 +95,8 @@ export default function Leads() {
           `)
           .order('created_at', { ascending: false });
 
-        if (searchTerm) {
-          query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
+        if (debouncedSearchTerm) {
+          query = query.or(`nome.ilike.%${debouncedSearchTerm}%,telefone.ilike.%${debouncedSearchTerm}%,email.ilike.%${debouncedSearchTerm}%`);
         }
 
         if (filterStatus !== 'all') {
@@ -99,13 +112,13 @@ export default function Leads() {
         }
 
         const { data, error } = await queryWithFilter;
-        
+
         if (error) {
           // Se o erro for de coluna inexistente (PGRST204 ou similar), tentar sem o filtro
           console.warn("Erro ao filtrar por deleted_at, tentando query sem filtro de lixeira:", error.message);
           throw error; // Lançar para o catch
         }
-        
+
         return data as Lead[];
 
       } catch (err: any) {
@@ -113,7 +126,7 @@ export default function Leads() {
         // Se falhar (ex: coluna deleted_at não existe), carrega tudo sem filtrar lixeira
         if (err.message?.includes('deleted_at') || err.code === 'PGRST204' || err.code === '42703') {
           console.log("Ativando modo de compatibilidade (sem lixeira)...");
-          
+
           let fallbackQuery = supabase
             .from('leads')
             .select(`
@@ -134,17 +147,25 @@ export default function Leads() {
           }
 
           const { data: fallbackData, error: fallbackError } = await fallbackQuery;
-          
+
           if (fallbackError) throw fallbackError;
           return fallbackData as Lead[];
         }
-        
+
         throw err;
       }
     }
   });
 
+  // Reset page when filters change
+  useState(() => {
+    setCurrentPage(1);
+  });
+
   if (!profile) return null;
+
+  const totalPages = Math.ceil(leads.length / ITEMS_PER_PAGE);
+  const paginatedLeads = leads.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <DashboardLayout>
@@ -158,7 +179,7 @@ export default function Leads() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button 
+            <Button
               variant={viewMode === 'trash' ? 'default' : 'outline'}
               onClick={() => setViewMode(viewMode === 'active' ? 'trash' : 'active')}
             >
@@ -199,7 +220,7 @@ export default function Leads() {
                 <div className="text-2xl font-bold">{leads.length}</div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -208,7 +229,7 @@ export default function Leads() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {leads.filter(lead => 
+                  {leads.filter(lead =>
                     new Date(lead.created_at).toDateString() === new Date().toDateString()
                   ).length}
                 </div>
@@ -294,7 +315,7 @@ export default function Leads() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {leads.map((lead) => (
+                {paginatedLeads.map((lead) => (
                   <div
                     key={lead.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-white/50"
@@ -334,18 +355,18 @@ export default function Leads() {
                           </div>
                         )}
                       </div>
-                        {lead.corretores && (
+                      {lead.corretores && (
                         <div className="text-sm text-muted-foreground">
                           Corretor: {lead.corretores.profiles.first_name} {lead.corretores.profiles.last_name}
                         </div>
-                        )}
+                      )}
                       {lead.deleted_at && (
                         <div className="text-xs text-destructive mt-1">
                           Excluído em: {format(new Date(lead.deleted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       {/* Ações específicas da Lixeira ou Ativos */}
                       {viewMode === 'active' && (
@@ -367,7 +388,7 @@ export default function Leads() {
                           </Button>
                         </>
                       )}
-                      
+
                       {/* Botão de Excluir/Restaurar (LeadActions lida com ambos os estados) */}
                       <LeadActions lead={lead} />
                     </div>
@@ -391,6 +412,58 @@ export default function Leads() {
                   </div>
                 )}
               </div>
+
+              {totalPages > 1 && (
+                <div className="mt-6 border-t pt-4">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(p => Math.max(1, p - 1));
+                          }}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                        />
+                      </PaginationItem>
+
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                        .map((page, i, arr) => (
+                          <div key={page} className="flex items-center">
+                            {i > 0 && arr[i - 1] !== page - 1 && (
+                              <span className="px-2 text-muted-foreground">...</span>
+                            )}
+                            <PaginationItem>
+                              <PaginationLink
+                                href="#"
+                                isActive={currentPage === page}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setCurrentPage(page);
+                                }}
+                              >
+                                {page}
+                              </PaginationLink>
+                            </PaginationItem>
+                          </div>
+                        ))}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(p => Math.min(totalPages, p + 1));
+                          }}
+                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

@@ -13,10 +13,6 @@ const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#3b82f6'];
 export default function Analytics() {
   const { profile } = useAuth();
 
-  if (profile?.role !== 'admin') {
-    return <Navigate to="/unauthorized" replace />;
-  }
-
   // Buscar métricas dos últimos 30 dias
   const { data: metrics } = useQuery({
     queryKey: ['distribution-metrics-30d'],
@@ -32,7 +28,8 @@ export default function Analytics() {
 
       if (error) throw error;
       return data || [];
-    }
+    },
+    enabled: profile?.role === 'admin',
   });
 
   // Buscar top corretores
@@ -55,16 +52,21 @@ export default function Analytics() {
 
       if (error) throw error;
       return data || [];
-    }
+    },
+    enabled: profile?.role === 'admin',
   });
+
+  if (profile?.role !== 'admin') {
+    return <Navigate to="/unauthorized" replace />;
+  }
 
   // Calcular estatísticas gerais
   const totalDistributions = metrics?.reduce((sum, m) => sum + m.total_distributions, 0) || 0;
   const totalSuccessful = metrics?.reduce((sum, m) => sum + m.successful_distributions, 0) || 0;
   const avgSuccessRate = totalDistributions > 0 ? (totalSuccessful / totalDistributions) * 100 : 0;
-  
-  const avgResponseTime = metrics && metrics.length > 0 
-    ? metrics.reduce((sum, m) => sum + (m.avg_response_time_minutes || 0), 0) / metrics.filter(m => m.avg_response_time_minutes).length 
+
+  const avgResponseTime = metrics && metrics.length > 0
+    ? metrics.reduce((sum, m) => sum + (m.avg_response_time_minutes || 0), 0) / metrics.filter(m => m.avg_response_time_minutes).length
     : 0;
 
   // Preparar dados para gráficos
@@ -109,7 +111,7 @@ export default function Analytics() {
               <p className="text-xs text-muted-foreground">
                 {totalSuccessful} de {totalDistributions} distribuições
               </p>
-              <Badge 
+              <Badge
                 variant={avgSuccessRate >= 70 ? "default" : "destructive"}
                 className="mt-2"
               >
@@ -130,7 +132,7 @@ export default function Analytics() {
               <p className="text-xs text-muted-foreground">
                 Tempo de resposta dos corretores
               </p>
-              <Badge 
+              <Badge
                 variant={avgResponseTime <= 10 ? "default" : "secondary"}
                 className="mt-2"
               >
@@ -189,11 +191,11 @@ export default function Analytics() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="sucessoPercent" 
-                    stroke="#10b981" 
-                    name="Taxa de Sucesso (%)" 
+                  <Line
+                    type="monotone"
+                    dataKey="sucessoPercent"
+                    stroke="#10b981"
+                    name="Taxa de Sucesso (%)"
                     strokeWidth={2}
                   />
                 </LineChart>
@@ -286,8 +288,8 @@ export default function Analytics() {
               {topCorretores && topCorretores.length > 0 ? (
                 topCorretores.map((corretor, index) => {
                   const totalResponses = (corretor.total_accepts || 0) + (corretor.total_rejects || 0);
-                  const acceptRate = totalResponses > 0 
-                    ? ((corretor.total_accepts || 0) / totalResponses) * 100 
+                  const acceptRate = totalResponses > 0
+                    ? ((corretor.total_accepts || 0) / totalResponses) * 100
                     : 0;
 
                   return (

@@ -43,7 +43,7 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
     conversation_ended: { label: "Conversa Encerrada", color: "bg-gray-500" },
     message_sent: { label: "Mensagem Enviada", color: "bg-blue-500" },
     message_received: { label: "Mensagem Recebida", color: "bg-blue-400" },
-    lead_qualified: { label: "Lead Qualificado", color: "bg-purple-500" },
+    lead_qualified: { label: "Lead Qualificado", color: "bg-teal-500" },
     lead_transferred: { label: "Lead Transferido", color: "bg-orange-500" },
     visit_scheduled: { label: "Visita Agendada", color: "bg-green-600" },
     property_searched: { label: "Busca de Imóveis", color: "bg-indigo-500" },

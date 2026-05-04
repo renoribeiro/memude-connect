@@ -63,7 +63,7 @@ const statusConfig = {
     label: 'Follow-up',
     variant: 'outline' as const,
     icon: MessageSquare,
-    color: 'text-purple-600'
+    color: 'text-teal-600'
   }
 };
 
@@ -75,7 +75,8 @@ export default function LeadStatusActions({ lead }: LeadStatusActionsProps) {
     mutationFn: async (newStatus: string) => {
       const { error } = await supabase
         .from('leads')
-        .update({ status: newStatus as any })
+        // @ts-expect-error - Ignorando erro de tipagem estrita do Supabase para status dinâmico
+        .update({ status: newStatus })
         .eq('id', lead.id);
       
       if (error) throw error;

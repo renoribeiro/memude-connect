@@ -20,9 +20,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { parseLocalDate, isSameLocalDay } from "@/utils/dateHelpers";
+import { useDebounce } from "@/hooks/use-debounce";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface Visita {
   id: string;
+  lead_id: string;
   data_visita: string;
   horario_visita: string;
   status: string;
@@ -66,13 +76,17 @@ export default function Visitas() {
   const { profile } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const [viewMode, setViewMode] = useState<'active' | 'trash'>('active');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedVisitaId, setSelectedVisitaId] = useState<string | undefined>();
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
+
   const { data: visitas = [], isLoading } = useQuery({
-    queryKey: ['visitas', searchTerm, filterStatus, viewMode],
+    queryKey: ['visitas', debouncedSearchTerm, filterStatus, viewMode],
     queryFn: async () => {
       let query = supabase
         .from('visitas')
@@ -93,8 +107,8 @@ export default function Visitas() {
         query = query.not('deleted_at', 'is', null);
       }
 
-      if (searchTerm) {
-        query = query.or(`leads.nome.ilike.%${searchTerm}%,leads.telefone.ilike.%${searchTerm}%`);
+      if (debouncedSearchTerm) {
+        query = query.or(`leads.nome.ilike.%${debouncedSearchTerm}%,leads.telefone.ilike.%${debouncedSearchTerm}%`);
       }
 
       if (filterStatus !== 'all') {
@@ -111,9 +125,9 @@ export default function Visitas() {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
       stars.push(
-        <Star 
-          key={i} 
-          className={`w-3 h-3 ${i <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} 
+        <Star
+          key={i}
+          className={`w-3 h-3 ${i <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`}
         />
       );
     }
@@ -130,7 +144,15 @@ export default function Visitas() {
     return isSameLocalDay(date, tomorrow);
   };
 
+  // Reset page when filters change
+  useState(() => {
+    setCurrentPage(1);
+  });
+
   if (!profile) return null;
+
+  const totalPages = Math.ceil(visitas.length / ITEMS_PER_PAGE);
+  const paginatedVisitas = visitas.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <DashboardLayout>
@@ -143,7 +165,7 @@ export default function Visitas() {
               Agende e acompanhe todas as visitas do sistema
             </p>
           </div>
-          <Button 
+          <Button
             className="flex items-center gap-2 hover-scale transition-all duration-200"
             onClick={() => {
               setSelectedVisitaId(undefined);
@@ -167,7 +189,7 @@ export default function Visitas() {
               <div className="text-2xl font-bold">{visitas.length}</div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -278,7 +300,7 @@ export default function Visitas() {
               Distribuição
             </TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="list" className="space-y-4">
             {isLoading ? (
               <div className="space-y-4">
@@ -368,10 +390,10 @@ export default function Visitas() {
                             </div>
                           )}
                         </div>
-                        <VisitaActions 
+                        <VisitaActions
                           visitaId={visita.id}
                           status={visita.status}
-                          leadId={visita.leads ? String(visita.leads) : ''}
+                          leadId={visita.lead_id || ''}
                           deletedAt={visita.deleted_at}
                           onEdit={() => {
                             setSelectedVisitaId(visita.id);
@@ -386,8 +408,8 @@ export default function Visitas() {
                     ))}
                     {visitas.length === 0 && (
                       <div className="text-center py-8 text-muted-foreground">
-                        {viewMode === 'active' 
-                          ? 'Nenhuma visita ativa encontrada' 
+                        {viewMode === 'active'
+                          ? 'Nenhuma visita ativa encontrada'
                           : 'Nenhuma visita na lixeira'}
                       </div>
                     )}
@@ -396,7 +418,7 @@ export default function Visitas() {
               </Card>
             )}
           </TabsContent>
-          
+
           <TabsContent value="calendar">
             <VisitasCalendar />
           </TabsContent>
@@ -458,7 +480,7 @@ function VisitaDetails({ visitaId }: { visitaId: string }) {
     switch (status) {
       case 'agendada': return 'bg-blue-100 text-blue-800';
       case 'confirmada': return 'bg-green-100 text-green-800';
-      case 'realizada': return 'bg-purple-100 text-purple-800';
+      case 'realizada': return 'bg-teal-100 text-teal-800';
       case 'cancelada': return 'bg-red-100 text-red-800';
       case 'reagendada': return 'bg-yellow-100 text-yellow-800';
       default: return 'bg-gray-100 text-gray-800';

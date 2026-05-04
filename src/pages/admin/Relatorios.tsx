@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { 
-  Download, 
-  TrendingUp, 
-  Users, 
-  Calendar, 
-  Target, 
-  ArrowUpRight, 
+import {
+  Download,
+  TrendingUp,
+  Users,
+  Calendar,
+  Target,
+  ArrowUpRight,
   ArrowDownRight,
   FileText,
   Settings,
@@ -24,6 +24,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { DashboardSkeleton } from "@/components/ui/loading-skeleton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useToast } from "@/hooks/use-toast";
 import { subDays, startOfMonth, endOfMonth } from "@/utils/dateHelpers";
 import { AdvancedCharts } from "@/components/charts/AdvancedCharts";
 import { ReportTemplateManager } from "@/components/reports/ReportTemplateManager";
@@ -34,6 +35,7 @@ const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accen
 
 export default function Relatorios() {
   const { profile } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -48,7 +50,7 @@ export default function Relatorios() {
         .select('created_at, status')
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: true });
-      
+
       if (error) throw error;
       return data;
     }
@@ -63,7 +65,7 @@ export default function Relatorios() {
         .select('status, nota_media, total_visitas, profiles(first_name, last_name)')
         .order('total_visitas', { ascending: false })
         .limit(10);
-      
+
       if (error) throw error;
       return data;
     }
@@ -77,7 +79,7 @@ export default function Relatorios() {
         .from('visitas')
         .select('data_visita, status, avaliacao_lead')
         .order('data_visita', { ascending: false });
-      
+
       if (error) throw error;
       return data;
     }
@@ -90,7 +92,7 @@ export default function Relatorios() {
       const date = subDays(new Date(), i);
       return {
         date: format(date, 'dd/MM', { locale: ptBR }),
-        leads: leadsData.filter(lead => 
+        leads: leadsData.filter(lead =>
           format(new Date(lead.created_at), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
         ).length
       };
@@ -127,7 +129,7 @@ export default function Relatorios() {
     visitsByMonth: visitasData.reduce((acc: any[], visita) => {
       const month = format(new Date(visita.data_visita), 'MMM', { locale: ptBR });
       const existing = acc.find(item => item.month === month);
-      
+
       if (existing) {
         if (visita.status === 'realizada') existing.realizadas++;
         else existing.agendadas++;
@@ -138,16 +140,16 @@ export default function Relatorios() {
           agendadas: visita.status !== 'realizada' ? 1 : 0,
         });
       }
-      
+
       return acc;
     }, []),
-    leadSources: [
-      { name: 'Website', value: 45 },
-      { name: 'Redes Sociais', value: 32 },
-      { name: 'Indicação', value: 18 },
-      { name: 'Google Ads', value: 12 },
-      { name: 'Outros', value: 8 },
-    ]
+    leadSources: leadsData.reduce((acc: { name: string; value: number }[], lead) => {
+      const key = lead.status?.replace('_', ' ') || 'Outro';
+      const existing = acc.find(s => s.name === key);
+      if (existing) existing.value++;
+      else acc.push({ name: key, value: 1 });
+      return acc;
+    }, [])
   };
 
   const processConversionData = () => {
@@ -155,11 +157,11 @@ export default function Relatorios() {
       const leadDate = new Date(lead.created_at);
       return leadDate >= startOfMonth(new Date()) && leadDate <= endOfMonth(new Date());
     });
-    
+
     const converted = thisMonth.filter(lead => lead.status === 'visita_realizada').length;
     const total = thisMonth.length;
     const rate = total > 0 ? (converted / total) * 100 : 0;
-    
+
     return { converted, total, rate };
   };
 
@@ -169,7 +171,7 @@ export default function Relatorios() {
   const chartData = processLeadsData();
   const statusData = processStatusData();
   const conversionMetrics = processConversionData();
-  const avgRating = corretoresData.length > 0 
+  const avgRating = corretoresData.length > 0
     ? (corretoresData.reduce((acc, c) => acc + c.nota_media, 0) / corretoresData.length).toFixed(1)
     : '0.0';
 
@@ -200,15 +202,21 @@ export default function Relatorios() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex items-center gap-2"
               onClick={() => setScheduleModalOpen(true)}
             >
               <Clock className="w-4 h-4" />
               Agendar Relatório
             </Button>
-            <Button className="flex items-center gap-2">
+            <Button
+              className="flex items-center gap-2"
+              onClick={() => toast({
+                title: "Exportar Dados",
+                description: "A exportação para Excel/CSV será implementada em breve.",
+              })}
+            >
               <Download className="w-4 h-4" />
               Exportar Dados
             </Button>
@@ -239,161 +247,160 @@ export default function Relatorios() {
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
 
-        {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Leads Este Mês
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{conversionMetrics.total}</div>
-              <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                <TrendingUp className="w-3 h-3" />
-                +12% vs mês anterior
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Target className="w-4 h-4" />
-                Taxa de Conversão
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{conversionMetrics.rate.toFixed(1)}%</div>
-              <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                <ArrowUpRight className="w-3 h-3 text-green-500" />
-                +2.4% vs mês anterior
-              </div>
-            </CardContent>
-          </Card>
+            {/* KPIs */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Leads Este Mês
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{conversionMetrics.total}</div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                    <TrendingUp className="w-3 h-3" />
+                    total no período
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Visitas Realizadas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {visitasData.filter(v => v.status === 'realizada').length}
-              </div>
-              <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                <ArrowUpRight className="w-3 h-3 text-green-500" />
-                +8% vs mês anterior
-              </div>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Target className="w-4 h-4" />
+                    Taxa de Conversão
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{conversionMetrics.rate.toFixed(1)}%</div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                    <ArrowUpRight className="w-3 h-3 text-green-500" />
+                    média atual
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="w-4 h-4" />
-                Nota Média Corretores
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{avgRating}</div>
-              <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                <ArrowDownRight className="w-3 h-3 text-red-500" />
-                -0.2 vs mês anterior
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Visitas Realizadas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {visitasData.filter(v => v.status === 'realizada').length}
+                  </div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                    <ArrowUpRight className="w-3 h-3 text-green-500" />
+                    total acumulado
+                  </div>
+                </CardContent>
+              </Card>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Leads por Dia */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Leads por Dia (Últimos 7 dias)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="leads" fill="hsl(var(--primary))" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    Nota Média Corretores
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{avgRating}</div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                    <span className="opacity-70">avaliação geral</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Status dos Leads */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Distribuição por Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={statusData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {statusData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Leads por Dia */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Leads por Dia (Últimos 7 dias)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="leads" fill="hsl(var(--primary))" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
 
-        {/* Top Corretores */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Top 10 Corretores por Performance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {corretoresData.map((corretor, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">
-                        {corretor.profiles.first_name} {corretor.profiles.last_name}
-                      </h4>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Badge variant={corretor.status === 'ativo' ? 'success' : 'secondary'}>
-                          {corretor.status}
-                        </Badge>
-                        <span>•</span>
-                        <span>{corretor.total_visitas} visitas</span>
+              {/* Status dos Leads */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Distribuição por Status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={statusData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {statusData.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Top Corretores */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Top 10 Corretores por Performance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {corretoresData.map((corretor, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-4 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">
+                            {corretor.profiles.first_name} {corretor.profiles.last_name}
+                          </h4>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Badge variant={corretor.status === 'ativo' ? 'success' : 'secondary'}>
+                              {corretor.status}
+                            </Badge>
+                            <span>•</span>
+                            <span>{corretor.total_visitas} visitas</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{corretor.nota_media.toFixed(1)}/5.0</div>
+                        <div className="text-sm text-muted-foreground">Avaliação</div>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold">{corretor.nota_media.toFixed(1)}/5.0</div>
-                    <div className="text-sm text-muted-foreground">Avaliação</div>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Templates Tab */}
@@ -403,7 +410,7 @@ export default function Relatorios() {
 
           {/* Builder Tab */}
           <TabsContent value="builder">
-            <ReportBuilder 
+            <ReportBuilder
               template={selectedTemplate}
               onSave={handleSaveTemplate}
               onGenerate={handleGenerateReport}

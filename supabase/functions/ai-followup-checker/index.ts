@@ -97,7 +97,7 @@ serve(async (req) => {
 
         // Also fetch qualifications for temperature checking
         const conversationIds = inactiveConversations?.map(c => c.id) || [];
-        let qualificationsMap: Record<string, any> = {};
+        const qualificationsMap: Record<string, any> = {};
 
         if (conversationIds.length > 0) {
             const { data: quals } = await supabase

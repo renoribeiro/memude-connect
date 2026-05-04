@@ -99,10 +99,13 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
-        
+
+        // Prevent race condition with getSession on mount
+        if (event === 'INITIAL_SESSION') return;
+
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
           fetchProfile(session.user.id).then(userProfile => {
             setProfile(userProfile);
@@ -126,7 +129,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
         setLoading(false);
         return;
       }
-      
+
       if (session?.user) {
         setSession(session);
         setUser(session.user);
@@ -185,7 +188,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
-      
+
       const { error } = await supabase.auth.signUp({
         email,
         password,

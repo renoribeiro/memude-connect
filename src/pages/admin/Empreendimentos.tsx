@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { TableSkeleton } from "@/components/ui/loading-skeleton";
 import EmpreendimentoModal from "@/components/modals/EmpreendimentoModal";
+import { formatCurrency } from "@/utils/formatters";
+import { useToast } from "@/hooks/use-toast";
+import { useDebounce } from "@/hooks/use-debounce";
 
 interface Empreendimento {
   id: string;
@@ -31,13 +34,15 @@ interface Empreendimento {
 
 export default function Empreendimentos() {
   const { profile } = useAuth();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterAtivo, setFilterAtivo] = useState<string>("all");
   const [showEmpreendimentoModal, setShowEmpreendimentoModal] = useState(false);
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState<any>(null);
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
   const { data: empreendimentos = [], isLoading } = useQuery({
-    queryKey: ['empreendimentos', searchTerm, filterAtivo],
+    queryKey: ['empreendimentos', debouncedSearchTerm, filterAtivo],
     queryFn: async () => {
       let query = supabase
         .from('empreendimentos')
@@ -48,8 +53,8 @@ export default function Empreendimentos() {
         `)
         .order('created_at', { ascending: false });
 
-      if (searchTerm) {
-        query = query.or(`nome.ilike.%${searchTerm}%,endereco.ilike.%${searchTerm}%,descricao.ilike.%${searchTerm}%`);
+      if (debouncedSearchTerm) {
+        query = query.or(`nome.ilike.%${debouncedSearchTerm}%,endereco.ilike.%${debouncedSearchTerm}%,descricao.ilike.%${debouncedSearchTerm}%`);
       }
 
       if (filterAtivo !== 'all') {
@@ -62,14 +67,7 @@ export default function Empreendimentos() {
     }
   });
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
+
 
   if (!profile) return null;
 
@@ -105,7 +103,7 @@ export default function Empreendimentos() {
               <div className="text-2xl font-bold">{empreendimentos.length}</div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -140,11 +138,11 @@ export default function Empreendimentos() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {empreendimentos.length > 0 && empreendimentos.some(e => e.valor_min && e.valor_max) ? 
+                {empreendimentos.length > 0 && empreendimentos.some(e => e.valor_min && e.valor_max) ?
                   formatCurrency(
                     empreendimentos
                       .filter(e => e.valor_min && e.valor_max)
-                      .reduce((acc, e) => acc + ((e.valor_min! + e.valor_max!) / 2), 0) / 
+                      .reduce((acc, e) => acc + ((e.valor_min! + e.valor_max!) / 2), 0) /
                     empreendimentos.filter(e => e.valor_min && e.valor_max).length
                   ) : 'N/A'
                 }
@@ -258,10 +256,19 @@ export default function Empreendimentos() {
                         <Edit className="w-3 h-3 mr-1" />
                         Editar
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         className={empreendimento.ativo ? "text-red-600 border-red-600 hover:bg-red-50" : "text-green-600 border-green-600 hover:bg-green-50"}
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from('empreendimentos')
+                            .update({ ativo: !empreendimento.ativo })
+                            .eq('id', empreendimento.id);
+                          if (!error) {
+                            queryClient.invalidateQueries({ queryKey: ['empreendimentos'] });
+                          }
+                        }}
                       >
                         {empreendimento.ativo ? 'Desativar' : 'Ativar'}
                       </Button>

@@ -37,7 +37,7 @@ export function ScheduleReportModal({ open, onOpenChange, template }: ScheduleRe
     email_subject: '',
     email_message: '',
   });
-  
+
   const { toast } = useToast();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
@@ -45,11 +45,11 @@ export function ScheduleReportModal({ open, onOpenChange, template }: ScheduleRe
   const scheduleReportMutation = useMutation({
     mutationFn: async (scheduleData: any) => {
       if (!template || !profile) throw new Error('Template ou perfil não encontrado');
-      
+
       // Calculate next run date based on schedule type
       const now = new Date();
-      let nextRun = new Date();
-      
+      const nextRun = new Date();
+
       switch (scheduleData.schedule_type) {
         case 'daily':
           nextRun.setDate(now.getDate() + 1);
@@ -64,7 +64,7 @@ export function ScheduleReportModal({ open, onOpenChange, template }: ScheduleRe
           nextRun.setMonth(now.getMonth() + 3);
           break;
       }
-      
+
       const { error } = await supabase
         .from('scheduled_reports')
         .insert({
@@ -76,7 +76,7 @@ export function ScheduleReportModal({ open, onOpenChange, template }: ScheduleRe
           next_run: nextRun.toISOString(),
           created_by: profile.id,
         });
-      
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -131,7 +131,7 @@ export function ScheduleReportModal({ open, onOpenChange, template }: ScheduleRe
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const validRecipients = formData.recipients.filter(email => email.trim() && email.includes('@'));
     if (validRecipients.length === 0) {
       toast({
@@ -177,9 +177,9 @@ export function ScheduleReportModal({ open, onOpenChange, template }: ScheduleRe
           {/* Schedule Type */}
           <div className="space-y-2">
             <Label htmlFor="schedule_type">Frequência de Envio</Label>
-            <Select 
-              value={formData.schedule_type} 
-              onValueChange={(value: typeof formData.schedule_type) => 
+            <Select
+              value={formData.schedule_type}
+              onValueChange={(value: typeof formData.schedule_type) =>
                 setFormData(prev => ({ ...prev, schedule_type: value }))
               }
             >

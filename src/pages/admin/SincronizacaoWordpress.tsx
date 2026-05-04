@@ -10,12 +10,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { 
-  RefreshCw, 
-  Play, 
-  CheckCircle, 
-  AlertCircle, 
-  Clock, 
+import {
+  RefreshCw,
+  Play,
+  CheckCircle,
+  AlertCircle,
+  Clock,
   TrendingUp,
   Database,
   Zap
@@ -57,6 +57,12 @@ export default function SincronizacaoWordpress() {
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (isAdmin) {
+      loadSyncData();
+    }
+  }, [isAdmin]);
+
   // Redirect non-admin users
   if (!isAdmin) {
     return (
@@ -68,14 +74,12 @@ export default function SincronizacaoWordpress() {
     );
   }
 
-  useEffect(() => {
-    loadSyncData();
-  }, []);
+
 
   const loadSyncData = async () => {
     try {
       setIsLoading(true);
-      
+
       // Load sync logs
       const { data: logs, error: logsError } = await supabase
         .from('wp_sync_log')
@@ -111,16 +115,16 @@ export default function SincronizacaoWordpress() {
   const executeSyncNow = async () => {
     try {
       setIsSyncing(true);
-      
+
       toast({
         title: "Sincronização iniciada",
         description: "Buscando dados do WordPress...",
       });
-      
+
       const { data, error } = await supabase.functions.invoke('sync-wordpress-properties', {
-        body: { 
+        body: {
           manual: true,
-          test_mode: false 
+          test_mode: false
         }
       });
 
@@ -153,17 +157,17 @@ export default function SincronizacaoWordpress() {
   const executeTestSync = async () => {
     try {
       setIsSyncing(true);
-      
+
       toast({
         title: "Teste de sincronização iniciado",
         description: "Verificando conexão com WordPress...",
       });
-      
+
       const { data, error } = await supabase.functions.invoke('sync-wordpress-properties', {
-        body: { 
+        body: {
           manual: true,
           test_mode: true,
-          limit: 5 
+          limit: 5
         }
       });
 
@@ -199,7 +203,7 @@ export default function SincronizacaoWordpress() {
     if (!config) return null;
 
     const Icon = config.icon;
-    
+
     return (
       <Badge variant={config.variant} className="flex items-center gap-1">
         <Icon className="w-3 h-3" />
@@ -249,169 +253,169 @@ export default function SincronizacaoWordpress() {
 
   return (
     <DashboardLayout>
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sincronização WordPress</h1>
-          <p className="text-muted-foreground">
-            Monitore e gerencie a sincronização com memude.com.br
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            onClick={loadSyncData}
-            disabled={isLoading || isSyncing}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Atualizar
-          </Button>
-          
-          <Button 
-            variant="secondary"
-            onClick={executeTestSync}
-            disabled={isSyncing}
-          >
-            {isSyncing ? (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                Testando...
-              </>
-            ) : (
-              <>
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Testar Conexão
-              </>
-            )}
-          </Button>
-          
-          <Button 
-            onClick={executeSyncNow}
-            disabled={isSyncing}
-          >
-            {isSyncing ? (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                Sincronizando...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" />
-                Sincronização Completa
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {/* Real-time Status Indicator */}
-      <SyncStatusIndicator />
-
-      {/* Status Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Status do Sistema</CardTitle>
-            <CheckCircle className={`h-4 w-4 ${syncLogs.length > 0 ? 'text-green-500' : 'text-gray-400'}`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {syncLogs.length > 0 ? 'Ativo' : 'Aguardando'}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {syncLogs.length > 0 ? 'Sistema funcionando' : 'Primeira sincronização pendente'}
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Sincronização WordPress</h1>
+            <p className="text-muted-foreground">
+              Monitore e gerencie a sincronização com memude.com.br
             </p>
-          </CardContent>
-        </Card>
+          </div>
 
-        {stats && (
-          <>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Tempo Médio</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatDuration(stats.avgDuration)}</div>
-                <p className="text-xs text-muted-foreground">
-                  Por operação
-                </p>
-              </CardContent>
-            </Card>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={loadSyncData}
+              disabled={isLoading || isSyncing}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Taxa de Sucesso</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.successRate.toFixed(1)}%</div>
-                <p className="text-xs text-muted-foreground">
-                  {performanceMetrics.filter(m => m.success).length} de {performanceMetrics.length}
-                </p>
-              </CardContent>
-            </Card>
+            <Button
+              variant="secondary"
+              onClick={executeTestSync}
+              disabled={isSyncing}
+            >
+              {isSyncing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Testando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Testar Conexão
+                </>
+              )}
+            </Button>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Sincronizações</CardTitle>
-                <Database className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{syncLogs.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  Total executadas
-                </p>
-              </CardContent>
-            </Card>
-          </>
-        )}
+            <Button
+              onClick={executeSyncNow}
+              disabled={isSyncing}
+            >
+              {isSyncing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Sincronizando...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Sincronização Completa
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
 
-        {!stats && (
-          <>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Próxima Sincronização</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">00:00</div>
-                <p className="text-xs text-muted-foreground">
-                  Diariamente (automática)
-                </p>
-              </CardContent>
-            </Card>
+        {/* Real-time Status Indicator */}
+        <SyncStatusIndicator />
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Site WordPress</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm font-bold">memude.com.br</div>
-                <p className="text-xs text-muted-foreground">
-                  Fonte dos dados
-                </p>
-              </CardContent>
-            </Card>
+        {/* Status Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Status do Sistema</CardTitle>
+              <CheckCircle className={`h-4 w-4 ${syncLogs.length > 0 ? 'text-green-500' : 'text-gray-400'}`} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {syncLogs.length > 0 ? 'Ativo' : 'Aguardando'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {syncLogs.length > 0 ? 'Sistema funcionando' : 'Primeira sincronização pendente'}
+              </p>
+            </CardContent>
+          </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Ação</CardTitle>
-                <Database className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm font-bold">Execute o primeiro teste</div>
-                <p className="text-xs text-muted-foreground">
-                  Para verificar a conexão
-                </p>
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </div>
+          {stats && (
+            <>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Tempo Médio</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatDuration(stats.avgDuration)}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Por operação
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Taxa de Sucesso</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.successRate.toFixed(1)}%</div>
+                  <p className="text-xs text-muted-foreground">
+                    {performanceMetrics.filter(m => m.success).length} de {performanceMetrics.length}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Sincronizações</CardTitle>
+                  <Database className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{syncLogs.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Total executadas
+                  </p>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {!stats && (
+            <>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Próxima Sincronização</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">00:00</div>
+                  <p className="text-xs text-muted-foreground">
+                    Diariamente (automática)
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Site WordPress</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-sm font-bold">memude.com.br</div>
+                  <p className="text-xs text-muted-foreground">
+                    Fonte dos dados
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Ação</CardTitle>
+                  <Database className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-sm font-bold">Execute o primeiro teste</div>
+                  <p className="text-xs text-muted-foreground">
+                    Para verificar a conexão
+                  </p>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
 
         {/* Tabs */}
         <Tabs defaultValue="logs" className="space-y-4">
@@ -421,192 +425,192 @@ export default function SincronizacaoWordpress() {
             <TabsTrigger value="settings">Configurações</TabsTrigger>
           </TabsList>
 
-        {/* Sync Logs Tab */}
-        <TabsContent value="logs" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico de Sincronizações</CardTitle>
-              <CardDescription>
-                Últimas 20 sincronizações executadas
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {syncLogs.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  Nenhuma sincronização encontrada
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Posts</TableHead>
-                      <TableHead>Novos</TableHead>
-                      <TableHead>Atualizados</TableHead>
-                      <TableHead>Erros</TableHead>
-                      <TableHead>Duração</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {syncLogs.map((log) => (
-                      <TableRow 
-                        key={log.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => setSelectedLogId(selectedLogId === log.id ? null : log.id)}
-                      >
-                        <TableCell>
-                          {format(new Date(log.sync_date), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(log.status)}</TableCell>
-                        <TableCell>{log.total_posts_fetched}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-green-600">
-                            +{log.new_empreendimentos}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-blue-600">
-                            ~{log.updated_empreendimentos}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {log.errors_count > 0 && (
-                            <Badge variant="destructive">
-                              {log.errors_count}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>{formatDuration(log.sync_duration_ms)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Error Details */}
-          {selectedLogId && (
+          {/* Sync Logs Tab */}
+          <TabsContent value="logs" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Detalhes da Sincronização</CardTitle>
+                <CardTitle>Histórico de Sincronizações</CardTitle>
+                <CardDescription>
+                  Últimas 20 sincronizações executadas
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                {(() => {
-                  const selectedLog = syncLogs.find(log => log.id === selectedLogId);
-                  if (!selectedLog) return null;
-
-                  return (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium">ID:</span> {selectedLog.id}
-                        </div>
-                        <div>
-                          <span className="font-medium">Último Post ID:</span> {selectedLog.last_wp_post_id}
-                        </div>
-                      </div>
-
-                      {selectedLog.error_details?.errors && (
-                        <Alert>
-                          <AlertCircle className="h-4 w-4" />
-                          <AlertDescription>
-                            <div className="space-y-2">
-                              <p className="font-medium">Erros encontrados:</p>
-                              <ul className="list-disc pl-4 space-y-1">
-                                {selectedLog.error_details.errors.map((error, index) => (
-                                  <li key={index} className="text-sm">{error}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                    </div>
-                  );
-                })()}
+                {syncLogs.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Nenhuma sincronização encontrada
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Posts</TableHead>
+                        <TableHead>Novos</TableHead>
+                        <TableHead>Atualizados</TableHead>
+                        <TableHead>Erros</TableHead>
+                        <TableHead>Duração</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {syncLogs.map((log) => (
+                        <TableRow
+                          key={log.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => setSelectedLogId(selectedLogId === log.id ? null : log.id)}
+                        >
+                          <TableCell>
+                            {format(new Date(log.sync_date), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                          </TableCell>
+                          <TableCell>{getStatusBadge(log.status)}</TableCell>
+                          <TableCell>{log.total_posts_fetched}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-green-600">
+                              +{log.new_empreendimentos}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-blue-600">
+                              ~{log.updated_empreendimentos}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {log.errors_count > 0 && (
+                              <Badge variant="destructive">
+                                {log.errors_count}
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>{formatDuration(log.sync_duration_ms)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
-          )}
-        </TabsContent>
 
-        {/* Performance Tab */}
-        <TabsContent value="performance" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Métricas de Performance</CardTitle>
-              <CardDescription>
-                Análise detalhada das operações de sincronização
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {stats && (
-                <div className="space-y-6">
-                  {/* Operation Types Chart */}
-                  <div>
-                    <h4 className="text-sm font-medium mb-3">Tipos de Operação</h4>
-                    <div className="space-y-2">
-                      {Object.entries(stats.operationTypes).map(([type, count]) => {
-                        const percentage = (count / performanceMetrics.length) * 100;
-                        return (
-                          <div key={type} className="flex items-center gap-2">
-                            <div className="w-24 text-sm capitalize">
-                              {type.replace('_', ' ')}
-                            </div>
-                            <Progress value={percentage} className="flex-1" />
-                            <div className="w-12 text-sm text-right">{count}</div>
+            {/* Error Details */}
+            {selectedLogId && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Detalhes da Sincronização</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const selectedLog = syncLogs.find(log => log.id === selectedLogId);
+                    if (!selectedLog) return null;
+
+                    return (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="font-medium">ID:</span> {selectedLog.id}
                           </div>
-                        );
-                      })}
+                          <div>
+                            <span className="font-medium">Último Post ID:</span> {selectedLog.last_wp_post_id}
+                          </div>
+                        </div>
+
+                        {selectedLog.error_details?.errors && (
+                          <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              <div className="space-y-2">
+                                <p className="font-medium">Erros encontrados:</p>
+                                <ul className="list-disc pl-4 space-y-1">
+                                  {selectedLog.error_details.errors.map((error, index) => (
+                                    <li key={index} className="text-sm">{error}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Performance Tab */}
+          <TabsContent value="performance" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Métricas de Performance</CardTitle>
+                <CardDescription>
+                  Análise detalhada das operações de sincronização
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {stats && (
+                  <div className="space-y-6">
+                    {/* Operation Types Chart */}
+                    <div>
+                      <h4 className="text-sm font-medium mb-3">Tipos de Operação</h4>
+                      <div className="space-y-2">
+                        {Object.entries(stats.operationTypes).map(([type, count]) => {
+                          const percentage = (count / performanceMetrics.length) * 100;
+                          return (
+                            <div key={type} className="flex items-center gap-2">
+                              <div className="w-24 text-sm capitalize">
+                                {type.replace('_', ' ')}
+                              </div>
+                              <Progress value={percentage} className="flex-1" />
+                              <div className="w-12 text-sm text-right">{count}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Recent Operations */}
+                    <div>
+                      <h4 className="text-sm font-medium mb-3">Operações Recentes</h4>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead>Duração</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Data</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {performanceMetrics.slice(0, 10).map((metric) => (
+                            <TableRow key={metric.id}>
+                              <TableCell className="capitalize">
+                                {metric.operation_type.replace('_', ' ')}
+                              </TableCell>
+                              <TableCell>{formatDuration(metric.duration_ms)}</TableCell>
+                              <TableCell>
+                                {metric.success ? (
+                                  <Badge variant="default">Sucesso</Badge>
+                                ) : (
+                                  <Badge variant="destructive">Erro</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {format(new Date(metric.created_at), 'dd/MM HH:mm', { locale: ptBR })}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                  {/* Recent Operations */}
-                  <div>
-                    <h4 className="text-sm font-medium mb-3">Operações Recentes</h4>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Tipo</TableHead>
-                          <TableHead>Duração</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Data</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {performanceMetrics.slice(0, 10).map((metric) => (
-                          <TableRow key={metric.id}>
-                            <TableCell className="capitalize">
-                              {metric.operation_type.replace('_', ' ')}
-                            </TableCell>
-                            <TableCell>{formatDuration(metric.duration_ms)}</TableCell>
-                            <TableCell>
-                              {metric.success ? (
-                                <Badge variant="default">Sucesso</Badge>
-                              ) : (
-                                <Badge variant="destructive">Erro</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {format(new Date(metric.created_at), 'dd/MM HH:mm', { locale: ptBR })}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Settings Tab */}
-        <TabsContent value="settings" className="space-y-4">
-          <WordPressSettings />
-        </TabsContent>
-      </Tabs>
+          {/* Settings Tab */}
+          <TabsContent value="settings" className="space-y-4">
+            <WordPressSettings />
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );

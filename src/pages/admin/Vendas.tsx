@@ -54,7 +54,7 @@ interface Venda {
     created_at: string;
     leads: { nome: string; telefone: string } | null;
     empreendimentos: { nome: string } | null;
-    corretores: { nome: string } | null;
+    corretores: { profiles: { first_name: string; last_name: string } } | null;
 }
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -79,7 +79,7 @@ const Vendas = () => {
           *,
           leads ( nome, telefone ),
           empreendimentos ( nome ),
-          corretores ( nome )
+          corretores ( profiles ( first_name, last_name ) )
         `)
                 .order('created_at', { ascending: false });
 
@@ -94,7 +94,7 @@ const Vendas = () => {
                 return (data as Venda[]).filter(v =>
                     v.leads?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     v.empreendimentos?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    v.corretores?.nome?.toLowerCase().includes(searchTerm.toLowerCase())
+                    (v.corretores?.profiles ? `${v.corretores.profiles.first_name} ${v.corretores.profiles.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) : false)
                 );
             }
 
@@ -253,7 +253,7 @@ const Vendas = () => {
                                                 {venda.is_venda_direta ? (
                                                     <Badge variant="outline" className="text-xs">Venda Direta</Badge>
                                                 ) : (
-                                                    venda.corretores?.nome || '—'
+                                                    venda.corretores?.profiles ? `${venda.corretores.profiles.first_name} ${venda.corretores.profiles.last_name}` : '—'
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right font-mono">

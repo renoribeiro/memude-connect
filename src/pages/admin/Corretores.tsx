@@ -14,6 +14,15 @@ import { ptBR } from "date-fns/locale";
 import CorretorModal from "@/components/modals/CorretorModal";
 import CorretorActions from "@/components/actions/CorretorActions";
 import ImportExportModal from "@/components/modals/ImportExportModal";
+import { useDebounce } from "@/hooks/use-debounce";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface Corretor {
   id: string;
@@ -57,9 +66,13 @@ export default function Corretores() {
   const [selectedCorretor, setSelectedCorretor] = useState<any>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
 
   const { data: corretores = [], isLoading } = useQuery({
-    queryKey: ['corretores', searchTerm, filterStatus, viewMode],
+    queryKey: ['corretores', debouncedSearchTerm, filterStatus, viewMode],
     queryFn: async () => {
       let query = supabase
         .from('corretores')
@@ -78,8 +91,8 @@ export default function Corretores() {
         query = query.not('deleted_at', 'is', null);
       }
 
-      if (searchTerm) {
-        query = query.or(`creci.ilike.%${searchTerm}%,whatsapp.ilike.%${searchTerm}%,profiles.first_name.ilike.%${searchTerm}%,profiles.last_name.ilike.%${searchTerm}%`);
+      if (debouncedSearchTerm) {
+        query = query.or(`creci.ilike.%${debouncedSearchTerm}%,whatsapp.ilike.%${debouncedSearchTerm}%,profiles.first_name.ilike.%${debouncedSearchTerm}%,profiles.last_name.ilike.%${debouncedSearchTerm}%`);
       }
 
       if (filterStatus !== 'all') {
@@ -109,7 +122,15 @@ export default function Corretores() {
     return stars;
   };
 
+  // Reset page when filters change
+  useState(() => {
+    setCurrentPage(1);
+  });
+
   if (!profile) return null;
+
+  const totalPages = Math.ceil(corretores.length / ITEMS_PER_PAGE);
+  const paginatedCorretores = corretores.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <DashboardLayout>
@@ -123,7 +144,7 @@ export default function Corretores() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button 
+            <Button
               variant={viewMode === 'trash' ? 'default' : 'outline'}
               onClick={() => setViewMode(viewMode === 'active' ? 'trash' : 'active')}
             >
@@ -164,7 +185,7 @@ export default function Corretores() {
               <div className="text-2xl font-bold">{corretores.length}</div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -199,8 +220,8 @@ export default function Corretores() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {corretores.length > 0 ? 
-                  (corretores.reduce((acc, c) => acc + c.nota_media, 0) / corretores.length).toFixed(1) : 
+                {corretores.length > 0 ?
+                  (corretores.reduce((acc, c) => acc + c.nota_media, 0) / corretores.length).toFixed(1) :
                   '0.0'
                 }
               </div>
@@ -254,12 +275,12 @@ export default function Corretores() {
               <div className="space-y-4">
                 {corretores.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    {viewMode === 'active' 
-                      ? 'Nenhum corretor encontrado' 
+                    {viewMode === 'active'
+                      ? 'Nenhum corretor encontrado'
                       : 'A lixeira está vazia'}
                   </div>
                 ) : (
-                  corretores.map((corretor) => (
+                  paginatedCorretores.map((corretor) => (
                     <div
                       key={corretor.id}
                       className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
@@ -357,6 +378,58 @@ export default function Corretores() {
                   ))
                 )}
               </div>
+
+              {totalPages > 1 && (
+                <div className="mt-6 border-t pt-4">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(p => Math.max(1, p - 1));
+                          }}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                        />
+                      </PaginationItem>
+
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                        .map((page, i, arr) => (
+                          <div key={page} className="flex items-center">
+                            {i > 0 && arr[i - 1] !== page - 1 && (
+                              <span className="px-2 text-muted-foreground">...</span>
+                            )}
+                            <PaginationItem>
+                              <PaginationLink
+                                href="#"
+                                isActive={currentPage === page}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setCurrentPage(page);
+                                }}
+                              >
+                                {page}
+                              </PaginationLink>
+                            </PaginationItem>
+                          </div>
+                        ))}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(p => Math.min(totalPages, p + 1));
+                          }}
+                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

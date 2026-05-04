@@ -14,9 +14,9 @@ import { Plus, GripVertical, Trash2, Palette } from 'lucide-react';
 import type { CrmStage } from '@/hooks/useCrmPipeline';
 
 const PRESET_COLORS = [
-    '#6366f1', '#3b82f6', '#22c55e', '#f59e0b',
-    '#ef4444', '#ec4899', '#8b5cf6', '#f97316',
-    '#14b8a6', '#64748b',
+    '#059669', '#10b981', '#34d399', '#0d9488',
+    '#14b8a6', '#2dd4bf', '#0891b2', '#06b6d4',
+    '#22d3ee', '#64748b',
 ];
 
 interface PipelineSettingsModalProps {

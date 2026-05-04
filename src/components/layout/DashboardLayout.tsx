@@ -26,8 +26,14 @@ import {
   Activity,
   Bot,
   DollarSign,
-  Kanban
+  Kanban,
+  Menu
 } from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { Link, useLocation } from 'react-router-dom';
 import Logo from '@/components/ui/logo';
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
@@ -91,8 +97,48 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       <header className="bg-white/80 backdrop-blur-lg border-b border-white/20 sticky top-0 z-50">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="md:hidden">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-64 p-0">
+                  <div className="flex h-full flex-col bg-white">
+                    <div className="flex h-16 items-center px-6 border-b">
+                      <Logo size="md" />
+                    </div>
+                    <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
+                      <div className="flex flex-1 flex-col space-y-1 px-3">
+                        {navItems.map((item) => {
+                          const isActive = location.pathname === item.href;
+                          return (
+                            <Link
+                              key={item.name}
+                              to={item.href}
+                              className={`
+                                group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors
+                                ${isActive
+                                  ? 'bg-primary text-white shadow-glow'
+                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                }
+                              `}
+                            >
+                              <item.icon
+                                className={`mr-3 h-5 w-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'}`}
+                                aria-hidden="true"
+                              />
+                              {item.name}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
+              <div className="flex-shrink-0 hidden md:flex">
                 <Logo size="md" />
               </div>
             </div>
@@ -134,8 +180,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       </header>
 
       <div className="flex h-[calc(100vh-4rem)]">
-        {/* Sidebar */}
-        <nav className="w-64 bg-white/70 backdrop-blur-lg border-r border-white/20">
+        {/* Sidebar (Desktop) */}
+        <nav className="hidden md:flex w-64 bg-white/70 backdrop-blur-lg border-r border-white/20">
           <div className="flex h-full flex-col">
             <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
               <div className="flex flex-1 flex-col space-y-1 px-3">

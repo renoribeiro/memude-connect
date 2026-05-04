@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
         let result;
 
         switch (action) {
-            case 'create':
+            case 'create': {
                 const { instanceName, raw_url, raw_apikey } = payload;
                 if (!instanceName || !raw_url || !raw_apikey) {
                     throw new Error("Missing required fields: instanceName, raw_url, raw_apikey");
@@ -187,20 +187,23 @@ Deno.serve(async (req) => {
                 if (dbError) throw dbError;
                 result = newInstance;
                 break;
+            }
 
-            case 'connect':
+            case 'connect': {
                 const instConnect = await getInstance(instance_id!);
                 const connectData = await evoCall(instConnect, `/instance/connect/${instConnect.instance_name}`);
                 result = connectData;
                 break;
+            }
 
-            case 'connectionState':
+            case 'connectionState': {
                 const instState = await getInstance(instance_id!);
                 const stateData = await evoCall(instState, `/instance/connectionState/${instState.instance_name}`);
                 result = stateData;
                 break;
+            }
 
-            case 'fetch':
+            case 'fetch': {
                 const instFetch = await getInstance(instance_id!);
                 const fetchData = await evoCall(instFetch, `/instance/fetchInstances?instanceName=${instFetch.instance_name}`);
                 if (Array.isArray(fetchData)) {
@@ -209,18 +212,21 @@ Deno.serve(async (req) => {
                     result = fetchData;
                 }
                 break;
+            }
 
-            case 'restart':
+            case 'restart': {
                 const instRestart = await getInstance(instance_id!);
                 result = await evoCall(instRestart, `/instance/restart/${instRestart.instance_name}`, 'PUT');
                 break;
+            }
 
-            case 'logout':
+            case 'logout': {
                 const instLogout = await getInstance(instance_id!);
                 result = await evoCall(instLogout, `/instance/logout/${instLogout.instance_name}`, 'DELETE');
                 break;
+            }
 
-            case 'delete':
+            case 'delete': {
                 const instDelete = await getInstance(instance_id!);
                 // EVO-09: Surface Evolution API delete errors as warnings instead of swallowing
                 let evoDeleteWarning: string | null = null;
@@ -242,6 +248,7 @@ Deno.serve(async (req) => {
                     ...(evoDeleteWarning ? { warning: `Instance removed from DB. Evolution API note: ${evoDeleteWarning}` } : {})
                 };
                 break;
+            }
 
             default:
                 throw new Error(`Unknown action: ${action}`);

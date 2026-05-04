@@ -12,14 +12,14 @@
     --foreground: 240 10% 15%;
     
     /* MeMude Brand Colors */
-    --primary: 262 83% 65%;        /* MeMude Purple */
-    --primary-light: 262 83% 75%;
-    --primary-dark: 262 83% 55%;
+    --primary: 152 68% 47%;        /* MeMude Emerald */
+    --primary-light: 152 68% 57%;
+    --primary-dark: 152 68% 37%;
     --primary-foreground: 0 0% 100%;
     
-    --secondary: 330 81% 60%;      /* MeMude Pink */
-    --secondary-light: 330 81% 70%;
-    --secondary-dark: 330 81% 50%;
+    --secondary: 190 90% 40%;      /* MeMude Cyan */
+    --secondary-light: 190 90% 50%;
+    --secondary-dark: 190 90% 30%;
     --secondary-foreground: 0 0% 100%;
     
     /* System colors */
@@ -59,17 +59,17 @@
     --ring: 262 83% 65%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(262 83% 65%), hsl(330 81% 60%));
-    --gradient-subtle: linear-gradient(135deg, hsl(262 83% 98%), hsl(330 81% 98%));
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100% / 0.9), hsl(262 83% 99% / 0.8));
+    --gradient-primary: linear-gradient(135deg, hsl(152 68% 47%), hsl(190 90% 40%));
+    --gradient-subtle: linear-gradient(135deg, hsl(152 68% 98%), hsl(190 90% 98%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100% / 0.9), hsl(152 68% 99% / 0.8));
     
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 hsl(240 10% 15% / 0.05);
     --shadow-md: 0 4px 6px -1px hsl(240 10% 15% / 0.1), 0 2px 4px -2px hsl(240 10% 15% / 0.1);
     --shadow-lg: 0 10px 15px -3px hsl(240 10% 15% / 0.1), 0 4px 6px -4px hsl(240 10% 15% / 0.1);
     --shadow-xl: 0 20px 25px -5px hsl(240 10% 15% / 0.1), 0 8px 10px -6px hsl(240 10% 15% / 0.1);
-    --shadow-glow: 0 0 30px hsl(262 83% 65% / 0.3);
-    --shadow-glow-pink: 0 0 30px hsl(330 81% 60% / 0.3);
+    --shadow-glow: 0 0 30px hsl(152 68% 47% / 0.3);
+    --shadow-glow-pink: 0 0 30px hsl(190 90% 40% / 0.3);
 
     --radius: 0.75rem;
 
@@ -114,8 +114,8 @@
     --ring: 262 83% 65%;
 
     --gradient-card: linear-gradient(145deg, hsl(240 10% 8% / 0.9), hsl(240 10% 12% / 0.8));
-    --shadow-glow: 0 0 30px hsl(262 83% 65% / 0.4);
-    --shadow-glow-pink: 0 0 30px hsl(330 81% 60% / 0.4);
+    --shadow-glow: 0 0 30px hsl(152 68% 47% / 0.4);
+    --shadow-glow-pink: 0 0 30px hsl(190 90% 40% / 0.4);
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -145,7 +145,7 @@
   /* Status indicator styles */
   .status-novo { @apply bg-blue-100 text-blue-800 border-blue-200; }
   .status-buscando { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
-  .status-designado { @apply bg-purple-100 text-purple-800 border-purple-200; }
+  .status-designado { @apply bg-teal-100 text-teal-800 border-teal-200; }
   .status-agendado { @apply bg-green-100 text-green-800 border-green-200; }
   .status-realizado { @apply bg-gray-100 text-gray-800 border-gray-200; }
   .status-cancelado { @apply bg-red-100 text-red-800 border-red-200; }

@@ -13,10 +13,12 @@ import { TableSkeleton } from "@/components/ui/loading-skeleton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { isToday, isTomorrow, isPast, parseLocalDate } from "@/utils/dateHelpers";
+import { useDebounce } from "@/hooks/use-debounce";
 import { VisitaActions } from "@/components/actions/VisitaActions";
 
 interface Visita {
   id: string;
+  lead_id: string;
   data_visita: string;
   horario_visita: string;
   status: string;
@@ -53,6 +55,7 @@ export default function MinhasVisitas() {
   const { profile } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
   const { data: corretor } = useQuery({
     queryKey: ['my-corretor-profile'],
@@ -72,7 +75,7 @@ export default function MinhasVisitas() {
   });
 
   const { data: visitas = [], isLoading } = useQuery({
-    queryKey: ['my-visitas', searchTerm, filterStatus, corretor?.id],
+    queryKey: ['my-visitas', debouncedSearchTerm, filterStatus, corretor?.id],
     queryFn: async () => {
       if (!corretor?.id) return [];
 
@@ -87,8 +90,8 @@ export default function MinhasVisitas() {
         .is('deleted_at', null)
         .order('data_visita', { ascending: true });
 
-      if (searchTerm) {
-        query = query.or(`leads.nome.ilike.%${searchTerm}%,leads.telefone.ilike.%${searchTerm}%`);
+      if (debouncedSearchTerm) {
+        query = query.or(`leads.nome.ilike.%${debouncedSearchTerm}%,leads.telefone.ilike.%${debouncedSearchTerm}%`);
       }
 
       if (filterStatus !== 'all') {
@@ -347,7 +350,7 @@ export default function MinhasVisitas() {
                         <VisitaActions
                           visitaId={visita.id}
                           status={visitaStatus}
-                          leadId={String(visita.leads)}
+                          leadId={visita.lead_id || ''}
                           onEdit={() => {
                             // Broker can't edit, only view
                             console.log('View visita details:', visita.id);

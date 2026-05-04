@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,7 @@ import { VisitDistributionMonitor } from "@/components/automation/VisitDistribut
 import { VisitDistributionSettings } from "@/components/automation/VisitDistributionSettings";
 import { WebhookMonitor } from "@/components/automation/WebhookMonitor";
 import { EvolutionInstances } from "@/components/configuracoes/EvolutionInstances";
+import webhookConfigGuide from "@/assets/webhook-config-guide.png";
 
 interface SystemSetting {
   key: string;
@@ -147,17 +148,14 @@ export default function Configuracoes() {
   };
 
   // Debounce function para evitar muitas chamadas
-  const useDebounce = (callback: (...args: any[]) => void, delay: number) => {
-    return useCallback(
-      (...args: any[]) => {
-        const timer = setTimeout(() => callback(...args), delay);
-        return () => clearTimeout(timer);
-      },
-      [callback, delay]
-    );
-  };
-
-  const debouncedSaveSetting = useDebounce(handleSaveSetting, 500);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedSave = useCallback(
+    (...args: any[]) => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => handleSaveSetting(...args), 500);
+    },
+    [handleSaveSetting]
+  );
 
   const handleSwitchChange = (key: string, checked: boolean) => {
     handleSaveSetting(key, checked.toString());
@@ -338,7 +336,7 @@ export default function Configuracoes() {
                       id="company_name"
                       defaultValue={getSetting('company_name')}
                       disabled={isSaving === 'company_name'}
-                      onBlur={(e) => debouncedSaveSetting('company_name', e.target.value)}
+                      onBlur={(e) => debouncedSave('company_name', e.target.value)}
                     />
                     {isSaving === 'company_name' && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
                   </div>
@@ -678,7 +676,7 @@ export default function Configuracoes() {
                 {/* FASE 5: Imagem de referência */}
                 <div className="border rounded-lg overflow-hidden">
                   <img
-                    src="/src/assets/webhook-config-guide.png"
+                    src={webhookConfigGuide}
                     alt="Guia de configuração do webhook na Evolution API"
                     className="w-full"
                   />

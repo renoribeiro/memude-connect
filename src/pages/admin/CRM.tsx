@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useCrmPipeline } from '@/hooks/useCrmPipeline';
@@ -44,15 +44,15 @@ export default function CRM() {
     } = useCrmPipeline(selectedPipelineId || undefined);
 
     // Auto-select default pipeline
-    const activePipelineId = useMemo(() => {
-        if (selectedPipelineId) return selectedPipelineId;
-        const defaultPipeline = pipelines.data?.find((p) => p.is_default);
-        const first = defaultPipeline ?? pipelines.data?.[0];
-        if (first && !selectedPipelineId) {
-            setSelectedPipelineId(first.id);
+    useEffect(() => {
+        if (!selectedPipelineId && pipelines.data?.length) {
+            const defaultPipeline = pipelines.data.find((p) => p.is_default);
+            const first = defaultPipeline ?? pipelines.data[0];
+            if (first) setSelectedPipelineId(first.id);
         }
-        return first?.id ?? '';
     }, [pipelines.data, selectedPipelineId]);
+
+    const activePipelineId = selectedPipelineId || pipelines.data?.[0]?.id || '';
 
     const currentPipeline = pipelines.data?.find((p) => p.id === activePipelineId);
     const stagesData = stages.data ?? [];

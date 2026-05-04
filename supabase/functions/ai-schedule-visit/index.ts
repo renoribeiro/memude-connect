@@ -232,7 +232,7 @@ function formatConfirmationMessage(date: string, time: string, empreendimentoId:
         month: 'long'
     });
 
-    let message = `🎉 *VISITA CONFIRMADA!*
+    const message = `🎉 *VISITA CONFIRMADA!*
 
 📅 *Data:* ${formattedDate}
 ⏰ *Horário:* ${time}

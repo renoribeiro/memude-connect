@@ -7,7 +7,7 @@ export const leadValidationSchema = z.object({
   telefone: z.string()
     .min(10, "Telefone deve ter pelo menos 10 dígitos")
     .max(15, "Telefone muito longo")
-    .regex(/^[\d\s\-\(\)\+]+$/, "Telefone contém caracteres inválidos"),
+    .regex(/^[\d\s\-()+]+$/, "Telefone contém caracteres inválidos"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   data_visita_solicitada: z.date().refine(date => date >= new Date(), "Data deve ser futura"),
   horario_visita_solicitada: z.string()
@@ -20,7 +20,7 @@ export const corretorValidationSchema = z.object({
   whatsapp: z.string()
     .min(10, "WhatsApp deve ter pelo menos 10 dígitos")
     .max(15, "WhatsApp muito longo")
-    .regex(/^[\d\s\-\(\)\+]+$/, "WhatsApp contém caracteres inválidos"),
+    .regex(/^[\d\s\-()+]+$/, "WhatsApp contém caracteres inválidos"),
   creci: z.string().min(3, "CRECI deve ter pelo menos 3 caracteres").max(20, "CRECI muito longo"),
   cpf: z.string()
     .regex(/^\d{3}\.\d{3}\.\d{3}-\d{2}$|^\d{11}$/, "CPF inválido")
@@ -29,7 +29,7 @@ export const corretorValidationSchema = z.object({
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   cidade: z.string().min(2, "Cidade deve ter pelo menos 2 caracteres").optional().or(z.literal("")),
   telefone: z.string()
-    .regex(/^[\d\s\-\(\)\+]*$/, "Telefone contém caracteres inválidos")
+    .regex(/^[\d\s\-()+]*$/, "Telefone contém caracteres inválidos")
     .optional()
     .or(z.literal(""))
 });
@@ -48,7 +48,7 @@ export const distributionSettingsSchema = z.object({
 export const whatsappMessageSchema = z.object({
   phone_number: z.string()
     .min(10, "Número de telefone inválido")
-    .regex(/^[\d\+\-\s\(\)]+$/, "Número contém caracteres inválidos"),
+    .regex(/^[\d+\-\s()]+$/, "Número contém caracteres inválidos"),
   message: z.string()
     .min(1, "Mensagem não pode estar vazia")
     .max(4096, "Mensagem muito longa (máximo 4096 caracteres)"),
@@ -128,40 +128,40 @@ export const useValidations = () => {
 
   const sanitizePhoneNumber = (phone: string): string => {
     // Remove todos os caracteres não numéricos exceto +
-    const cleaned = phone.replace(/[^\d\+]/g, "");
-    
+    const cleaned = phone.replace(/[^\d+]/g, "");
+
     // Se começa com +55, mantém
     if (cleaned.startsWith("+55")) {
       return cleaned;
     }
-    
+
     // Se começa com 55 e tem mais de 11 dígitos, adiciona +
     if (cleaned.startsWith("55") && cleaned.length > 11) {
       return "+" + cleaned;
     }
-    
+
     // Se tem 11 dígitos e começa com DDD brasileiro, adiciona +55
     if (cleaned.length === 11 && /^[1-9][1-9]/.test(cleaned)) {
       return "+55" + cleaned;
     }
-    
+
     // Se tem 10 dígitos, adiciona 9 e +55 (celulares antigos)
     if (cleaned.length === 10 && /^[1-9][1-9]/.test(cleaned)) {
       return "+55" + cleaned.substring(0, 2) + "9" + cleaned.substring(2);
     }
-    
+
     return cleaned;
   };
 
   const validateCPF = (cpf: string): boolean => {
     // Remove formatação
     const cleanCPF = cpf.replace(/[^\d]/g, "");
-    
+
     if (cleanCPF.length !== 11) return false;
-    
+
     // Verifica sequências inválidas
     if (/^(\d)\1{10}$/.test(cleanCPF)) return false;
-    
+
     // Valida dígitos verificadores
     let sum = 0;
     for (let i = 0; i < 9; i++) {
@@ -170,7 +170,7 @@ export const useValidations = () => {
     let remainder = 11 - (sum % 11);
     if (remainder >= 10) remainder = 0;
     if (remainder !== parseInt(cleanCPF.charAt(9))) return false;
-    
+
     sum = 0;
     for (let i = 0; i < 10; i++) {
       sum += parseInt(cleanCPF.charAt(i)) * (11 - i);
@@ -178,7 +178,7 @@ export const useValidations = () => {
     remainder = 11 - (sum % 11);
     if (remainder >= 10) remainder = 0;
     if (remainder !== parseInt(cleanCPF.charAt(10))) return false;
-    
+
     return true;
   };
 

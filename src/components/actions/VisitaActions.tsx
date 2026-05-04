@@ -39,8 +39,8 @@ export function VisitaActions({
 
   // Status update mutation
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ newStatus, data }: { newStatus: string; data?: any }) => {
-      const updateData: any = { status: newStatus };
+    mutationFn: async ({ newStatus, data }: { newStatus: string; data?: Record<string, unknown> }) => {
+      const updateData: Record<string, unknown> = { status: newStatus };
 
       if (data) {
         Object.assign(updateData, data);
@@ -109,7 +109,7 @@ export function VisitaActions({
         description: "Status da visita atualizado com sucesso!",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro",
         description: error.message || "Erro ao atualizar status",
@@ -155,7 +155,7 @@ export function VisitaActions({
         description: "A visita foi movida para a lixeira com sucesso.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro ao excluir",
         description: error.message,
@@ -181,7 +181,7 @@ export function VisitaActions({
         description: "A visita foi restaurada com sucesso.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro ao restaurar",
         description: error.message,
@@ -206,7 +206,7 @@ export function VisitaActions({
         description: "A visita foi excluída permanentemente do sistema.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro ao excluir permanentemente",
         description: error.message,
@@ -232,9 +232,9 @@ export function VisitaActions({
 
       if (visitaError || !visita) throw new Error('Dados da visita não encontrados');
 
-      const lead = visita.lead as any;
-      const corretor = visita.corretor as any;
-      const empreendimento = visita.empreendimento as any;
+      const lead = visita.lead as { nome: string; telefone: string | null };
+      const corretor = visita.corretor as { whatsapp: string | null; profiles: { first_name: string | null } | null };
+      const empreendimento = visita.empreendimento as { nome: string | null };
       const dataVisita = new Date(visita.data_visita).toLocaleDateString('pt-BR');
 
       // Send to Lead
@@ -283,7 +283,7 @@ export function VisitaActions({
         description: "Lembrete enviado para o lead e corretor via WhatsApp.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro ao enviar lembrete",
         description: error.message,
@@ -560,7 +560,7 @@ export function VisitaActions({
         <Button
           variant="outline"
           size="sm"
-          className="text-purple-600 border-purple-600 hover:bg-purple-50"
+          className="text-teal-600 border-teal-600 hover:bg-teal-50"
           onClick={() => sendReminderMutation.mutate()}
           disabled={sendReminderMutation.isPending}
         >

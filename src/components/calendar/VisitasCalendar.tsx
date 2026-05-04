@@ -128,7 +128,7 @@ export default function VisitasCalendar() {
                 width: 6px;
                 height: 6px;
                 border-radius: 50%;
-                background-color: #ec4899; /* Pink-500 */
+                background-color: #14b8a6; /* Teal-500 */
               }
             `}</style>
           <Calendar
@@ -218,7 +218,7 @@ export default function VisitasCalendar() {
                       {/* Corretor */}
                       <div className="space-y-1 animate-fade-in">
                         <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-purple-500" />
+                          <User className="w-4 h-4 text-teal-500" />
                           <span className="font-medium text-sm">
                             Corretor: {visita.corretor ? `${visita.corretor.first_name} ${visita.corretor.last_name}` : 'Não atribuído'}
                           </span>

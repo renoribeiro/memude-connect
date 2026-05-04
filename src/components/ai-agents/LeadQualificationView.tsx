@@ -312,7 +312,7 @@ export function LeadQualificationView({ agentId }: LeadQualificationViewProps) {
                                             label="Need (Necessidade)"
                                             score={qual.bant_need_score || 0}
                                             max={30}
-                                            color="[&>div]:bg-purple-500"
+                                            color="[&>div]:bg-teal-500"
                                         />
                                         <BANTScoreBar
                                             label="Timeline (Prazo)"

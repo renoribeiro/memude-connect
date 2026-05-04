@@ -154,7 +154,7 @@ export function NotificationSystem() {
         return <XCircle className="h-4 w-4 text-red-500" />;
       case 'new_visit':
       case 'visit_confirmed':
-        return <Calendar className="h-4 w-4 text-purple-500" />;
+        return <Calendar className="h-4 w-4 text-teal-500" />;
       case 'visit_completed':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'visit_cancelled':

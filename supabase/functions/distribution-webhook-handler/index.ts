@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', 
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -48,7 +48,7 @@ serve(async (req) => {
 
     // Extrair número do telefone (remover @s.whatsapp.net)
     const phoneNumber = webhookData.data.key.remoteJid.split('@')[0];
-    
+
     // Extrair texto da mensagem com suporte a vários formatos
     const message = webhookData.data.message;
     let messageText = '';
@@ -70,7 +70,7 @@ serve(async (req) => {
 
     // Verificar se é uma resposta a uma distribuição pendente (Lead ou Visita)
     const response = await processDistributionResponse(supabase, phoneNumber, messageText);
-    
+
     if (response) {
       return new Response(JSON.stringify(response), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -107,7 +107,7 @@ async function processDistributionResponse(supabase: any, phoneNumber: string, m
   console.log('Processando possível resposta de distribuição...');
 
   // 1. Tentar buscar em LEADS (distribution_attempts)
-  let { data: pendingAttempt, error } = await supabase
+  const { data: pendingAttempt, error } = await supabase
     .from('distribution_attempts')
     .select(
       `
@@ -146,7 +146,7 @@ async function processDistributionResponse(supabase: any, phoneNumber: string, m
   }
 
   // 2. Tentar buscar em VISITAS (visit_distribution_attempts)
-  let { data: pendingVisitAttempt } = await supabase
+  const { data: pendingVisitAttempt } = await supabase
     .from('visit_distribution_attempts')
     .select(
       `
@@ -221,7 +221,7 @@ async function handleVisitResponse(supabase: any, attempt: any, messageText: str
     await rejectVisit(supabase, attempt);
   } else {
     // Pedir clarificação (Opcional, pode usar a mesma lógica de lead ou criar uma específica)
-     await requestClarification(supabase, attempt.lead, attempt.corretor, phoneNumber, 'visita');
+    await requestClarification(supabase, attempt.lead, attempt.corretor, phoneNumber, 'visita');
   }
 
   return {
@@ -243,13 +243,13 @@ async function acceptVisit(supabase: any, attempt: any) {
       status: 'confirmada'
     })
     .eq('id', attempt.visita.id);
-    
+
   // 2. Atualizar status do lead (se necessário)
   await supabase
     .from('leads')
     .update({
-        corretor_designado_id: attempt.corretor.id,
-        status: 'visita_agendada'
+      corretor_designado_id: attempt.corretor.id,
+      status: 'visita_agendada'
     })
     .eq('id', attempt.visita.lead.id);
 
@@ -357,9 +357,9 @@ async function rejectVisit(supabase: any, attempt: any) {
   // Se temos fila, atualizamos a fila
   // Nota: A lógica de tentar o próximo corretor é acionada pelo 'visit-distribution-timeout-checker'
   // mas podemos acionar imediatamente aqui para agilizar.
-  
+
   if (currentAttempt >= maxAttempts) {
-      await supabase
+    await supabase
       .from('visit_distribution_queue')
       .update({
         status: 'failed',
@@ -367,18 +367,18 @@ async function rejectVisit(supabase: any, attempt: any) {
         completed_at: new Date().toISOString()
       })
       .eq('id', attempt.visit_distribution_queue.id);
-      
-      // Notificar Admin
-      // ... (implementar notificação de falha se desejar)
-  } else {
-      // Incrementar tentativa na fila e Trigger next
-      await supabase
-        .from('visit_distribution_queue')
-        .update({ current_attempt: currentAttempt + 1 })
-        .eq('id', attempt.visit_distribution_queue.id);
 
-      // Chamar checker imediatamente para enviar para o próximo
-      await supabase.functions.invoke('visit-distribution-timeout-checker');
+    // Notificar Admin
+    // ... (implementar notificação de falha se desejar)
+  } else {
+    // Incrementar tentativa na fila e Trigger next
+    await supabase
+      .from('visit_distribution_queue')
+      .update({ current_attempt: currentAttempt + 1 })
+      .eq('id', attempt.visit_distribution_queue.id);
+
+    // Chamar checker imediatamente para enviar para o próximo
+    await supabase.functions.invoke('visit-distribution-timeout-checker');
   }
 }
 
@@ -455,10 +455,10 @@ function analyzeResponse(message: string): { type: 'accepted' | 'rejected' | 'un
   const text = message.toLowerCase().trim();
   const acceptWords = ['sim', 'yes', 'aceito', 'quero', 'vou', 'posso', 'ok', 'pode', 'confirmo', 'topo'];
   const rejectWords = ['não', 'nao', 'no', 'recuso', 'negativo', 'impossível', 'impossivel', 'ocupado', 'nem'];
-  
+
   const acceptScore = acceptWords.reduce((score, word) => text.includes(word) ? score + 1 : score, 0);
   const rejectScore = rejectWords.reduce((score, word) => text.includes(word) ? score + 1 : score, 0);
-  
+
   if (acceptScore > rejectScore && acceptScore > 0) return { type: 'accepted', confidence: acceptScore };
   else if (rejectScore > acceptScore && rejectScore > 0) return { type: 'rejected', confidence: rejectScore };
   else return { type: 'unclear', confidence: 0 };
@@ -469,13 +469,13 @@ async function acceptLead(supabase: any, attempt: any) {
   await supabase.from('leads').update({ corretor_designado_id: attempt.corretor.id, status: 'em_contato' }).eq('id', attempt.lead.id);
   await supabase.from('distribution_queue').update({ status: 'completed', assigned_corretor_id: attempt.corretor.id, completed_at: new Date().toISOString() }).eq('lead_id', attempt.lead.id);
   await supabase.from('distribution_attempts').update({ status: 'timeout', response_type: 'cancelled' }).eq('lead_id', attempt.lead.id).eq('status', 'pending').neq('id', attempt.id);
-  
+
   // Notificações (Simplificadas aqui, mas completas na implementação real acima)
   // ... (Notificar Lead e Admin conforme seu pedido anterior)
   // Vou reincluir a lógica completa de notificação que fiz no passo anterior para garantir que não se perca.
-  
-   // --- NOTIFICAÇÃO LEAD ---
-   try {
+
+  // --- NOTIFICAÇÃO LEAD ---
+  try {
     const leadMessage = `🎉 *VISITA CONFIRMADA!*
 
 Olá ${attempt.lead.nome}, sua visita ao *${attempt.lead.empreendimento.nome}* está confirmada!
@@ -510,32 +510,32 @@ Acompanhe no dashboard.`;
 }
 
 async function rejectLead(supabase: any, attempt: any) {
-    // Lógica original de rejectLead
-    const { data: settings } = await supabase.from('distribution_settings').select('*').single();
-    const { data: currentQueue } = await supabase.from('distribution_queue').select('current_attempt').eq('lead_id', attempt.lead.id).single();
-    const maxAttempts = settings?.max_attempts || 5;
-    const currentAttempt = currentQueue?.current_attempt || 1;
+  // Lógica original de rejectLead
+  const { data: settings } = await supabase.from('distribution_settings').select('*').single();
+  const { data: currentQueue } = await supabase.from('distribution_queue').select('current_attempt').eq('lead_id', attempt.lead.id).single();
+  const maxAttempts = settings?.max_attempts || 5;
+  const currentAttempt = currentQueue?.current_attempt || 1;
 
-    if (currentAttempt >= maxAttempts) {
-        await supabase.from('distribution_queue').update({ status: 'failed', failure_reason: 'Todos rejeitaram', completed_at: new Date().toISOString() }).eq('lead_id', attempt.lead.id);
-        // Notify admin rejection...
-    } else {
-        await supabase.from('distribution_queue').update({ current_attempt: currentAttempt + 1 }).eq('lead_id', attempt.lead.id);
-        await supabase.functions.invoke('distribution-timeout-checker');
-    }
+  if (currentAttempt >= maxAttempts) {
+    await supabase.from('distribution_queue').update({ status: 'failed', failure_reason: 'Todos rejeitaram', completed_at: new Date().toISOString() }).eq('lead_id', attempt.lead.id);
+    // Notify admin rejection...
+  } else {
+    await supabase.from('distribution_queue').update({ current_attempt: currentAttempt + 1 }).eq('lead_id', attempt.lead.id);
+    await supabase.functions.invoke('distribution-timeout-checker');
+  }
 }
 
 async function sendLeadConfirmation(supabase: any, attempt: any) {
-    // Lógica original de confirmação
-    const msg = `✅ *LEAD CONFIRMADO*\n\nParabéns! Lead atribuído:\n${attempt.lead.nome}\n${attempt.lead.empreendimento.nome}\n\nBoa sorte!`;
-    await supabase.functions.invoke('evolution-send-whatsapp-v2', {
-        body: { phone: attempt.corretor.whatsapp, message: msg, metadata: { lead_id: attempt.lead.id, type: 'lead_accepted_confirmation' } }
-    });
+  // Lógica original de confirmação
+  const msg = `✅ *LEAD CONFIRMADO*\n\nParabéns! Lead atribuído:\n${attempt.lead.nome}\n${attempt.lead.empreendimento.nome}\n\nBoa sorte!`;
+  await supabase.functions.invoke('evolution-send-whatsapp-v2', {
+    body: { phone: attempt.corretor.whatsapp, message: msg, metadata: { lead_id: attempt.lead.id, type: 'lead_accepted_confirmation' } }
+  });
 }
 
 async function requestClarification(supabase: any, lead: any, corretor: any, phoneNumber: string, context: string) {
-    const msg = `❓ *RESPOSTA NÃO COMPREENDIDA*\n\nResponda *SIM* para aceitar ou *NÃO* para recusar.`;
-    await supabase.functions.invoke('evolution-send-whatsapp-v2', {
-        body: { phone: phoneNumber, message: msg, metadata: { type: 'clarification' } }
-    });
+  const msg = `❓ *RESPOSTA NÃO COMPREENDIDA*\n\nResponda *SIM* para aceitar ou *NÃO* para recusar.`;
+  await supabase.functions.invoke('evolution-send-whatsapp-v2', {
+    body: { phone: phoneNumber, message: msg, metadata: { type: 'clarification' } }
+  });
 }

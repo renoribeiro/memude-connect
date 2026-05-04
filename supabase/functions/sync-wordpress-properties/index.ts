@@ -51,7 +51,7 @@ interface PerformanceMetric {
 }
 
 // Cache global para categorias
-let categoriesCache: Map<number, WordPressCategory> = new Map();
+const categoriesCache: Map<number, WordPressCategory> = new Map();
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -713,7 +713,7 @@ function extractAddress(content: string): string | null {
 
     // Pattern 2: Strong Address Format (Street + Number + Neighborhood/City)
     // Matches: "Rua Júlio Pinto, 2090, Jacarecanga"
-    /((?:rua|r\.|avenida|av\.|alameda|travessa|rodovia)\s+[A-ZÀ-Ú][a-zà-ú]+(?:[ \t]+(?:de|do|da|dos|das|e|em)?\s*[A-ZÀ-Ú][a-zà-ú]+)+\s*,\s*\d+\s*(?:,\s*[A-ZÀ-Úa-zà-ú\s\/\-\(\)]+)?)/gm,
+    /((?:rua|r\.|avenida|av\.|alameda|travessa|rodovia)\s+[A-ZÀ-Ú][a-zà-ú]+(?:[ \t]+(?:de|do|da|dos|das|e|em)?\s*[A-ZÀ-Ú][a-zà-ú]+)+\s*,\s*\d+\s*(?:,\s*[A-ZÀ-Úa-zà-ú\s/()-]+)?)/gm,
 
     // Pattern 3: Generic context (Located at...)
     /(?:localizado|situado)\s+(?:no|na|em)\s+([^.\n]{10,150})/im,

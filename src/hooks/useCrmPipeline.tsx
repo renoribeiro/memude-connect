@@ -2,8 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any; // CRM tables not yet in generated types
+const db = supabase; // CRM tables now in generated types
 
 export interface CrmPipeline {
     id: string;

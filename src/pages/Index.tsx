@@ -1,6 +1,5 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import AdminDashboard from '@/components/dashboard/AdminDashboard';
 import CorretorDashboard from '@/components/dashboard/CorretorDashboard';

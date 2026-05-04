@@ -135,7 +135,7 @@ serve(async (req) => {
         }
 
         let processed = 0;
-        let errors: string[] = [];
+        const errors: string[] = [];
 
         // Process in batches of 10
         const batchSize = 10;

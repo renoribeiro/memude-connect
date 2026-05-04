@@ -1028,7 +1028,7 @@ function parseAIResponse(response: string): {
 } {
   let cleanResponse = response;
   let action: string | null = null;
-  let actionData: any = {};
+  const actionData: any = {};
   let intent = 'conversation';
 
   if (response.includes('[BUSCAR_IMOVEIS]')) {

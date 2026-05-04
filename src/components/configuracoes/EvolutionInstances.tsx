@@ -237,7 +237,7 @@ export function EvolutionInstances() {
                                                 onClick={() => managerMutation.mutate({ action: 'connect', instance_id: instance.id })}
                                                 title="Conectar (QR Code)"
                                             >
-                                                <QrCode className="w-4 h-4 text-purple-500" />
+                                                <QrCode className="w-4 h-4 text-teal-500" />
                                             </Button>
                                             <Button
                                                 variant="ghost"

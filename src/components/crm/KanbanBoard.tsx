@@ -110,11 +110,8 @@ export default function KanbanBoard({
             targetPosition = (leadsByStage[targetStageId] ?? []).length;
         }
 
-        // Only update if stage changed or position changed
-        const currentStageId = findStageForLead(activeCrmLeadId);
-        if (currentStageId !== targetStageId || true) {
-            onMoveLead(activeCrmLeadId, targetStageId, targetPosition);
-        }
+        // Update both stage changes and position changes
+        onMoveLead(activeCrmLeadId, targetStageId, targetPosition);
     };
 
     return (

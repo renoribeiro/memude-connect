@@ -21,7 +21,7 @@ serve(async (req) => {
 
     const results = {
       reminders_24h: 0,
-      reminders_today: 0,
+      reminders_2h: 0,
       post_visit: 0
     };
 
@@ -33,12 +33,12 @@ serve(async (req) => {
 
     results.reminders_24h = await processReminders(supabase, tomorrowStr, 'reminder_24h');
 
-    // 2. Lembrete Hoje (Manhã)
+    // 2. Lembrete 2h Antes
     // Buscamos visitas agendadas para HOJE
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
 
-    results.reminders_today = await processReminders(supabase, todayStr, 'reminder_today');
+    results.reminders_2h = await processReminders(supabase, todayStr, 'reminder_2h');
 
     // 3. Pós-Visita (Feedback)
     results.post_visit = await processPostVisitFeedback(supabase);
@@ -56,7 +56,7 @@ serve(async (req) => {
   }
 });
 
-async function processReminders(supabase: any, dateStr: string, type: 'reminder_24h' | 'reminder_today') {
+async function processReminders(supabase: any, dateStr: string, type: 'reminder_24h' | 'reminder_2h') {
   console.log(`Processando ${type} para data ${dateStr}`);
 
   // Buscar visitas confirmadas para a data
@@ -81,6 +81,18 @@ async function processReminders(supabase: any, dateStr: string, type: 'reminder_
   let count = 0;
 
   for (const visita of visitas) {
+    if (type === 'reminder_2h') {
+      const now = new Date();
+      const [hours, minutes] = visita.horario_visita.split(':');
+      const visitDateTime = new Date(visita.data_visita);
+      visitDateTime.setHours(parseInt(hours), parseInt(minutes), 0);
+      
+      const diffMs = visitDateTime.getTime() - now.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+
+      if (diffHours < 1 || diffHours > 2) continue;
+    }
+
     // Verificar se já enviamos este lembrete
     const alreadySent = await checkCommunicationLog(supabase, visita.id, type);
     if (alreadySent) continue;
@@ -173,14 +185,14 @@ async function checkCommunicationLog(supabase: any, visitaId: string, type: stri
   return data && data.length > 0;
 }
 
-async function sendReminderMessages(supabase: any, visita: any, type: 'reminder_24h' | 'reminder_today') {
-  const isToday = type === 'reminder_today';
-  const timeText = isToday ? "é HOJE" : "é AMANHÃ";
+async function sendReminderMessages(supabase: any, visita: any, type: 'reminder_24h' | 'reminder_2h') {
+  const is2h = type === 'reminder_2h';
+  const timeText = is2h ? "Faltam menos de 2 horas para sua visita!" : "é AMANHÃ";
 
   // Mensagem para Cliente — Pede confirmação SIM/NÃO
   const msgClient = `⏰ *LEMBRETE DE VISITA*
 
-Olá ${visita.lead.nome}, sua visita ao *${visita.empreendimento.nome}* ${timeText}.
+Olá ${visita.lead.nome}, ${is2h ? timeText : `sua visita ao *${visita.empreendimento.nome}* ${timeText}.`}
 
 🕒 Horário: ${visita.horario_visita}
 📍 Corretor: ${visita.corretor.profiles.first_name}
@@ -191,7 +203,7 @@ Responda *SIM* para confirmar ou *NÃO* para cancelar.`;
   // Mensagem para Corretor — Agora também pede confirmação SIM/NÃO
   const msgCorretor = `⏰ *LEMBRETE DE VISITA*
 
-Corretor(a) ${visita.corretor.profiles.first_name}, sua visita com o cliente *${visita.lead.nome}* ${timeText}.
+Corretor(a) ${visita.corretor.profiles.first_name}, ${is2h ? timeText : `sua visita com o cliente *${visita.lead.nome}* ${timeText}.`}
 
 🏢 Empreendimento: ${visita.empreendimento.nome}
 🕒 Horário: ${visita.horario_visita}
@@ -232,7 +244,7 @@ Isso ajuda a calibrar nossos leads! 🚀`;
 
 async function sendWhatsapp(supabase: any, phone: string, message: string, visita: any, type: string, target: string) {
   try {
-    const isReminder = type === 'reminder_24h' || type === 'reminder_today';
+    const isReminder = type === 'reminder_24h' || type === 'reminder_2h';
 
     await supabase.functions.invoke('evolution-send-whatsapp-v2', {
       body: {

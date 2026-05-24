@@ -2,14 +2,14 @@
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
--- Agendar o monitoramento de visitas para rodar a cada hora (minuto 0)
+-- Agendar o monitoramento de visitas para rodar a cada 15 minutos
 -- IMPORTANTE: Substitua 'https://oxybasvtphosdmlmrfnb.supabase.co/functions/v1/monitor-visits' pela URL real da sua função
 -- e 'YOUR_SERVICE_ROLE_KEY' pela sua chave real de serviço (disponível no dashboard).
 
 select
   cron.schedule(
     'monitor-visits-hourly',
-    '0 * * * *', 
+    '*/15 * * * *', 
     $$
     select
       net.http_post(

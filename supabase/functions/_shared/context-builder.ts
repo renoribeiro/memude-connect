@@ -53,6 +53,8 @@ export interface PropertySummary {
     price_range: string;
     location: string;
     shown_at: string;
+    renda_sugerida?: number;
+    entrada_sugerida?: number;
 }
 
 // ============================================================
@@ -185,7 +187,12 @@ export function formatContextForPrompt(context: ConversationContext): string {
     if (context.presented_properties.length > 0) {
         parts.push(`## Imóveis Apresentados`);
         context.presented_properties.forEach(p => {
-            parts.push(`- ${p.name} (${p.location}) - ${p.price_range}`);
+            let propStr = `- ${p.name} (${p.location}) - ${p.price_range}`;
+            const conds = [];
+            if (p.renda_sugerida) conds.push(`Renda: R$ ${p.renda_sugerida}`);
+            if (p.entrada_sugerida) conds.push(`Entrada: R$ ${p.entrada_sugerida}`);
+            if (conds.length > 0) propStr += ` [Condições: ${conds.join(' | ')}]`;
+            parts.push(propStr);
         });
     }
 
@@ -351,7 +358,7 @@ async function buildPropertySummaries(supabase: SupabaseClient, propertyIds: str
 
     const { data } = await supabase
         .from('empreendimentos')
-        .select('id, nome, valor_min, valor_max, bairro:bairros(nome)')
+        .select('id, nome, valor_min, valor_max, renda_sugerida, entrada_sugerida, bairro:bairros(nome)')
         .in('id', propertyIds.slice(0, 5));
 
     if (!data) return [];
@@ -361,7 +368,9 @@ async function buildPropertySummaries(supabase: SupabaseClient, propertyIds: str
         name: p.nome,
         price_range: formatPriceRange(p.valor_min, p.valor_max),
         location: (p.bairro as any)?.nome || 'N/A',
-        shown_at: new Date().toISOString()
+        shown_at: new Date().toISOString(),
+        renda_sugerida: p.renda_sugerida,
+        entrada_sugerida: p.entrada_sugerida
     }));
 }
 

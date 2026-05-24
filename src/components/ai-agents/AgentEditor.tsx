@@ -23,7 +23,7 @@ interface AIAgent {
     persona_role: string;
     tone: string;
     greeting_message: string | null;
-    llm_provider: 'openai' | 'gemini';
+    llm_provider: 'openai' | 'gemini' | 'anthropic';
     ai_model: string;
     max_tokens: number;
     temperature: number;
@@ -48,6 +48,10 @@ const LLM_MODELS = {
         { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Mais recente)' },
         { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (Rápido)' },
         { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (Avançado)' },
+    ],
+    anthropic: [
+        { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Rápido e Avançado)' },
+        { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku (Muito rápido, econômico)' },
     ]
 };
 
@@ -271,7 +275,7 @@ export function AgentEditor({ agent, onClose }: AgentEditorProps) {
                             <Label htmlFor="llm_provider">Provedor de IA</Label>
                             <Select
                                 value={formData.llm_provider}
-                                onValueChange={(value: 'openai' | 'gemini') => {
+                                onValueChange={(value: 'openai' | 'gemini' | 'anthropic') => {
                                     const firstModel = LLM_MODELS[value][0].value;
                                     setFormData({ ...formData, llm_provider: value, ai_model: firstModel });
                                 }}
@@ -282,6 +286,7 @@ export function AgentEditor({ agent, onClose }: AgentEditorProps) {
                                 <SelectContent>
                                     <SelectItem value="openai">OpenAI (ChatGPT)</SelectItem>
                                     <SelectItem value="gemini">Google Gemini</SelectItem>
+                                    <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

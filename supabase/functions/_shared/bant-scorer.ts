@@ -32,6 +32,8 @@ export interface BudgetDetails {
     has_down_payment?: boolean;
     down_payment_percentage?: number;
     pre_approved?: boolean;
+    income?: number;
+    down_payment?: number;
 }
 
 export interface AuthorityDetails {
@@ -78,6 +80,8 @@ export interface QualificationData {
     price_max?: number;
     price_min?: number;
     neighborhood?: string;
+    income?: number;
+    down_payment?: number;
 }
 
 // ============================================================
@@ -403,6 +407,15 @@ export function updateBANTFromEntities(
         details.budget.financing_needed = entities.financing;
     }
 
+    if (entities.income) {
+        details.budget.income = entities.income;
+    }
+
+    if (entities.down_payment) {
+        details.budget.has_down_payment = true;
+        details.budget.down_payment = entities.down_payment;
+    }
+
     if (entities.property_type) {
         details.need.property_type = entities.property_type;
     }
@@ -443,7 +456,9 @@ export function getQualificationProgress(qualData: QualificationData): {
         { key: 'price_max', label: 'Orçamento', alt: 'max_price' },
         { key: 'urgency', label: 'Prazo', alt: 'timeline' },
         { key: 'financing_needed', label: 'Financiamento' },
-        { key: 'decision_maker', label: 'Decisor' }
+        { key: 'decision_maker', label: 'Decisor' },
+        { key: 'income', label: 'Renda' },
+        { key: 'down_payment', label: 'Entrada' }
     ];
 
     const missing: string[] = [];

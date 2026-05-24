@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import OpenAI from 'https://esm.sh/openai@4.28.0';
 import { GoogleGenerativeAI } from 'https://esm.sh/@google/generative-ai@0.2.1';
+import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.17.1';
 import { detectIntentFast, extractEntities, detectSentimentFast, shouldTransferToHuman, type IntentResult } from '../_shared/intent-detector.ts';
 import { buildContext, enrichWithKnowledge, formatContextForPrompt } from '../_shared/context-builder.ts';
 import { calculateBANTScore, getNextBANTQuestion, updateBANTFromEntities, getQualificationProgress } from '../_shared/bant-scorer.ts';
@@ -22,7 +23,8 @@ interface ProcessMessageRequest {
 
 const SUPPORTED_MODELS = {
   openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
-  gemini: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+  gemini: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'],
+  anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307']
 };
 
 // AI-04: Typed interfaces for key processor parameters
@@ -30,7 +32,7 @@ interface AgentConfig {
   id: string;
   is_active: boolean;
   ai_model: string;
-  llm_provider?: 'openai' | 'gemini';
+  llm_provider?: 'openai' | 'gemini' | 'anthropic';
   system_prompt?: string;
   persona_name?: string;
   persona_role?: string;
@@ -230,6 +232,10 @@ Quando apropriado, inclua DISCRETAMENTE no final da sua resposta:
 - [AGENDAR_VISITA] - quando o cliente quiser agendar visita
 - [TRANSFERIR_HUMANO] - se o cliente pedir humano ou assunto fora do escopo
 
+## Qualificação de Preço e Renda (MUITO IMPORTANTE)
+LOGO APÓS informar o preço de um imóvel, você DEVE perguntar de forma natural sobre a renda e o valor de entrada que o cliente tem disponível.
+Se a renda informada (renda_informada) e a entrada informada (entrada_informada) pelo cliente forem compatíveis com a renda sugerida (renda_sugerida) e entrada sugerida (entrada_sugerida) do imóvel em questão, você deve INCENTIVAR uma visita ao imóvel imediatamente.
+
 ${agent.system_prompt ? `\n## Instruções Adicionais do Admin\n${agent.system_prompt}` : ''}
 `;
 
@@ -297,11 +303,18 @@ serve(async (req) => {
         .eq('key', 'gemini_api_key')
         .single();
 
+      const { data: anthropicSetting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'anthropic_api_key')
+        .single();
+
       return new Response(
         JSON.stringify({
           success: true,
           openai_configured: !!(openaiSetting?.value && openaiSetting.value.startsWith('sk-')),
           gemini_configured: !!(geminiSetting?.value && geminiSetting.value.startsWith('AIza')),
+          anthropic_configured: !!anthropicSetting?.value,
           supported_models: SUPPORTED_MODELS,
           humanization: true,
           test_mode: true,
@@ -737,6 +750,10 @@ serve(async (req) => {
         const result = await callGemini(supabase, activeAgent, systemPrompt, conversationHistory, message_text, conversation);
         aiResponse = result.response;
         tokensUsed = result.tokensUsed;
+      } else if (llmProvider === 'anthropic') {
+        const result = await callAnthropic(supabase, activeAgent, systemPrompt, conversationHistory, message_text, conversation);
+        aiResponse = result.response;
+        tokensUsed = result.tokensUsed;
       } else {
         const result = await callOpenAI(supabase, activeAgent, systemPrompt, conversationHistory, message_text, conversation);
         aiResponse = result.response;
@@ -883,8 +900,9 @@ serve(async (req) => {
 // HELPER FUNCTIONS
 // ============================================================
 
-function detectProvider(modelName: string): 'openai' | 'gemini' {
+function detectProvider(modelName: string): 'openai' | 'gemini' | 'anthropic' {
   if (modelName.startsWith('gemini')) return 'gemini';
+  if (modelName.startsWith('claude')) return 'anthropic';
   return 'openai';
 }
 
@@ -1017,6 +1035,52 @@ async function callGemini(
   return {
     response: response.text() || 'Desculpe, não consegui processar sua mensagem.',
     tokensUsed: estimatedTokens
+  };
+}
+
+async function callAnthropic(
+  supabase: any,
+  agent: any,
+  systemPrompt: string,
+  history: any[],
+  currentMessage: string,
+  conversation: any
+): Promise<{ response: string; tokensUsed: number }> {
+  const apiKey = await getApiKey(supabase, 'anthropic_api_key');
+
+  if (!apiKey) {
+    throw new Error('Anthropic API key não configurada');
+  }
+
+  const anthropic = new Anthropic({ apiKey: apiKey });
+
+  const messages: any[] = [];
+
+  if (conversation?.total_messages === 0 && agent.greeting_message) {
+    messages.push({ role: 'assistant', content: agent.greeting_message });
+  }
+
+  if (history) {
+    for (const msg of history) {
+      messages.push({ role: msg.role === 'assistant' ? 'assistant' : 'user', content: msg.content });
+    }
+  }
+
+  messages.push({ role: 'user', content: currentMessage });
+
+  const response = await anthropic.messages.create({
+    model: agent.ai_model,
+    system: systemPrompt,
+    messages: messages as any,
+    max_tokens: agent.max_tokens || 1024,
+    temperature: Number(agent.temperature) || 0.7,
+  });
+
+  const textContent = response.content[0]?.type === 'text' ? response.content[0].text : 'Desculpe, não consegui processar sua mensagem.';
+
+  return {
+    response: textContent,
+    tokensUsed: response.usage.input_tokens + response.usage.output_tokens
   };
 }
 

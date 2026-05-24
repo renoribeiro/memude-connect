@@ -279,6 +279,7 @@ async function acceptVisit(supabase: any, attempt: any) {
 
   // 5. Notificar CLIENTE
   try {
+    const calendarLink = generateGoogleCalendarLink(attempt.visita);
     const leadMessage = `🎉 *VISITA CONFIRMADA!*
 
 Olá ${attempt.visita.lead.nome}, sua visita ao *${attempt.visita.empreendimento.nome}* está confirmada!
@@ -291,7 +292,10 @@ Seu corretor:
 👤 *${attempt.corretor.profile.first_name}*
 📱 ${attempt.corretor.whatsapp}
 
-Ele entrará em contato em breve.`;
+Ele entrará em contato em breve.
+
+📅 Adicione ao seu calendário:
+${calendarLink}`;
 
     await supabase.functions.invoke('evolution-send-whatsapp-v2', {
       body: {
@@ -383,6 +387,7 @@ async function rejectVisit(supabase: any, attempt: any) {
 }
 
 async function sendVisitConfirmation(supabase: any, attempt: any) {
+  const calendarLink = generateGoogleCalendarLink(attempt.visita);
   const confirmationMessage = `✅ *VISITA AGENDADA COM SUCESSO*
 
 Você aceitou a visita!
@@ -394,7 +399,10 @@ Você aceitou a visita!
 *Data:* ${new Date(attempt.visita.data_visita).toLocaleDateString('pt-BR')}
 *Horário:* ${attempt.visita.horario_visita}
 
-👉 Entre em contato com o cliente agora mesmo para confirmar.`;
+👉 Entre em contato com o cliente agora mesmo para confirmar.
+
+📅 Adicione ao seu calendário:
+${calendarLink}`;
 
   try {
     await supabase.functions.invoke('evolution-send-whatsapp-v2', {
@@ -539,3 +547,32 @@ async function requestClarification(supabase: any, lead: any, corretor: any, pho
     body: { phone: phoneNumber, message: msg, metadata: { type: 'clarification' } }
   });
 }
+
+function generateGoogleCalendarLink(visita: any) {
+  if (!visita.data_visita || !visita.horario_visita) return '';
+  const datePart = visita.data_visita.split('T')[0];
+  const [year, month, day] = datePart.split('-');
+  const [hour, minute] = visita.horario_visita.split(':');
+  
+  const startDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour) + 3, parseInt(minute)));
+  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+
+  const formatGoogleDate = (d: Date) => {
+    return d.getUTCFullYear().toString() +
+           (d.getUTCMonth() + 1).toString().padStart(2, '0') +
+           d.getUTCDate().toString().padStart(2, '0') + 'T' +
+           d.getUTCHours().toString().padStart(2, '0') +
+           d.getUTCMinutes().toString().padStart(2, '0') +
+           '00Z';
+  };
+
+  const startStr = formatGoogleDate(startDate);
+  const endStr = formatGoogleDate(endDate);
+
+  const title = encodeURIComponent('Visita Memude');
+  const details = encodeURIComponent(`Visita ao empreendimento ${visita.empreendimento?.nome}`);
+  const location = encodeURIComponent(visita.empreendimento?.endereco || '');
+
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startStr}/${endStr}&details=${details}&location=${location}`;
+}
+

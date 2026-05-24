@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -752,6 +752,7 @@ export type Database = {
           created_at: string | null
           decision_maker: boolean | null
           disqualification_reason: string | null
+          entrada_informada: number | null
           financing_needed: boolean | null
           has_property_to_sell: boolean | null
           id: string
@@ -766,6 +767,7 @@ export type Database = {
           preferred_neighborhoods: string[] | null
           property_type: string | null
           qualification_score: number | null
+          renda_informada: number | null
           timeline_details: Json | null
           updated_at: string | null
           urgency: string | null
@@ -781,6 +783,7 @@ export type Database = {
           created_at?: string | null
           decision_maker?: boolean | null
           disqualification_reason?: string | null
+          entrada_informada?: number | null
           financing_needed?: boolean | null
           has_property_to_sell?: boolean | null
           id?: string
@@ -795,6 +798,7 @@ export type Database = {
           preferred_neighborhoods?: string[] | null
           property_type?: string | null
           qualification_score?: number | null
+          renda_informada?: number | null
           timeline_details?: Json | null
           updated_at?: string | null
           urgency?: string | null
@@ -810,6 +814,7 @@ export type Database = {
           created_at?: string | null
           decision_maker?: boolean | null
           disqualification_reason?: string | null
+          entrada_informada?: number | null
           financing_needed?: boolean | null
           has_property_to_sell?: boolean | null
           id?: string
@@ -824,6 +829,7 @@ export type Database = {
           preferred_neighborhoods?: string[] | null
           property_type?: string | null
           qualification_score?: number | null
+          renda_informada?: number | null
           timeline_details?: Json | null
           updated_at?: string | null
           urgency?: string | null
@@ -1866,8 +1872,10 @@ export type Database = {
           created_at: string | null
           descricao: string | null
           endereco: string | null
+          entrada_sugerida: number | null
           id: string
           nome: string
+          renda_sugerida: number | null
           tipo_imovel: Database["public"]["Enums"]["tipo_imovel_enum"] | null
           updated_at: string | null
           valor_max: number | null
@@ -1881,8 +1889,10 @@ export type Database = {
           created_at?: string | null
           descricao?: string | null
           endereco?: string | null
+          entrada_sugerida?: number | null
           id?: string
           nome: string
+          renda_sugerida?: number | null
           tipo_imovel?: Database["public"]["Enums"]["tipo_imovel_enum"] | null
           updated_at?: string | null
           valor_max?: number | null
@@ -1896,8 +1906,10 @@ export type Database = {
           created_at?: string | null
           descricao?: string | null
           endereco?: string | null
+          entrada_sugerida?: number | null
           id?: string
           nome?: string
+          renda_sugerida?: number | null
           tipo_imovel?: Database["public"]["Enums"]["tipo_imovel_enum"] | null
           updated_at?: string | null
           valor_max?: number | null

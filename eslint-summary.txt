@@ -1,0 +1,548 @@
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\actions\CorretorActions.tsx
+  41:25 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\actions\LeadStatusActions.tsx
+  78:40 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\actions\VisitaActions.tsx
+  42:73 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  43:25 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  112:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  158:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  184:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  209:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  235:35 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  236:43 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  237:55 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  286:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\ai-agents\ABTestingManager.tsx
+  39:32 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  169:43 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\ai-agents\AgentAnalyticsDashboard.tsx
+  346:68 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\ai-agents\AgentEditor.tsx
+  185:26 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\ai-agents\AuditLogViewer.tsx
+  35:36 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  36:31 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  37:30 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\ai-agents\ConversationMonitor.tsx
+  22:40 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\ai-agents\FollowupEditor.tsx
+  101:26 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\ai-agents\LeadQualificationView.tsx
+  57:44 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\automation\DistributionExporter.tsx
+  52:17 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  172:32 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  177:56 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  198:47 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  215:55 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  231:56 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  254:30 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  256:56 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\automation\DistributionMonitor.tsx
+  372:37 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  430:43 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\automation\LeadDistribution.tsx
+  60:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  66:37 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  82:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  207:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\automation\VisitDistributionMonitor.tsx
+  102:106 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  172:49 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\automation\VisitDistributionSettings.tsx
+  69:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\automation\WebhookMonitor.tsx
+  27:12 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\calendar\VisitasCalendar.tsx
+  82:48 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\charts\AdvancedCharts.tsx
+  29:18 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  50:54 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  55:32 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\configuracoes\EvolutionInstances.tsx
+  53:37 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  126:38 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\crm\KanbanBoard.tsx
+  115:13 Unexpected constant condition. (no-constant-condition)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\forms\CommunicationForm.tsx
+  114:55 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\forms\CorretorForm.tsx
+  24:17 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  146:64 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  150:70 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  344:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  448:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  601:111 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  622:121 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  641:111 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\forms\EmpreendimentoForm.tsx
+  30:17 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\forms\LeadForm.tsx
+  37:17 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\forms\VisitaForm.tsx
+  277:67 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\modals\CommunicationModal.tsx
+  104:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\modals\CorretorModal.tsx
+  7:17 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\modals\CreateUserModal.tsx
+  61:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\modals\EditUserModal.tsx
+  84:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\modals\EmpreendimentoModal.tsx
+  7:17 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\modals\ImportExportModal.tsx
+  21:40 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  65:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\modals\LeadModal.tsx
+  7:17 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\modals\TemplateModal.tsx
+  113:27 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  139:14 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  141:58 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  307:81 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  389:85 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\modals\VisitaModal.tsx
+  246:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\notifications\NotificationSystem.tsx
+  21:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  283:31 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\reports\ReportBuilder.tsx
+  30:20 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  38:24 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\reports\ReportTemplateManager.tsx
+  29:20 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  76:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  107:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\reports\ScheduleReportModal.tsx
+  46:38 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  51:11 'nextRun' is never reassigned. Use 'const' instead. (prefer-const)
+  91:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\ui\command.tsx
+  24:11 An interface declaring no members is equivalent to its supertype. (@typescript-eslint/no-empty-object-type)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\ui\phone-verification.tsx
+  58:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\ui\textarea.tsx
+  5:18 An interface declaring no members is equivalent to its supertype. (@typescript-eslint/no-empty-object-type)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\wordpress\WordPressSettings.tsx
+  69:48 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  71:20 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\hooks\useAuth.tsx
+  21:66 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  22:103 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  177:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  219:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\hooks\useCrmPipeline.tsx
+  190:26 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\hooks\useTemplateRenderer.tsx
+  8:29 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  43:59 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  53:57 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  62:53 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  71:54 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  80:57 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\hooks\useTemplates.tsx
+  116:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  150:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  183:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  216:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\hooks\useValidations.tsx
+  10:21 Unnecessary escape character: \(. (no-useless-escape)
+  10:23 Unnecessary escape character: \). (no-useless-escape)
+  10:25 Unnecessary escape character: \+. (no-useless-escape)
+  23:21 Unnecessary escape character: \(. (no-useless-escape)
+  23:23 Unnecessary escape character: \). (no-useless-escape)
+  23:25 Unnecessary escape character: \+. (no-useless-escape)
+  32:21 Unnecessary escape character: \(. (no-useless-escape)
+  32:23 Unnecessary escape character: \). (no-useless-escape)
+  32:25 Unnecessary escape character: \+. (no-useless-escape)
+  51:17 Unnecessary escape character: \+. (no-useless-escape)
+  51:23 Unnecessary escape character: \(. (no-useless-escape)
+  51:25 Unnecessary escape character: \). (no-useless-escape)
+  61:31 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  78:35 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  95:47 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  112:42 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  131:40 Unnecessary escape character: \+. (no-useless-escape)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\integrations\supabase\types.ts
+  1:0 Parsing error: File appears to be binary. (null)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\lib\retryLogic.ts
+  7:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  13:11 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  24:20 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  36:55 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  43:55 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  55:18 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  114:46 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  145:46 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\admin\AIAgents.tsx
+  103:26 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  129:26 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\admin\Analytics.tsx
+  21:29 React Hook "useQuery" is called conditionally. React Hooks must be called in the exact same order in every component render. (react-hooks/rules-of-hooks)
+  39:35 React Hook "useQuery" is called conditionally. React Hooks must be called in the exact same order in every component render. (react-hooks/rules-of-hooks)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\admin\Comunicacoes.tsx
+  36:14 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  111:48 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\admin\Configuracoes.tsx
+  153:15 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  238:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  574:39 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  618:39 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\admin\Corretores.tsx
+  66:60 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  99:52 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\admin\Empreendimentos.tsx
+  41:72 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\admin\Leads.tsx
+  76:52 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  103:54 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  124:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  146:72 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\admin\Monitoring.tsx
+  29:28 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  139:45 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  139:56 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  156:36 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  253:41 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  297:43 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\admin\Relatorios.tsx
+  40:60 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  129:45 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  178:43 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  183:41 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  188:41 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\admin\SincronizacaoWordpress.tsx
+  71:3 React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. (react-hooks/rules-of-hooks)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\admin\UserManagement.tsx
+  72:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  97:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\corretor\MeusLeads.tsx
+  94:52 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\_shared\audit-logger.ts
+  50:37 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  51:32 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  52:31 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  121:12 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  168:31 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  189:31 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  210:36 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  211:31 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  232:35 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  233:30 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  256:35 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  287:24 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  324:48 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  324:70 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  326:34 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\_shared\bant-scorer.ts
+  382:30 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\_shared\cache-manager.ts
+  31:41 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  145:12 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  155:11 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  254:38 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  266:42 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\_shared\context-builder.ts
+  149:57 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  265:37 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  265:56 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  286:54 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  286:73 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  310:42 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  363:32 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  381:39 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  396:54 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  416:48 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\_shared\distribution-logic.ts
+  570:75 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\_shared\human-handoff.ts
+  197:82 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  242:38 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  242:53 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  267:51 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  267:70 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  295:38 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  361:38 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  433:15 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\_shared\integration-logger.ts
+  9:23 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  10:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  12:16 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\_shared\objection-handler.ts
+  390:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\_shared\structuredLogger.ts
+  11:29 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  25:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  61:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\_shared\types\evolution.ts
+  40:18 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  60:11 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\ai-agent-processor\index.ts
+  55:39 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  73:36 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  588:23 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  782:48 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  865:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  918:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  919:10 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  921:12 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  923:17 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  934:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  964:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  965:10 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  967:12 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  969:17 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  984:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  1026:15 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  1031:7 'actionData' is never reassigned. Use 'const' instead. (prefer-const)
+  1031:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  1060:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  1063:17 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  1064:12 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  1101:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  1104:9 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  1131:38 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  1131:57 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\ai-followup-checker\index.ts
+  100:13 'qualificationsMap' is never reassigned. Use 'const' instead. (prefer-const)
+  100:47 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  225:57 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  264:33 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  281:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  303:15 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  305:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\ai-generate-embeddings\index.ts
+  45:30 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  138:13 'errors' is never reassigned. Use 'const' instead. (prefer-const)
+  222:32 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\ai-property-search\index.ts
+  84:30 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  87:65 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  107:58 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\ai-schedule-visit\index.ts
+  221:51 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  235:9 'message' is never reassigned. Use 'const' instead. (prefer-const)
+  248:15 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  251:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\create-admin\index.ts
+  149:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\create-notification\index.ts
+  13:29 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\create-user\index.ts
+  232:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\distribute-lead\index.ts
+  225:48 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  225:59 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  225:74 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  262:12 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  266:12 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  296:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  299:9 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  300:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  316:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  319:9 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  320:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  504:42 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  527:38 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\distribute-visit\index.ts
+  136:57 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  330:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  342:48 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  342:61 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  342:76 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  395:30 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  404:14 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  416:14 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  477:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  479:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  480:11 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  481:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  638:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  675:37 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  675:95 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  694:38 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  694:51 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\distribution-timeout-checker\index.ts
+  84:48 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  84:62 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  138:51 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  147:43 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  197:50 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  197:61 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  230:12 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  238:14 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  258:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  260:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  261:9 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  262:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  344:45 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  344:56 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\distribution-webhook-handler\index.ts
+  106:54 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  110:15 'pendingAttempt' is never reassigned. Use 'const' instead. (prefer-const)
+  110:31 'error' is never reassigned. Use 'const' instead. (prefer-const)
+  149:15 'pendingVisitAttempt' is never reassigned. Use 'const' instead. (prefer-const)
+  202:46 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  202:60 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  235:38 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  235:52 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  346:38 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  346:52 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  385:48 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  385:62 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  421:45 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  421:59 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  467:37 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  467:51 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  512:37 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  512:51 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  528:47 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  528:61 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  536:47 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  536:58 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  536:73 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\evolution-check-connection\index.ts
+  35:22 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  82:43 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  162:25 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  167:46 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  193:26 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  200:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\evolution-check-number\index.ts
+  108:53 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  180:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\evolution-configure-webhook\index.ts
+  71:53 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  209:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\evolution-health-check\index.ts
+  34:31 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  66:27 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  103:44 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  159:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\evolution-manager\index.ts
+  14:15 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  58:112 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  64:31 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  91:27 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  117:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  121:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  156:33 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  175:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  192:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  193:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  198:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  199:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  204:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  205:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  207:49 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  214:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  219:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  224:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  226:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  229:29 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  234:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  255:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\evolution-process-queue\index.ts
+  110:58 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  141:27 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  148:35 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  170:38 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  192:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\evolution-send-whatsapp-v2\index.ts
+  182:55 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  199:18 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  256:23 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  363:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  383:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\evolution-send-whatsapp\index.ts
+  29:47 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\evolution-webhook-handler\index.ts
+  329:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\export-reports\index.ts
+  96:28 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\google-sheets-sync\index.ts
+  461:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\manage-user\index.ts
+  111:44 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  143:49 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  180:54 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  275:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\monitor-visits\index.ts
+  59:43 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  96:51 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  165:48 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  176:47 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  176:60 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  207:46 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  207:59 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  233:39 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  233:84 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\payment-reminder-checker\index.ts
+  13:48 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  128:50 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  129:59 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  130:101 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  167:34 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  180:21 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\schedule-reports\index.ts
+  77:49 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  77:71 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  105:45 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  105:66 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  144:49 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  144:66 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\send-welcome-email\index.ts
+  96:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\send-whatsapp-invitation\index.ts
+  42:47 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  42:61 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  130:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\structured-logger\index.ts
+  16:29 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\sync-wordpress-properties\index.ts
+  25:25 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  50:29 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  54:5 'categoriesCache' is never reassigned. Use 'const' instead. (prefer-const)
+  150:40 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  266:46 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  276:36 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  326:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  448:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  564:73 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  716:168 Unnecessary escape character: \/. (no-useless-escape)
+  716:172 Unnecessary escape character: \(. (no-useless-escape)
+  716:174 Unnecessary escape character: \). (no-useless-escape)
+  892:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  898:80 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  1140:74 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  1339:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  1372:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\template-manager\index.ts
+  274:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\template-renderer\index.ts
+  13:29 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  132:19 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\universal-whatsapp-sender\index.ts
+  108:20 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\visit-distribution-timeout-checker\index.ts
+  108:48 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  108:62 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  186:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  198:49 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  275:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  276:11 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  335:14 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  351:14 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  360:14 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  386:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  388:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  389:11 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  390:13 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  484:45 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+  484:58 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\whatsapp-webhook\index.ts
+  18:14 Unexpected any. Specify a different type. (@typescript-eslint/no-explicit-any)
+C:\Users\Administrator\Desktop\projetos\memude-core\tailwind.config.ts
+  123:13 A `require()` style import is forbidden. (@typescript-eslint/no-require-imports)

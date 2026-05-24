@@ -1,0 +1,63 @@
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\crm\KanbanBoard.tsx
+  115:13 Unexpected constant condition. (no-constant-condition)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\reports\ScheduleReportModal.tsx
+  51:11 'nextRun' is never reassigned. Use 'const' instead. (prefer-const)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\ui\command.tsx
+  24:11 An interface declaring no members is equivalent to its supertype. (@typescript-eslint/no-empty-object-type)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\components\ui\textarea.tsx
+  5:18 An interface declaring no members is equivalent to its supertype. (@typescript-eslint/no-empty-object-type)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\hooks\useValidations.tsx
+  10:21 Unnecessary escape character: \(. (no-useless-escape)
+  10:23 Unnecessary escape character: \). (no-useless-escape)
+  10:25 Unnecessary escape character: \+. (no-useless-escape)
+  23:21 Unnecessary escape character: \(. (no-useless-escape)
+  23:23 Unnecessary escape character: \). (no-useless-escape)
+  23:25 Unnecessary escape character: \+. (no-useless-escape)
+  32:21 Unnecessary escape character: \(. (no-useless-escape)
+  32:23 Unnecessary escape character: \). (no-useless-escape)
+  32:25 Unnecessary escape character: \+. (no-useless-escape)
+  51:17 Unnecessary escape character: \+. (no-useless-escape)
+  51:23 Unnecessary escape character: \(. (no-useless-escape)
+  51:25 Unnecessary escape character: \). (no-useless-escape)
+  131:40 Unnecessary escape character: \+. (no-useless-escape)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\integrations\supabase\types.ts
+  1:0 Parsing error: File appears to be binary. (null)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\admin\Analytics.tsx
+  21:29 React Hook "useQuery" is called conditionally. React Hooks must be called in the exact same order in every component render. (react-hooks/rules-of-hooks)
+  39:35 React Hook "useQuery" is called conditionally. React Hooks must be called in the exact same order in every component render. (react-hooks/rules-of-hooks)
+C:\Users\Administrator\Desktop\projetos\memude-core\src\pages\admin\SincronizacaoWordpress.tsx
+  71:3 React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. (react-hooks/rules-of-hooks)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\ai-agent-processor\index.ts
+  1031:7 'actionData' is never reassigned. Use 'const' instead. (prefer-const)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\ai-followup-checker\index.ts
+  100:13 'qualificationsMap' is never reassigned. Use 'const' instead. (prefer-const)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\ai-generate-embeddings\index.ts
+  138:13 'errors' is never reassigned. Use 'const' instead. (prefer-const)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\ai-schedule-visit\index.ts
+  235:9 'message' is never reassigned. Use 'const' instead. (prefer-const)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\distribution-webhook-handler\index.ts
+  110:15 'pendingAttempt' is never reassigned. Use 'const' instead. (prefer-const)
+  110:31 'error' is never reassigned. Use 'const' instead. (prefer-const)
+  149:15 'pendingVisitAttempt' is never reassigned. Use 'const' instead. (prefer-const)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\evolution-manager\index.ts
+  117:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  121:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  175:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  192:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  193:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  198:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  199:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  204:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  205:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  214:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  219:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  224:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  226:17 Unexpected lexical declaration in case block. (no-case-declarations)
+  234:17 Unexpected lexical declaration in case block. (no-case-declarations)
+C:\Users\Administrator\Desktop\projetos\memude-core\supabase\functions\sync-wordpress-properties\index.ts
+  54:5 'categoriesCache' is never reassigned. Use 'const' instead. (prefer-const)
+  716:168 Unnecessary escape character: \/. (no-useless-escape)
+  716:172 Unnecessary escape character: \(. (no-useless-escape)
+  716:174 Unnecessary escape character: \). (no-useless-escape)
+C:\Users\Administrator\Desktop\projetos\memude-core\tailwind.config.ts
+  123:13 A `require()` style import is forbidden. (@typescript-eslint/no-require-imports)

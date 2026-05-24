@@ -23,7 +23,7 @@ interface AIAgent {
     is_active: boolean;
     persona_name: string;
     persona_role: string;
-    llm_provider: 'openai' | 'gemini';
+    llm_provider: 'openai' | 'gemini' | 'anthropic';
     ai_model: string;
     created_at: string;
     total_conversations?: number;

@@ -22,6 +22,8 @@ export interface ExtractedEntities {
     has_family?: boolean;
     name?: string;
     phone?: string;
+    income?: number;
+    down_payment?: number;
 }
 
 export interface IntentResult {
@@ -119,6 +121,14 @@ const ENTITY_PATTERNS = {
     ],
     financing: [
         { pattern: /(financ|mcmv|minha casa|caixa|banco|parcela|entrada)/i, value: true }
+    ],
+    income: [
+        { pattern: /(?:renda|salário|salario).*?(\d+(?:\.\d+)?)\s*(?:mil|k)/i, multiplier: 1000 },
+        { pattern: /(?:renda|salário|salario).*?R\$\s*(\d+(?:\.\d{3})*(?:,\d{2})?)/i, multiplier: 1 }
+    ],
+    down_payment: [
+        { pattern: /(?:entrada|sinal).*?(\d+(?:\.\d+)?)\s*(?:mil|k)/i, multiplier: 1000 },
+        { pattern: /(?:entrada|sinal).*?R\$\s*(\d+(?:\.\d{3})*(?:,\d{2})?)/i, multiplier: 1 }
     ]
 };
 
@@ -227,6 +237,24 @@ export function extractEntities(text: string): ExtractedEntities {
         }
     }
 
+    // Income
+    for (const { pattern, multiplier } of ENTITY_PATTERNS.income) {
+        const match = text.match(pattern);
+        if (match) {
+            entities.income = parseFloat(match[1].replace(/\./g, '').replace(',', '.')) * multiplier;
+            break;
+        }
+    }
+
+    // Down payment
+    for (const { pattern, multiplier } of ENTITY_PATTERNS.down_payment) {
+        const match = text.match(pattern);
+        if (match) {
+            entities.down_payment = parseFloat(match[1].replace(/\./g, '').replace(',', '.')) * multiplier;
+            break;
+        }
+    }
+
     return entities;
 }
 
@@ -282,7 +310,9 @@ Responda APENAS com JSON válido no formato:
     "bedrooms": number|null,
     "neighborhood": "string|null",
     "timeline": "imediato|3_meses|6_meses|1_ano|pesquisando|null",
-    "financing": boolean|null
+    "financing": boolean|null,
+    "income": number|null,
+    "down_payment": number|null
   },
   "sentiment": "positive|neutral|negative|urgent|frustrated",
   "sentiment_confidence": 0.0-1.0,

@@ -12,8 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { User, Phone, UserCircle } from 'lucide-react';
+import { User, Phone, UserCircle, Award } from 'lucide-react';
 
 interface ManagedUser {
   id: string;
@@ -39,10 +40,50 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
     phone: '',
   });
 
+  const [corretorData, setCorretorData] = useState({
+    creci: '',
+    cpf: '',
+    whatsapp: '',
+    cidade: '',
+    estado: 'CE',
+    tipo_imovel: 'todos',
+    observacoes: '',
+  });
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    const fetchCorretorInfo = async () => {
+      if (user && user.role === 'corretor') {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('user_id', user.user_id)
+          .single();
+
+        if (profile) {
+          const { data: corretor } = await supabase
+            .from('corretores')
+            .select('*')
+            .eq('profile_id', profile.id)
+            .maybeSingle();
+
+          if (corretor) {
+            setCorretorData({
+              creci: corretor.creci || '',
+              cpf: corretor.cpf || '',
+              whatsapp: corretor.whatsapp || '',
+              cidade: corretor.cidade || '',
+              estado: corretor.estado || 'CE',
+              tipo_imovel: corretor.tipo_imovel || 'todos',
+              observacoes: corretor.observacoes || '',
+            });
+          }
+        }
+      }
+    };
+
     if (user) {
       setFormData({
         first_name: user.first_name || '',
@@ -50,6 +91,16 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
         role: user.role || 'cliente',
         phone: user.phone || '',
       });
+      setCorretorData({
+        creci: '',
+        cpf: '',
+        whatsapp: user.phone || '',
+        cidade: '',
+        estado: 'CE',
+        tipo_imovel: 'todos',
+        observacoes: '',
+      });
+      fetchCorretorInfo();
     }
   }, [user]);
 
@@ -57,6 +108,7 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
     mutationFn: async (userData: typeof formData) => {
       if (!user) throw new Error('Usuário não encontrado');
 
+      // 1. Update basic profile and role
       const { data, error } = await supabase.functions.invoke('manage-user', {
         body: {
           action: 'update',
@@ -72,6 +124,58 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
 
       if (error) throw error;
       if (!data.success) throw new Error(data.error);
+
+      // 2. If role is 'corretor', upsert professional details in corretores table
+      if (userData.role === 'corretor') {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('user_id', user.user_id)
+          .single();
+
+        if (profile) {
+          const { data: existingCorretor } = await supabase
+            .from('corretores')
+            .select('id')
+            .eq('profile_id', profile.id)
+            .maybeSingle();
+
+          if (existingCorretor) {
+            const { error: updateError } = await supabase
+              .from('corretores')
+              .update({
+                creci: corretorData.creci,
+                cpf: corretorData.cpf || null,
+                whatsapp: corretorData.whatsapp,
+                cidade: corretorData.cidade || null,
+                estado: corretorData.estado || 'CE',
+                tipo_imovel: corretorData.tipo_imovel || 'todos',
+                observacoes: corretorData.observacoes || null,
+              })
+              .eq('id', existingCorretor.id);
+
+            if (updateError) throw updateError;
+          } else {
+            const { error: insertError } = await supabase
+              .from('corretores')
+              .insert({
+                profile_id: profile.id,
+                creci: corretorData.creci,
+                cpf: corretorData.cpf || null,
+                whatsapp: corretorData.whatsapp,
+                cidade: corretorData.cidade || null,
+                estado: corretorData.estado || 'CE',
+                tipo_imovel: corretorData.tipo_imovel || 'todos',
+                observacoes: corretorData.observacoes || null,
+                status: 'ativo',
+                nota_media: 5.0,
+                total_visitas: 0,
+              });
+
+            if (insertError) throw insertError;
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['managed-users'] });
@@ -174,6 +278,120 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
               </SelectContent>
             </Select>
           </div>
+
+          {formData.role === 'corretor' && (
+            <div className="space-y-4 pt-4 border-t border-gray-100">
+              <div className="flex items-center gap-2 text-primary font-semibold text-sm">
+                <Award className="w-4 h-4" />
+                <span>Dados Profissionais do Corretor</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="creci">CRECI *</Label>
+                  <Input
+                    id="creci"
+                    placeholder="Ex: 12345-F"
+                    value={corretorData.creci}
+                    onChange={(e) => setCorretorData(prev => ({ ...prev, creci: e.target.value }))}
+                    required={formData.role === 'corretor'}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cpf">CPF</Label>
+                  <Input
+                    id="cpf"
+                    placeholder="Ex: 000.000.000-00"
+                    value={corretorData.cpf}
+                    onChange={(e) => setCorretorData(prev => ({ ...prev, cpf: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp">WhatsApp *</Label>
+                  <Input
+                    id="whatsapp"
+                    placeholder="Ex: (85) 99999-9999"
+                    value={corretorData.whatsapp}
+                    onChange={(e) => setCorretorData(prev => ({ ...prev, whatsapp: e.target.value }))}
+                    required={formData.role === 'corretor'}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cidade">Cidade</Label>
+                  <Input
+                    id="cidade"
+                    placeholder="Ex: Fortaleza"
+                    value={corretorData.cidade}
+                    onChange={(e) => setCorretorData(prev => ({ ...prev, cidade: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="estado">Estado</Label>
+                  <Select value={corretorData.estado} onValueChange={(value) => setCorretorData(prev => ({ ...prev, estado: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AC">Acre</SelectItem>
+                      <SelectItem value="AL">Alagoas</SelectItem>
+                      <SelectItem value="AP">Amapá</SelectItem>
+                      <SelectItem value="AM">Amazonas</SelectItem>
+                      <SelectItem value="BA">Bahia</SelectItem>
+                      <SelectItem value="CE">Ceará</SelectItem>
+                      <SelectItem value="DF">Distrito Federal</SelectItem>
+                      <SelectItem value="ES">Espírito Santo</SelectItem>
+                      <SelectItem value="GO">Goiás</SelectItem>
+                      <SelectItem value="MA">Maranhão</SelectItem>
+                      <SelectItem value="MT">Mato Grosso</SelectItem>
+                      <SelectItem value="MS">Mato Grosso do Sul</SelectItem>
+                      <SelectItem value="MG">Minas Gerais</SelectItem>
+                      <SelectItem value="PA">Pará</SelectItem>
+                      <SelectItem value="PB">Paraíba</SelectItem>
+                      <SelectItem value="PR">Paraná</SelectItem>
+                      <SelectItem value="PE">Pernambuco</SelectItem>
+                      <SelectItem value="PI">Piauí</SelectItem>
+                      <SelectItem value="RJ">Rio de Janeiro</SelectItem>
+                      <SelectItem value="RN">Rio Grande do Norte</SelectItem>
+                      <SelectItem value="RS">Rio Grande do Sul</SelectItem>
+                      <SelectItem value="RO">Rondônia</SelectItem>
+                      <SelectItem value="RR">Roraima</SelectItem>
+                      <SelectItem value="SC">Santa Catarina</SelectItem>
+                      <SelectItem value="SP">São Paulo</SelectItem>
+                      <SelectItem value="SE">Sergipe</SelectItem>
+                      <SelectItem value="TO">Tocantins</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tipo_imovel">Tipo de Imóvel</Label>
+                  <Select value={corretorData.tipo_imovel} onValueChange={(value: any) => setCorretorData(prev => ({ ...prev, tipo_imovel: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos</SelectItem>
+                      <SelectItem value="residencial">Residencial</SelectItem>
+                      <SelectItem value="comercial">Comercial</SelectItem>
+                      <SelectItem value="terreno">Terreno</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="observacoes">Observações</Label>
+                <Textarea
+                  id="observacoes"
+                  placeholder="Informações adicionais do corretor..."
+                  value={corretorData.observacoes}
+                  onChange={(e) => setCorretorData(prev => ({ ...prev, observacoes: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end space-x-2 pt-4">
             <Button

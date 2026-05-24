@@ -71,7 +71,10 @@ export default function Perfil() {
         .eq('profile_id', profile.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST116') return null;
+        throw error;
+      }
       return data as CorretorProfile;
     },
     enabled: !!profile?.id
@@ -181,10 +184,126 @@ export default function Perfil() {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
-  if (!profile || !corretor) return (
+  // Form state for new corretor creation (self-service activation)
+  const [newCreci, setNewCreci] = useState("");
+  const [newWhatsapp, setNewWhatsapp] = useState(profile?.phone || "");
+  const [newObservacoes, setNewObservacoes] = useState("");
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false);
+
+  const handleCreateCorretorProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCreci || !newWhatsapp) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "CRECI e WhatsApp são necessários.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsCreatingProfile(true);
+    try {
+      const { error } = await supabase
+        .from('corretores')
+        .insert({
+          profile_id: profile.id,
+          creci: newCreci,
+          whatsapp: newWhatsapp,
+          status: 'em_avaliacao',
+          nota_media: 5.0,
+          total_visitas: 0,
+          observacoes: newObservacoes || null
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Perfil criado com sucesso!",
+        description: "Seu perfil de corretor foi iniciado e está em avaliação.",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['corretor-profile'] });
+    } catch (err: any) {
+      toast({
+        title: "Erro ao criar perfil",
+        description: err.message || "Erro desconhecido.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingProfile(false);
+    }
+  };
+
+  if (!profile || isLoading) return (
     <DashboardLayout>
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    </DashboardLayout>
+  );
+
+  if (!corretor) return (
+    <DashboardLayout>
+      <div className="max-w-xl mx-auto mt-6">
+        <Card className="glass-card shadow-2xl border-primary/20">
+          <CardHeader className="bg-primary/5 border-b pb-6">
+            <CardTitle className="text-2xl font-bold flex items-center gap-2 text-primary">
+              <Award className="w-6 h-6" />
+              Complete seu Cadastro de Corretor
+            </CardTitle>
+            <p className="text-muted-foreground mt-2">
+              Olá, {profile.first_name}! Preencha seus dados profissionais abaixo para ativar sua conta e começar a receber leads.
+            </p>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <form onSubmit={handleCreateCorretorProfile} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new_creci">Número do CRECI *</Label>
+                <Input
+                  id="new_creci"
+                  placeholder="Ex: 12345-F"
+                  value={newCreci}
+                  onChange={(e) => setNewCreci(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Insira o número da sua credencial de corretor oficial.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="new_whatsapp">Número de WhatsApp *</Label>
+                <Input
+                  id="new_whatsapp"
+                  placeholder="Ex: +55 (85) 99999-9999"
+                  value={newWhatsapp}
+                  onChange={(e) => setNewWhatsapp(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Será usado para receber notificações sobre match de leads e visitas.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="new_observacoes">Sobre Você / Especialidades</Label>
+                <Textarea
+                  id="new_observacoes"
+                  placeholder="Ex: Especialista em imóveis de médio/alto padrão em Fortaleza..."
+                  value={newObservacoes}
+                  onChange={(e) => setNewObservacoes(e.target.value)}
+                  rows={4}
+                />
+              </div>
+
+              <div className="pt-4">
+                <Button type="submit" disabled={isCreatingProfile} className="w-full h-11 text-base">
+                  {isCreatingProfile ? "Ativando..." : "Ativar Perfil de Corretor"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );

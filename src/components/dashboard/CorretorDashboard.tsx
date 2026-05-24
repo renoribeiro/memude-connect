@@ -42,6 +42,7 @@ interface VisitaProxima {
 
 const CorretorDashboard = () => {
   const { profile } = useAuth();
+  const [hasNoProfile, setHasNoProfile] = useState(false);
   const [stats, setStats] = useState<CorretorStats>({
     totalLeads: 0,
     leadsAtivos: 0,
@@ -63,18 +64,17 @@ const CorretorDashboard = () => {
   const fetchCorretorData = async () => {
     try {
       // First get corretor info
-      const { data: corretor } = await supabase
+      const { data: corretor, error: corretorError } = await supabase
         .from('corretores')
         .select('*')
         .eq('profile_id', profile!.id)
-        .single();
+        .maybeSingle();
+
+      if (corretorError) throw corretorError;
 
       if (!corretor) {
-        toast({
-          title: "Perfil não encontrado",
-          description: "Seu perfil de corretor não foi encontrado. Entre em contato com o administrador.",
-          variant: "destructive",
-        });
+        setHasNoProfile(true);
+        setLoading(false);
         return;
       }
 
@@ -147,6 +147,40 @@ const CorretorDashboard = () => {
             ))}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (hasNoProfile) {
+    return (
+      <div className="p-6 space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Bem-vindo, {profile?.first_name}!
+          </h1>
+          <p className="text-muted-foreground">
+            Sua conta de corretor parceiro está ativa, mas falta configurar seus dados profissionais.
+          </p>
+        </div>
+
+        <Card className="glass-card border-primary/20 max-w-xl shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-primary font-bold text-xl flex items-center gap-2">
+              <User className="w-6 h-6" />
+              <span>Configuração do Perfil Profissional</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              Para começar a receber leads qualificados e agendamentos de visitas de forma automatizada do nosso agente de IA, complete seus dados profissionais (como CRECI e WhatsApp).
+            </p>
+            <div className="pt-4">
+              <Button onClick={() => window.location.href = '/perfil'} className="w-full">
+                Configurar Meu Perfil Agora
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

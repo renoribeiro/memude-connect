@@ -55,7 +55,7 @@ export default function MeusLeads() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
-  const { data: corretor } = useQuery({
+  const { data: corretor, isLoading: isLoadingCorretor } = useQuery({
     queryKey: ['my-corretor-profile'],
     queryFn: async () => {
       if (!profile?.id) return null;
@@ -66,7 +66,10 @@ export default function MeusLeads() {
         .eq('profile_id', profile.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST116') return null;
+        throw error;
+      }
       return data;
     },
     enabled: !!profile?.id
@@ -101,10 +104,37 @@ export default function MeusLeads() {
     enabled: !!corretor?.id
   });
 
-  if (!profile || !corretor) return (
+  if (!profile || isLoadingCorretor) return (
     <DashboardLayout>
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    </DashboardLayout>
+  );
+
+  if (!corretor) return (
+    <DashboardLayout>
+      <div className="max-w-md mx-auto mt-12">
+        <Card className="glass-card border-red-100 shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-red-500 text-center font-bold text-xl flex items-center justify-center gap-2">
+              <span>⚠️ Perfil Não Ativado</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-muted-foreground">
+              Seu perfil de corretor parceiro ainda não está totalmente ativo ou configurado no sistema.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Por favor, acesse o menu <strong>Meu Perfil</strong> para preencher seus dados profissionais (como CRECI e WhatsApp) para ativar seu acesso completo, ou entre em contato com o administrador.
+            </p>
+            <div className="pt-4">
+              <Button onClick={() => window.location.href = '/perfil'} className="w-full">
+                Ir para Meu Perfil
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );

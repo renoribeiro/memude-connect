@@ -352,24 +352,66 @@ Responda APENAS com JSON válido no formato:
     }
 }
 
+export interface HandoffConfig {
+    transfer_on_frustration?: boolean;
+    transfer_on_unclear?: boolean;
+    transfer_on_request?: boolean;
+    transfer_keywords?: string[];
+    max_unclear_attempts?: number;
+}
+
 /**
  * Determine if message requires human handoff
  */
-export function shouldTransferToHuman(intent: IntentResult, messageCount: number): boolean {
-    // Direct request for human
-    if (intent.primary_intent === 'transfer_human') return true;
+export function shouldTransferToHuman(
+    intent: IntentResult, 
+    messageCount: number,
+    rawText?: string,
+    config?: HandoffConfig
+): boolean {
+    const activeConfig = {
+        transfer_on_frustration: config?.transfer_on_frustration ?? true,
+        transfer_on_unclear: config?.transfer_on_unclear ?? true,
+        transfer_on_request: config?.transfer_on_request ?? true,
+        transfer_keywords: config?.transfer_keywords ?? [],
+        max_unclear_attempts: config?.max_unclear_attempts ?? 3
+    };
 
-    // Frustrated after multiple messages
-    if (intent.sentiment === 'frustrated' && messageCount > 5) return true;
+    // 1. Custom Keywords (case insensitive, trimmed)
+    if (rawText && activeConfig.transfer_keywords.length > 0) {
+        const normalizedText = rawText.toLowerCase();
+        for (const keyword of activeConfig.transfer_keywords) {
+            if (keyword && normalizedText.includes(keyword.toLowerCase().trim())) {
+                console.log(`🎯 Transferência humana disparada por palavra-chave personalizada: "${keyword}"`);
+                return true;
+            }
+        }
+    }
 
-    // Low confidence after many attempts
-    if (intent.primary_intent === 'unclear' && intent.confidence < 0.4 && messageCount > 3) return true;
+    // 2. Direct request for human
+    if (activeConfig.transfer_on_request && intent.primary_intent === 'transfer_human') {
+        return true;
+    }
 
-    // Explicit human requirement flag
+    // 3. Frustrated after multiple messages
+    if (activeConfig.transfer_on_frustration && intent.sentiment === 'frustrated' && messageCount > 5) {
+        return true;
+    }
+
+    // 4. Low confidence after many attempts (parametrizável)
+    if (activeConfig.transfer_on_unclear && intent.primary_intent === 'unclear') {
+        const limitAttempts = activeConfig.max_unclear_attempts;
+        if (intent.confidence < 0.4 && messageCount >= limitAttempts) {
+            return true;
+        }
+    }
+
+    // 5. Explicit human requirement flag
     if (intent.requires_human) return true;
 
     return false;
 }
+
 
 /**
  * Get suggested response based on intent

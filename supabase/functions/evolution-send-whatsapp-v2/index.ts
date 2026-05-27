@@ -133,7 +133,218 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 1. Get instance configuration
+    // 1. Get WhatsApp provider settings
+    const { data: systemSettings } = await supabase
+      .from('system_settings')
+      .select('key, value')
+      .in('key', ['whatsapp_provider', 'waha_api_url', 'waha_api_key']);
+
+    const systemConfig = new Map(systemSettings?.map((s: any) => [s.key, s.value]) || []);
+    const provider = systemConfig.get('whatsapp_provider') || 'evolution';
+
+    if (provider === 'waha') {
+      const wahaUrl = systemConfig.get('waha_api_url')?.trim().replace(/\/$/, '');
+      const wahaKey = systemConfig.get('waha_api_key')?.trim();
+
+      if (!wahaUrl) {
+        throw new Error('Configuração URL da API WAHA não encontrada');
+      }
+
+      console.log('🤖 Roteamento WAHA ativo para:', normalizedPhone);
+
+      const wahaChatId = `${normalizedPhone.replace(/\D/g, '')}@c.us`;
+      let wahaEndpoint = '';
+      let wahaPayload: any = {};
+      let isButtons = false;
+
+      if (media) {
+        wahaEndpoint = media.type === 'image' ? '/api/sendImage' 
+                     : media.type === 'video' ? '/api/sendVideo' 
+                     : media.type === 'audio' ? '/api/sendVoice' 
+                     : '/api/sendFile';
+        wahaPayload = {
+          session: 'default',
+          chatId: wahaChatId,
+          file: {
+            url: media.url,
+            filename: media.filename || `file_${Date.now()}`,
+          },
+          ...(media.caption && { caption: media.caption })
+        };
+      } else if (list) {
+        wahaEndpoint = '/api/sendList';
+        wahaPayload = {
+          session: 'default',
+          chatId: wahaChatId,
+          buttonText: list.buttonText,
+          title: list.title,
+          description: list.description || '',
+          sections: list.sections.map(s => ({
+            title: s.title,
+            rows: s.rows.map(r => ({
+              id: r.id,
+              title: r.title,
+              description: r.description || ''
+            }))
+          }))
+        };
+      } else if (buttons && buttons.length > 0) {
+        isButtons = true;
+        wahaEndpoint = '/api/sendButtons';
+        wahaPayload = {
+          session: 'default',
+          chatId: wahaChatId,
+          body: message || '',
+          buttons: buttons.map(b => ({
+            type: 'reply',
+            id: b.id,
+            text: b.text
+          }))
+        };
+      } else {
+        wahaEndpoint = '/api/sendText';
+        wahaPayload = {
+          session: 'default',
+          chatId: wahaChatId,
+          text: message || ''
+        };
+      }
+
+      const wahaHeaders: any = { 'Content-Type': 'application/json' };
+      if (wahaKey) {
+        wahaHeaders['X-Api-Key'] = wahaKey;
+      }
+
+      const startTime = Date.now();
+      let responseStatus = 0;
+      let responseBody: any = null;
+
+      try {
+        console.log(`📤 Enviando via WAHA (${wahaEndpoint}):`, JSON.stringify(wahaPayload));
+        let response = await fetch(`${wahaUrl}${wahaEndpoint}`, {
+          method: 'POST',
+          headers: wahaHeaders,
+          body: JSON.stringify(wahaPayload),
+          signal: AbortSignal.timeout(15000)
+        });
+
+        responseStatus = response.status;
+
+        // FALLBACK DE BOTÕES SE FALHAR
+        if (!response.ok && isButtons) {
+          console.warn('⚠️ WAHA /api/sendButtons falhou. Tentando fallback para sendText...');
+          const fallbackText = `${message}\n\nResponda com o número da opção desejada:\n` +
+            buttons.map((b, idx) => `[${idx + 1}] ${b.text}`).join('\n');
+          
+          wahaEndpoint = '/api/sendText';
+          wahaPayload = {
+            session: 'default',
+            chatId: wahaChatId,
+            text: fallbackText
+          };
+
+          response = await fetch(`${wahaUrl}${wahaEndpoint}`, {
+            method: 'POST',
+            headers: wahaHeaders,
+            body: JSON.stringify(wahaPayload),
+            signal: AbortSignal.timeout(15000)
+          });
+          responseStatus = response.status;
+        }
+
+        const responseText = await response.text();
+        console.log('📥 WAHA Response:', responseText);
+
+        try {
+          responseBody = responseText ? JSON.parse(responseText) : { raw: responseText };
+        } catch {
+          responseBody = { raw: responseText };
+        }
+
+        if (!response.ok) {
+          // Salvar falha no log de comunicação
+          await supabase.from('communication_log').insert({
+            type: 'whatsapp',
+            direction: 'enviado',
+            phone_number: normalizedPhone,
+            content: message || 'Mídia falhou (WAHA)',
+            status: 'failed',
+            corretor_id: corretor_id || null,
+            lead_id: lead_id || null,
+            metadata: {
+              provider: 'waha',
+              error: responseText,
+              status_code: response.status,
+              endpoint: wahaEndpoint
+            }
+          });
+
+          throw new Error(`Erro ao enviar mensagem via WAHA (status ${response.status}): ${responseText}`);
+        }
+
+        // Registrar sucesso no communication_log
+        const logContent = media
+          ? `Mídia (${media.type}): ${media.caption || media.url}`
+          : list
+            ? `Lista: ${list.title}`
+            : message || '';
+
+        await supabase.from('communication_log').insert({
+          type: 'whatsapp',
+          direction: 'enviado',
+          phone_number: normalizedPhone,
+          content: logContent,
+          message_id: responseBody?.id || responseBody?.messageId || null,
+          status: 'sent',
+          corretor_id: corretor_id || null,
+          lead_id: lead_id || null,
+          metadata: {
+            provider: 'waha',
+            media_type: media?.type,
+            has_list: !!list,
+            endpoint: wahaEndpoint,
+            response: responseBody
+          }
+        });
+
+        // Log da integração
+        await logIntegration(supabase, {
+          service: 'waha-api',
+          endpoint: wahaEndpoint,
+          method: 'POST',
+          status_code: responseStatus,
+          request_payload: wahaPayload,
+          response_body: responseBody,
+          duration_ms: Date.now() - startTime,
+          metadata: { phone: normalizedPhone }
+        });
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message_id: responseBody?.id || responseBody?.messageId,
+            phone_number: normalizedPhone,
+            result: responseBody
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+
+      } catch (err: any) {
+        await logIntegration(supabase, {
+          service: 'waha-api',
+          endpoint: wahaEndpoint,
+          method: 'POST',
+          status_code: responseStatus,
+          request_payload: wahaPayload,
+          response_body: { error: err.message },
+          duration_ms: Date.now() - startTime,
+          metadata: { phone: normalizedPhone }
+        });
+        throw err;
+      }
+    }
+
+    // 1. Get instance configuration (Evolution V2 fallback)
     let apiUrl = '';
     let apiKey = '';
     let instanceName = '';

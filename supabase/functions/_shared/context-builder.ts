@@ -6,6 +6,7 @@
 
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import OpenAI from 'https://esm.sh/openai@4.28.0';
+import { getQualificationProgress } from './bant-scorer.ts';
 
 // ============================================================
 // TYPES
@@ -294,23 +295,19 @@ function analyzeQualificationProgress(qualification: any, conversation: any): Qu
     const qualData = conversation?.qualification_data || {};
     const qual = qualification || {};
 
-    const budget = !!(qualData.max_price || qual.max_price);
+    const progress = getQualificationProgress(qualData);
+
+    const budget = !!(qualData.max_price || qualData.price_max || qual.max_price);
     const authority = qual.decision_maker !== null ? qual.decision_maker : undefined;
     const need = !!(qualData.property_type || qual.property_type);
     const timeline = !!(qualData.urgency || qual.urgency);
-
-    let collected = 0;
-    if (budget) collected++;
-    if (authority !== undefined) collected++;
-    if (need) collected++;
-    if (timeline) collected++;
 
     return {
         budget_collected: budget,
         authority_confirmed: authority === true,
         need_identified: need,
         timeline_defined: timeline,
-        completion_percentage: Math.round((collected / 4) * 100)
+        completion_percentage: progress.percentage
     };
 }
 

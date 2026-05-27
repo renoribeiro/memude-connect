@@ -57,6 +57,7 @@ export default function Configuracoes() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("geral");
   const [evolutionStatus, setEvolutionStatus] = useState<ConnectionStatus>('idle');
+  const [wahaStatus, setWahaStatus] = useState<ConnectionStatus>('idle');
   const [isSaving, setIsSaving] = useState<string | null>(null);
 
   const { data: settings = [], isLoading } = useQuery({
@@ -74,14 +75,21 @@ export default function Configuracoes() {
 
   // Efeito para testar conexão automaticamente quando entrar na aba comunicação
   useEffect(() => {
-    if (activeTab === 'comunicacao' && evolutionStatus === 'idle') {
-      const hasEvolutionConfig = getSetting('evolution_api_url') &&
-        getSetting('evolution_api_key') &&
-        getSetting('evolution_instance_name');
+    if (activeTab === 'comunicacao') {
+      if (evolutionStatus === 'idle') {
+        const hasEvolutionConfig = getSetting('evolution_api_url') &&
+          getSetting('evolution_api_key') &&
+          getSetting('evolution_instance_name');
 
-      if (hasEvolutionConfig) {
-        // Testa automaticamente se tiver configuração
-        setTimeout(() => testEvolutionConnection(), 1000);
+        if (hasEvolutionConfig) {
+          setTimeout(() => testEvolutionConnection(), 1000);
+        }
+      }
+      if (wahaStatus === 'idle') {
+        const hasWahaConfig = getSetting('waha_api_url');
+        if (hasWahaConfig) {
+          setTimeout(() => testWahaConnection(), 1000);
+        }
       }
     }
   }, [activeTab, settings]);
@@ -243,6 +251,101 @@ export default function Configuracoes() {
         description: error.message || "Não foi possível testar a conexão",
         variant: "destructive",
       });
+    }
+  };
+
+  // Função para testar conexão com WAHA API
+  const testWahaConnection = async () => {
+    setWahaStatus('testing');
+
+    const apiUrl = getSetting('waha_api_url')?.trim();
+
+    if (!apiUrl) {
+      setWahaStatus('error');
+      toast({
+        title: "Configuração incompleta",
+        description: "Por favor, preencha a URL da API WAHA",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!validateUrl(apiUrl)) {
+      setWahaStatus('error');
+      toast({
+        title: "URL inválida",
+        description: "A URL da API WAHA deve ser válida (ex: http://localhost:3000)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('Testing WAHA connection with:', { url: apiUrl });
+
+    try {
+      const { data, error } = await supabase.functions.invoke('waha-check-connection');
+
+      if (error) {
+        console.error('Function invocation error:', error);
+        throw error;
+      }
+
+      if (data?.success && data?.connected) {
+        setWahaStatus('connected');
+        toast({
+          title: "✅ Conexão bem-sucedida",
+          description: `Sessão WAHA "default" ativa e pronta para uso. Status: ${data.instance_state}`,
+        });
+      } else {
+        setWahaStatus('error');
+        const errorMsg = data?.error || "A sessão 'default' do WAHA não está com status WORKING";
+        toast({
+          title: "❌ Falha na conexão",
+          description: errorMsg,
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('WAHA Connection test error:', error);
+      setWahaStatus('error');
+      toast({
+        title: "❌ Erro de conexão",
+        description: error.message || "Não foi possível testar a conexão com o WAHA",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getWahaConnectionBadge = () => {
+    switch (wahaStatus) {
+      case 'testing':
+        return (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Testando conexão...
+          </div>
+        );
+      case 'connected':
+        return (
+          <div className="flex items-center gap-2 text-sm text-green-600">
+            <CheckCircle className="w-4 h-4" />
+            Conectado
+          </div>
+        );
+      case 'error':
+        return (
+          <div className="flex items-center gap-2 text-sm text-red-600">
+            <XCircle className="w-4 h-4" />
+            Erro de conexão
+          </div>
+        );
+      default:
+        return (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <AlertTriangle className="w-4 h-4" />
+            Não testado
+          </div>
+        );
     }
   };
 
@@ -458,22 +561,25 @@ export default function Configuracoes() {
             {/* Configuração WAHA */}
             {getSetting('whatsapp_provider') === 'waha' && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="w-5 h-5" />
-                    Configuração WAHA
-                  </CardTitle>
-                  <CardDescription>
-                    WhatsApp HTTP API - Opção estável e leve.
-                    <a
-                      href="https://waha.devlike.pro/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline ml-1"
-                    >
-                      Ver documentação
-                    </a>
-                  </CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="w-5 h-5" />
+                      Configuração WAHA
+                    </CardTitle>
+                    <CardDescription>
+                      WhatsApp HTTP API - Opção estável e leve.
+                      <a
+                        href="https://waha.devlike.pro/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline ml-1"
+                      >
+                        Ver documentação
+                      </a>
+                    </CardDescription>
+                  </div>
+                  {getWahaConnectionBadge()}
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -496,14 +602,24 @@ export default function Configuracoes() {
                     />
                   </div>
 
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={testWahaConnection}
+                      disabled={wahaStatus === 'testing'}
+                    >
+                      {wahaStatus === 'testing' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      Testar Conexão
+                    </Button>
+                  </div>
+
                   <Alert>
                     <Info className="h-4 w-4" />
                     <AlertDescription>
                       <strong>Webhook para WAHA:</strong>
                       <br />
-                      Configure manualmente no seu WAHA:
+                      Configure o evento <code className="text-xs bg-muted px-1">message.any</code> manualmente no seu painel WAHA para apontar para a URL abaixo, enviando no cabeçalho <code className="text-xs bg-muted px-1">X-Api-Key</code> a sua chave secreta cadastrada:
                       <br />
-                      <code className="text-xs bg-muted px-1 py-0.5 rounded block mt-1 overflow-x-auto">
+                      <code className="text-xs bg-muted px-1 py-0.5 rounded block mt-1 overflow-x-auto font-mono">
                         https://oxybasvtphosdmlmrfnb.supabase.co/functions/v1/waha-webhook-handler
                       </code>
                     </AlertDescription>

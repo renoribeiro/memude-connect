@@ -13,6 +13,7 @@ interface ManageUserRequest {
         first_name?: string;
         last_name?: string;
         phone?: string;
+        email?: string;
         role?: 'admin' | 'corretor' | 'cliente';
         is_active?: boolean;
     };
@@ -75,47 +76,52 @@ serve(async (req) => {
 
         // === ACTION: LIST ===
         if (action === 'list') {
-            // Fetch all profiles
+            // Fetch users from auth.users (requires service_role)
+            const { data: { users: authUsers }, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
+            if (authUsersError) {
+                console.error('Error listing auth users:', authUsersError);
+                throw authUsersError;
+            }
+
+            // Fetch profiles
             const { data: profiles, error: profilesError } = await supabaseAdmin
                 .from('profiles')
-                .select('*')
-                .order('created_at', { ascending: false });
+                .select('*');
+            if (profilesError) {
+                console.error('Error listing profiles:', profilesError);
+                throw profilesError;
+            }
 
-            if (profilesError) throw profilesError;
-
-            // Fetch all user roles
-            const { data: roles, error: rolesError } = await supabaseAdmin
+            // Fetch user roles
+            const { data: userRoles, error: rolesError } = await supabaseAdmin
                 .from('user_roles')
-                .select('user_id, role');
-
-            if (rolesError) throw rolesError;
-
-            // Fetch all auth users to get emails
-            const { data: authUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
-
-            if (authUsersError) throw authUsersError;
-
-            // Build a map of user_id -> email
-            const emailMap = new Map<string, string>();
-            for (const u of authUsers.users) {
-                emailMap.set(u.id, u.email || '');
+                .select('*');
+            if (rolesError) {
+                console.error('Error listing user roles:', rolesError);
+                throw rolesError;
             }
 
-            // Build a map of user_id -> role
-            const roleMap = new Map<string, string>();
-            for (const r of roles) {
-                roleMap.set(r.user_id, r.role);
-            }
+            // Map together
+            const combinedUsers = profiles.map(profile => {
+                const authUser = authUsers.find(u => u.id === profile.user_id);
+                const userRole = userRoles.find(r => r.user_id === profile.user_id);
 
-            // Combine data
-            const users = profiles.map((p: any) => ({
-                ...p,
-                email: emailMap.get(p.user_id) || '',
-                role: roleMap.get(p.user_id) || p.role || 'cliente',
-            }));
+                return {
+                    id: profile.id,
+                    user_id: profile.user_id,
+                    first_name: profile.first_name || '',
+                    last_name: profile.last_name || '',
+                    phone: profile.phone || '',
+                    is_active: profile.is_active ?? true,
+                    created_at: profile.created_at,
+                    email: authUser?.email ?? '',
+                    last_sign_in_at: authUser?.last_sign_in_at ?? null,
+                    role: userRole?.role ?? 'cliente'
+                };
+            });
 
             return new Response(
-                JSON.stringify({ success: true, users }),
+                JSON.stringify({ success: true, users: combinedUsers }),
                 { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
             );
         }
@@ -168,22 +174,31 @@ serve(async (req) => {
                     console.error('Role update error:', roleUpdateError);
                     throw roleUpdateError;
                 }
-
-                // Also update auth user metadata
-                await supabaseAdmin.auth.admin.updateUserById(user_id, {
-                    user_metadata: { role: data.role }
-                });
             }
 
-            // Update auth user metadata for name
-            if (data.first_name || data.last_name) {
-                const metadataUpdate: Record<string, any> = {};
-                if (data.first_name) metadataUpdate.first_name = data.first_name;
-                if (data.last_name) metadataUpdate.last_name = data.last_name;
+            // Consolidated Auth Update
+            const authUpdate: Record<string, any> = {};
+            const metadataUpdate: Record<string, any> = {};
 
-                await supabaseAdmin.auth.admin.updateUserById(user_id, {
-                    user_metadata: metadataUpdate
-                });
+            if (data.first_name) metadataUpdate.first_name = data.first_name;
+            if (data.last_name) metadataUpdate.last_name = data.last_name;
+            if (data.role) metadataUpdate.role = data.role;
+
+            if (Object.keys(metadataUpdate).length > 0) {
+                authUpdate.user_metadata = metadataUpdate;
+            }
+
+            if (data.email) {
+                authUpdate.email = data.email;
+                authUpdate.email_confirm = true;
+            }
+
+            if (Object.keys(authUpdate).length > 0) {
+                const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(user_id, authUpdate);
+                if (authUpdateError) {
+                    console.error('Auth user update error:', authUpdateError);
+                    throw authUpdateError;
+                }
             }
 
             console.log(`User ${user_id} updated successfully`);

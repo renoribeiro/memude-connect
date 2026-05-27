@@ -174,8 +174,8 @@ export function calculateBudgetScore(
         score += criteria.financing_clear;
     }
 
-    // Pre-approved or has down payment (5 pts)
-    if (details?.pre_approved || details?.has_down_payment) {
+    // Pre-approved or has down payment / income (5 pts)
+    if (details?.pre_approved || details?.has_down_payment || qualData.income || qualData.down_payment) {
         score += criteria.pre_approved;
     }
 

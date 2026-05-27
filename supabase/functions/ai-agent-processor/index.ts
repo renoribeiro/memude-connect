@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import OpenAI from 'https://esm.sh/openai@4.28.0';
 import { GoogleGenerativeAI } from 'https://esm.sh/@google/generative-ai@0.2.1';
 import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.17.1';
-import { detectIntentFast, extractEntities, detectSentimentFast, shouldTransferToHuman, type IntentResult } from '../_shared/intent-detector.ts';
+import { detectIntentFast, detectIntentLLM, extractEntities, detectSentimentFast, shouldTransferToHuman, type IntentResult } from '../_shared/intent-detector.ts';
 import { buildContext, enrichWithKnowledge, formatContextForPrompt } from '../_shared/context-builder.ts';
 import { calculateBANTScore, getNextBANTQuestion, updateBANTFromEntities, getQualificationProgress } from '../_shared/bant-scorer.ts';
 import { detectObjection, buildObjectionContext, shouldEscalateToHuman, formatObjectionForLog } from '../_shared/objection-handler.ts';
@@ -233,7 +233,11 @@ Quando apropriado, inclua DISCRETAMENTE no final da sua resposta:
 - [TRANSFERIR_HUMANO] - se o cliente pedir humano ou assunto fora do escopo
 
 ## Qualificação de Preço e Renda (MUITO IMPORTANTE)
-LOGO APÓS informar o preço de um imóvel, você DEVE perguntar de forma natural sobre a renda e o valor de entrada que o cliente tem disponível.
+LOGO APÓS informar o preço de um imóvel, você DEVE perguntar de forma natural e empática sobre a renda familiar e o valor disponível para entrada.
+Exemplos de como perguntar com empatia e naturalidade (use como inspiração):
+- "Ah, e falando em valores... Para te dar uma simulação exata das parcelas da Caixa, qual seria a renda familiar de vocês hoje? E quanto teriam disponível para dar de entrada?"
+- "Massa! E para a gente ver as melhores condições de financiamento para você, quanto você está planejando dar de entrada? E qual seria a renda de vocês aproximadamente?"
+
 Se a renda informada (renda_informada) e a entrada informada (entrada_informada) pelo cliente forem compatíveis com a renda sugerida (renda_sugerida) e entrada sugerida (entrada_sugerida) do imóvel em questão, você deve INCENTIVAR uma visita ao imóvel imediatamente.
 
 ${agent.system_prompt ? `\n## Instruções Adicionais do Admin\n${agent.system_prompt}` : ''}
@@ -489,11 +493,43 @@ serve(async (req) => {
     }).select('id').single();
 
     // 5.1 Detect intent and sentiment (fast path)
-    const intentResult = detectIntentFast(message_text);
+    let intentResult = detectIntentFast(message_text);
+
+    // Hybrid Strategy: Fallback to LLM for complex/unclear intents to reach 10/10 precision
+    if (intentResult.primary_intent === 'unclear' || (intentResult.confidence || 0) < 0.65) {
+      const openaiApiKey = await getApiKey(supabase, 'openai_api_key');
+      if (openaiApiKey) {
+        try {
+          console.log('🧠 Hybrid Intent Detection: Regex has low confidence, falling back to deep LLM analysis...');
+          const openaiClient = new OpenAI({ apiKey: openaiApiKey });
+          // Format recent message history to give LLM rich context
+          const historyContext = conversationHistory
+            ?.slice(-3)
+            .map((m: any) => `${m.role === 'user' ? 'Cliente' : 'SDR'}: ${m.content}`)
+            .join('\n') || '';
+
+          const llmResult = await detectIntentLLM(openaiClient, message_text, historyContext);
+
+          // Merge results: keep LLM intent, but preserve any entities captured by both
+          intentResult = {
+            ...intentResult,
+            ...llmResult,
+            entities: {
+              ...intentResult.entities,
+              ...llmResult.entities
+            }
+          };
+          console.log(`🎯 Hybrid LLM Intent Result: ${intentResult.primary_intent} (${((intentResult.confidence || 0) * 100).toFixed(0)}%)`);
+        } catch (llmDetectErr) {
+          console.warn('⚠️ Fallback to LLM intent detection failed, keeping regex result:', llmDetectErr);
+        }
+      }
+    }
+
     const detectedSentiment = intentResult.sentiment || 'neutral';
     const extractedEntities = intentResult.entities || {};
 
-    console.log(`🎯 Intent: ${intentResult.primary_intent} (${(intentResult.confidence || 0) * 100}%), Sentiment: ${detectedSentiment}`);
+    console.log(`🎯 Final Intent: ${intentResult.primary_intent} (${((intentResult.confidence || 0) * 100).toFixed(0)}%), Sentiment: ${detectedSentiment}`);
 
     // 5.2 Log sentiment for analytics
     if (savedMessage?.id) {
@@ -597,23 +633,66 @@ serve(async (req) => {
     }
 
     // 5.3 Check if should transfer to human
+    const handoffConfig = {
+      transfer_on_frustration: activeAgent.transfer_on_frustration,
+      transfer_on_unclear: activeAgent.transfer_on_unclear,
+      transfer_on_request: activeAgent.transfer_on_request,
+      transfer_keywords: activeAgent.transfer_keywords,
+      max_unclear_attempts: activeAgent.max_unclear_attempts
+    };
+
     const shouldTransfer = shouldTransferToHuman(
       intentResult as any,
-      conversation?.total_messages || 0
+      conversation?.total_messages || 0,
+      message_text,
+      handoffConfig
     );
 
-    if (shouldTransfer && intentResult.primary_intent === 'transfer_human') {
-      console.log('🚨 Transfer to human requested by intent detection');
+    if (shouldTransfer) {
+      console.log('🚨 Transfer to human triggered by handoff conditions');
+      
+      // Update status to transferred
       await supabase
         .from('agent_conversations')
         .update({ status: 'transferred' })
         .eq('id', conversationId);
 
-      await notifyAdmin(supabase, conversation,
-        detectedSentiment === 'frustrated'
-          ? 'Lead frustrado - solicita atendimento humano'
-          : 'Lead solicitou atendimento humano'
-      );
+      // Envia a mensagem de transição personalizada
+      const transitionMsg = activeAgent.transfer_message || 
+        'Entendi perfeitamente. Vou passar sua conversa agora mesmo para um consultor especializado que irá te dar continuidade no atendimento! 🤝';
+      
+      console.log(`📤 Enviando mensagem de transição humana: "${transitionMsg}"`);
+      await supabase.functions.invoke('evolution-send-whatsapp-v2', {
+        body: {
+          phone_number: phone_number,
+          message: transitionMsg,
+          instance_id: activeAgent.evolution_instance_id
+        }
+      });
+
+      // Registra a mensagem de despedida na tabela agent_messages para manter o histórico íntegro
+      await supabase.from('agent_messages').insert({
+        conversation_id: conversationId,
+        sender: 'agent',
+        message_text: transitionMsg
+      });
+
+      let handoffReason = 'Lead solicitou atendimento humano';
+      if (detectedSentiment === 'frustrated') {
+        handoffReason = 'Lead frustrado - solicita atendimento humano';
+      } else if (intentResult.primary_intent === 'unclear') {
+        handoffReason = 'IA não compreendeu o lead por várias mensagens consecutivas';
+      } else if (handoffConfig.transfer_keywords && handoffConfig.transfer_keywords.length > 0) {
+        const normalizedText = message_text.toLowerCase();
+        for (const kw of handoffConfig.transfer_keywords) {
+          if (kw && normalizedText.includes(kw.toLowerCase().trim())) {
+            handoffReason = `Palavra-chave customizada detectada: "${kw}"`;
+            break;
+          }
+        }
+      }
+
+      await notifyAdmin(supabase, conversation, handoffReason);
 
       return new Response(
         JSON.stringify({
@@ -625,6 +704,7 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
 
     // 5.4 Update qualification data with extracted entities
     if (Object.keys(extractedEntities).length > 0) {

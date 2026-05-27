@@ -75,8 +75,8 @@ function analyzeResponse(message: string): ProcessingResponse {
   const text = message.toLowerCase().trim();
 
   // Lista expandida de palavras-chave
-  const acceptWords = ['sim', 's', 'yes', 'y', 'aceito', 'quero', 'vou', 'posso', 'ok', 'pode', 'confirmo', 'topo', 'confirmado', 'agendar'];
-  const rejectWords = ['não', 'nao', 'n', 'no', 'recuso', 'negativo', 'impossível', 'impossivel', 'ocupado', 'nem', 'jamais', 'cancelar'];
+  const acceptWords = ['sim', 's', 'yes', 'y', 'aceito', 'quero', 'vou', 'posso', 'ok', 'pode', 'confirmo', 'topo', 'confirmado', 'agendar', '1'];
+  const rejectWords = ['não', 'nao', 'n', 'no', 'recuso', 'negativo', 'impossível', 'impossivel', 'ocupado', 'nem', 'jamais', 'cancelar', '2'];
 
   // Verificar correspondência exata ou parcial forte
   if (acceptWords.includes(text)) return { type: 'accepted', confidence: 10 };

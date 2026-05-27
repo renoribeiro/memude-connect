@@ -24,6 +24,7 @@ export interface ManagedUser {
   is_active: boolean;
   created_at: string;
   user_id: string;
+  last_sign_in_at?: string;
 }
 
 const UserManagement = () => {
@@ -258,6 +259,7 @@ const UserManagement = () => {
                       <TableHead>Email</TableHead>
                       <TableHead>Função</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Último Login</TableHead>
                       <TableHead>Criado em</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -291,6 +293,17 @@ const UserManagement = () => {
                               Ativo
                             </Badge>
                           )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                          {user.last_sign_in_at
+                            ? new Date(user.last_sign_in_at).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            : 'Nunca'}
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
                           {new Date(user.created_at).toLocaleDateString('pt-BR')}

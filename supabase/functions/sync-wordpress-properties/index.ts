@@ -464,14 +464,7 @@ async function processWordPressPost(
   // Retry logic for database operations
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // Extract empreendimento data from post
-      const empreendimentoData = await extractEmpreendimentoData(post, supabase);
-
-      if (!empreendimentoData.nome || empreendimentoData.nome.trim().length === 0) {
-        throw new Error('Nome do empreendimento não pode estar vazio');
-      }
-
-      // Check if empreendimento already exists
+      // Check if empreendimento already exists first to optimize extraction
       const { data: existingEmp, error: selectError } = await supabase
         .from('empreendimentos')
         .select('*')
@@ -480,6 +473,13 @@ async function processWordPressPost(
 
       if (selectError) {
         throw new Error(`Erro ao verificar empreendimento existente: ${selectError.message}`);
+      }
+
+      // Extract empreendimento data from post, passing existing data to skip redundant fetches/queries
+      const empreendimentoData = await extractEmpreendimentoData(post, supabase, existingEmp);
+
+      if (!empreendimentoData.nome || empreendimentoData.nome.trim().length === 0) {
+        throw new Error('Nome do empreendimento não pode estar vazio');
       }
 
       const processEnd = Date.now();
@@ -561,7 +561,31 @@ async function processWordPressPost(
   throw lastError || new Error('Falha desconhecida após múltiplas tentativas');
 }
 
-async function extractEmpreendimentoData(post: WordPressPost, supabase: any) {
+function parseBrazilianNumber(numStr: string): number {
+  let cleanStr = numStr.trim();
+  // If it has dots and commas, assume Brazilian format (1.234.567,89)
+  if (cleanStr.includes('.') && cleanStr.includes(',')) {
+    cleanStr = cleanStr.replace(/\./g, '').replace(',', '.');
+  }
+  // If it only has commas, treat as decimal separator
+  else if (cleanStr.includes(',') && !cleanStr.includes('.')) {
+    cleanStr = cleanStr.replace(',', '.');
+  }
+  // If it only has dots, check if it's thousands separator or decimal
+  else if (cleanStr.includes('.')) {
+    const parts = cleanStr.split('.');
+    if (parts[parts.length - 1].length === 2) {
+      // Likely decimal separator
+      cleanStr = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+    } else {
+      // Likely thousands separator
+      cleanStr = cleanStr.replace(/\./g, '');
+    }
+  }
+  return parseFloat(cleanStr);
+}
+
+async function extractEmpreendimentoData(post: WordPressPost, supabase: any, existingEmp?: any) {
   // Extract name from title
   const nome = post.title.rendered.replace(/<[^>]*>/g, '').trim();
 
@@ -612,30 +636,7 @@ async function extractEmpreendimentoData(post: WordPressPost, supabase: any) {
         const priceMatches = match.match(/[\d.,]+/g);
         if (priceMatches) {
           for (const priceStr of priceMatches) {
-            // Convert to number (handle Brazilian number format)
-            let numStr = priceStr;
-
-            // If it has dots and commas, assume Brazilian format (1.234.567,89)
-            if (numStr.includes('.') && numStr.includes(',')) {
-              numStr = numStr.replace(/\./g, '').replace(',', '.');
-            }
-            // If it only has commas, treat as decimal separator
-            else if (numStr.includes(',') && !numStr.includes('.')) {
-              numStr = numStr.replace(',', '.');
-            }
-            // If it only has dots, check if it's thousands separator or decimal
-            else if (numStr.includes('.')) {
-              const parts = numStr.split('.');
-              if (parts[parts.length - 1].length === 2) {
-                // Likely decimal separator
-                numStr = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
-              } else {
-                // Likely thousands separator
-                numStr = numStr.replace(/\./g, '');
-              }
-            }
-
-            const price = parseFloat(numStr);
+            const price = parseBrazilianNumber(priceStr);
 
             // Filter realistic property prices (between R$ 50.000 and R$ 50.000.000)
             if (!isNaN(price) && price >= 50000 && price <= 50000000) {
@@ -666,18 +667,68 @@ async function extractEmpreendimentoData(post: WordPressPost, supabase: any) {
     }
   }
 
-  // Enhanced construtora and bairro identification
-  const construtoraId = await findOrCreateConstructoraEnhanced(post, supabase);
-  const bairroId = await findOrCreateBairroEnhanced(post, supabase);
+  // Extract Suggested Income (Renda Sugerida)
+  let rendaSugerida = null;
+  const rendaRegex = /renda\s*(?:familiar|sugerida|m[íi]nima|recomendada)?\s*(?:a partir de|de|:)?\s*R\$\s*([\d.,]+)/gi;
+  let rendaMatch;
+  const rendaValues: number[] = [];
+  while ((rendaMatch = rendaRegex.exec(fullText)) !== null) {
+    const val = parseBrazilianNumber(rendaMatch[1]);
+    if (!isNaN(val) && val > 0) {
+      rendaValues.push(val);
+    }
+  }
+  if (rendaValues.length > 0) {
+    // Filter realistic suggested income prices (between R$ 1.000 and R$ 50.000)
+    const validRendas = rendaValues.filter(v => v >= 1000 && v <= 50000);
+    if (validRendas.length > 0) {
+      rendaSugerida = Math.min(...validRendas);
+    }
+  }
 
-  // Try to get address from the actual rendered page first (most reliable)
-  let endereco = await fetchAddressFromPage(post.link);
-  // Fallback to regex extraction from API content
+  // Extract Suggested Down Payment (Entrada Sugerida)
+  let entradaSugerida = null;
+  const entradaPatterns = [
+    /entrada\s*(?:sugerida|a partir de|de|facilitada|:)?\s*R\$\s*([\d.,]+)/gi,
+    /sinal\s*(?:de|:)?\s*R\$\s*([\d.,]+)/gi,
+    /ato\s*(?:de|:)?\s*R\$\s*([\d.,]+)/gi
+  ];
+  const entradaValues: number[] = [];
+  for (const pattern of entradaPatterns) {
+    let match;
+    while ((match = pattern.exec(fullText)) !== null) {
+      const val = parseBrazilianNumber(match[1]);
+      if (!isNaN(val) && val > 0) {
+        entradaValues.push(val);
+      }
+    }
+  }
+  if (entradaValues.length > 0) {
+    // Filter realistic suggested down payment (between R$ 500 and R$ 2.000.000)
+    const validEntradas = entradaValues.filter(v => v >= 500 && v <= 2000000);
+    if (validEntradas.length > 0) {
+      entradaSugerida = Math.min(...validEntradas);
+    }
+  }
+
+  // Enhanced construtora and bairro identification (bypass if already defined)
+  const construtoraId = existingEmp?.construtora_id || await findOrCreateConstructoraEnhanced(post, supabase);
+  const bairroId = existingEmp?.bairro_id || await findOrCreateBairroEnhanced(post, supabase);
+
+  // Try to get address from existing property if available, to avoid redundant external fetches
+  let endereco = existingEmp?.endereco || null;
   if (!endereco) {
-    console.log(`⚠️ Page fetch failed for "${nome}", falling back to regex extraction`);
-    endereco = extractAddress(content);
+    // Try to get address from the actual rendered page first (most reliable)
+    endereco = await fetchAddressFromPage(post.link);
+    // Fallback to regex extraction from API content
+    if (!endereco) {
+      console.log(`⚠️ Page fetch failed for "${nome}", falling back to regex extraction`);
+      endereco = extractAddress(content);
+    } else {
+      console.log(`✅ Address extracted from page for "${nome}": ${endereco}`);
+    }
   } else {
-    console.log(`✅ Address extracted from page for "${nome}": ${endereco}`);
+    console.log(`ℹ️ Using existing address for "${nome}": ${endereco}`);
   }
 
   return {
@@ -685,6 +736,8 @@ async function extractEmpreendimentoData(post: WordPressPost, supabase: any) {
     descricao,
     valor_min: valorMin,
     valor_max: valorMax,
+    renda_sugerida: rendaSugerida,
+    entrada_sugerida: entradaSugerida,
     construtora_id: construtoraId,
     bairro_id: bairroId,
     endereco,

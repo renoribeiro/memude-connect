@@ -35,6 +35,14 @@ interface AIAgent {
     trigger_keywords: string[];
     fallback_action: string;
     evolution_instance_id?: string | null;
+
+    // Configurações de Transferência Humana
+    transfer_on_frustration: boolean;
+    transfer_on_unclear: boolean;
+    transfer_on_request: boolean;
+    transfer_keywords: string[];
+    transfer_message: string;
+    max_unclear_attempts: number;
 }
 
 
@@ -116,7 +124,15 @@ export function AgentEditor({ agent, onClose }: AgentEditorProps) {
         conversation_timeout_hours: 24,
         trigger_keywords: ['comprar', 'apartamento', 'casa', 'imóvel', 'imovel'],
         fallback_action: 'notify_admin',
-        evolution_instance_id: null
+        evolution_instance_id: null,
+
+        // Handoff humano valores padrão e pré-preenchimento
+        transfer_on_frustration: true,
+        transfer_on_unclear: true,
+        transfer_on_request: true,
+        transfer_keywords: ['gerente', 'atendente', 'humano', 'proposta', 'falar com humano'],
+        transfer_message: 'Entendi perfeitamente. Vou passar sua conversa agora mesmo para um consultor especializado que irá te dar continuidade no atendimento! 🤝',
+        max_unclear_attempts: 3
     });
 
     const { data: evolutionInstances = [] } = useQuery({
@@ -136,7 +152,13 @@ export function AgentEditor({ agent, onClose }: AgentEditorProps) {
         if (agent) {
             setFormData({
                 ...agent,
-                trigger_keywords: agent.trigger_keywords || []
+                trigger_keywords: agent.trigger_keywords || [],
+                transfer_on_frustration: agent.transfer_on_frustration ?? true,
+                transfer_on_unclear: agent.transfer_on_unclear ?? true,
+                transfer_on_request: agent.transfer_on_request ?? true,
+                transfer_keywords: agent.transfer_keywords || ['gerente', 'atendente', 'humano', 'proposta', 'falar com humano'],
+                transfer_message: agent.transfer_message ?? 'Entendi perfeitamente. Vou passar sua conversa agora mesmo para um consultor especializado que irá te dar continuidade no atendimento! 🤝',
+                max_unclear_attempts: agent.max_unclear_attempts ?? 3
             });
         }
     }, [agent]);
@@ -163,6 +185,15 @@ export function AgentEditor({ agent, onClose }: AgentEditorProps) {
                 trigger_keywords: data.trigger_keywords,
                 fallback_action: data.fallback_action,
                 evolution_instance_id: data.evolution_instance_id,
+
+                // Variáveis de Handoff Humano
+                transfer_on_frustration: data.transfer_on_frustration,
+                transfer_on_unclear: data.transfer_on_unclear,
+                transfer_on_request: data.transfer_on_request,
+                transfer_keywords: data.transfer_keywords,
+                transfer_message: data.transfer_message,
+                max_unclear_attempts: data.max_unclear_attempts,
+
                 updated_at: new Date().toISOString()
             };
 
@@ -525,6 +556,99 @@ export function AgentEditor({ agent, onClose }: AgentEditorProps) {
                             />
                             <p className="text-xs text-muted-foreground">
                                 Tempo de inatividade para expirar conversa
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Handoff Humano Section */}
+                    <div className="border-t pt-4 my-4 space-y-4">
+                        <div>
+                            <h3 className="text-base font-semibold text-foreground">Transferência Humana (Handoff)</h3>
+                            <p className="text-xs text-muted-foreground">
+                                Defina em quais situações o agente de IA deve transferir o atendimento automaticamente para um atendente humano.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="flex items-center justify-between p-3 border rounded-lg bg-card bg-opacity-40">
+                                <div className="space-y-0.5">
+                                    <Label className="text-sm">Por Frustração</Label>
+                                    <p className="text-[11px] text-muted-foreground leading-snug">Se o lead demonstrar irritação</p>
+                                </div>
+                                <Switch
+                                    checked={formData.transfer_on_frustration}
+                                    onCheckedChange={(checked) => setFormData({ ...formData, transfer_on_frustration: checked })}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-3 border rounded-lg bg-card bg-opacity-40">
+                                <div className="space-y-0.5">
+                                    <Label className="text-sm">Por Falta de Clareza</Label>
+                                    <p className="text-[11px] text-muted-foreground leading-snug">Se a IA não entender o lead</p>
+                                </div>
+                                <Switch
+                                    checked={formData.transfer_on_unclear}
+                                    onCheckedChange={(checked) => setFormData({ ...formData, transfer_on_unclear: checked })}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-3 border rounded-lg bg-card bg-opacity-40">
+                                <div className="space-y-0.5">
+                                    <Label className="text-sm">Por Solicitação</Label>
+                                    <p className="text-[11px] text-muted-foreground leading-snug">Se o lead pedir humano/atendente</p>
+                                </div>
+                                <Switch
+                                    checked={formData.transfer_on_request}
+                                    onCheckedChange={(checked) => setFormData({ ...formData, transfer_on_request: checked })}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="max_unclear_attempts">Limite de Tentativas sem Entendimento</Label>
+                                <Input
+                                    id="max_unclear_attempts"
+                                    type="number"
+                                    min={1}
+                                    max={10}
+                                    disabled={!formData.transfer_on_unclear}
+                                    value={formData.max_unclear_attempts}
+                                    onChange={(e) => setFormData({ ...formData, max_unclear_attempts: parseInt(e.target.value) || 3 })}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Quantas falhas consecutivas de compreensão ativam o handoff.
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="transfer_keywords">Palavras-chave de Transferência Imediata</Label>
+                                <Input
+                                    id="transfer_keywords"
+                                    value={formData.transfer_keywords.join(', ')}
+                                    onChange={(e) => setFormData({
+                                        ...formData,
+                                        transfer_keywords: e.target.value.split(',').map(k => k.trim()).filter(Boolean)
+                                    })}
+                                    placeholder="Ex: gerente, atendente, proposta, fluxo de pagamento"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Termos do cliente que disparam a transferência imediata (separados por vírgula).
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="transfer_message">Mensagem de Transição/Despedida Personalizada</Label>
+                            <Textarea
+                                id="transfer_message"
+                                value={formData.transfer_message}
+                                onChange={(e) => setFormData({ ...formData, transfer_message: e.target.value })}
+                                placeholder="Mensagem enviada antes da transferência..."
+                                rows={3}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Esta mensagem é enviada ao cliente no WhatsApp para avisar de forma humanizada que ele será transferido.
                             </p>
                         </div>
                     </div>

@@ -90,10 +90,22 @@ export function EvolutionInstances() {
                 toast({ title: "Sucesso", description: message });
             }
         },
-        onError: (error) => {
+        onError: async (error: any) => {
+            let errorMsg = error.message || "Erro na operação";
+            if (error.context instanceof Response) {
+                try {
+                    const clonedRes = error.context.clone();
+                    const errorData = await clonedRes.json();
+                    if (errorData && errorData.error) {
+                        errorMsg = errorData.error;
+                    }
+                } catch (e) {
+                    console.error("Erro ao fazer parse do corpo do erro HTTP:", e);
+                }
+            }
             toast({
                 title: "Erro",
-                description: error.message,
+                description: errorMsg,
                 variant: "destructive"
             });
         },
@@ -116,8 +128,20 @@ export function EvolutionInstances() {
             toast({ title: "Sucesso", description: "Instância removida" });
             queryClient.invalidateQueries({ queryKey: ['evolution-instances'] });
         },
-        onError: (error) => {
-            toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+        onError: async (error: any) => {
+            let errorMsg = error.message || "Erro ao excluir";
+            if (error.context instanceof Response) {
+                try {
+                    const clonedRes = error.context.clone();
+                    const errorData = await clonedRes.json();
+                    if (errorData && errorData.error) {
+                        errorMsg = errorData.error;
+                    }
+                } catch (e) {
+                    console.error("Erro ao fazer parse do corpo do erro HTTP:", e);
+                }
+            }
+            toast({ title: "Erro ao excluir", description: errorMsg, variant: "destructive" });
         }
     });
 
@@ -163,8 +187,20 @@ export function EvolutionInstances() {
             setEditingInstance(null);
             queryClient.invalidateQueries({ queryKey: ['evolution-instances'] });
         },
-        onError: (error) => {
-            toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+        onError: async (error: any) => {
+            let errorMsg = error.message || "Erro ao salvar";
+            if (error.context instanceof Response) {
+                try {
+                    const clonedRes = error.context.clone();
+                    const errorData = await clonedRes.json();
+                    if (errorData && errorData.error) {
+                        errorMsg = errorData.error;
+                    }
+                } catch (e) {
+                    console.error("Erro ao fazer parse do corpo do erro HTTP:", e);
+                }
+            }
+            toast({ title: "Erro ao salvar", description: errorMsg, variant: "destructive" });
         }
     });
 

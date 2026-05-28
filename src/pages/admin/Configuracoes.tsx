@@ -246,9 +246,25 @@ export default function Configuracoes() {
     } catch (error: any) {
       console.error('Connection test error:', error);
       setEvolutionStatus('error');
+      
+      let errorMsg = error.message || "Não foi possível testar a conexão";
+      
+      // Se for um erro HTTP de Edge Function, o corpo da resposta está no context
+      if (error.context instanceof Response) {
+        try {
+          const clonedRes = error.context.clone();
+          const errorData = await clonedRes.json();
+          if (errorData && errorData.error) {
+            errorMsg = errorData.error;
+          }
+        } catch (e) {
+          console.error("Erro ao fazer parse do corpo do erro HTTP:", e);
+        }
+      }
+      
       toast({
         title: "❌ Erro de conexão",
-        description: error.message || "Não foi possível testar a conexão",
+        description: errorMsg,
         variant: "destructive",
       });
     }
@@ -308,9 +324,25 @@ export default function Configuracoes() {
     } catch (error: any) {
       console.error('WAHA Connection test error:', error);
       setWahaStatus('error');
+      
+      let errorMsg = error.message || "Não foi possível testar a conexão com o WAHA";
+      
+      // Se for um erro HTTP de Edge Function, o corpo da resposta está no context
+      if (error.context instanceof Response) {
+        try {
+          const clonedRes = error.context.clone();
+          const errorData = await clonedRes.json();
+          if (errorData && errorData.error) {
+            errorMsg = errorData.error;
+          }
+        } catch (e) {
+          console.error("Erro ao fazer parse do corpo do erro HTTP:", e);
+        }
+      }
+      
       toast({
         title: "❌ Erro de conexão",
-        description: error.message || "Não foi possível testar a conexão com o WAHA",
+        description: errorMsg,
         variant: "destructive",
       });
     }

@@ -59,15 +59,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const startTime = Date.now();
-  const syncId = crypto.randomUUID();
-
-  // Parse request body to get parameters
-  const { manual = false, test_mode = false, limit = null } = await req.json().catch(() => ({}));
-
-  console.log(`🚀 Iniciando sincronização WordPress [${syncId}] - Manual: ${manual}, Teste: ${test_mode} às:`, new Date().toISOString());
-
-  // Initialize Supabase client with proper credentials
+  // Initialize Supabase client with proper credentials for security verification
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -82,8 +74,58 @@ serve(async (req) => {
     });
   }
 
-  console.log('🔑 Conectando ao Supabase...');
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  // SECURITY: Verify caller is authenticated and is admin
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized: No authorization header' }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      }
+    );
+  }
+
+  // Get the user from the JWT token
+  const { data: { user: callerUser }, error: authError } = await supabase.auth.getUser(
+    authHeader.replace('Bearer ', '')
+  );
+
+  if (authError || !callerUser) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized: Invalid token' }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      }
+    );
+  }
+
+  // Verify role admin before proceeding
+  const { data: isAdmin, error: roleError } = await supabase.rpc('has_role', {
+    _user_id: callerUser.id,
+    _role: 'admin'
+  });
+
+  if (roleError || !isAdmin) {
+    return new Response(
+      JSON.stringify({ error: 'Forbidden: Caller is not an administrator' }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403,
+      }
+    );
+  }
+
+  const startTime = Date.now();
+  const syncId = crypto.randomUUID();
+
+  // Parse request body to get parameters
+  const { manual = false, test_mode = false, limit = null } = await req.json().catch(() => ({}));
+
+  console.log(`🚀 Iniciando sincronização WordPress [${syncId}] - Manual: ${manual}, Teste: ${test_mode} às:`, new Date().toISOString());
 
   // Test Supabase connection
   try {
@@ -330,8 +372,8 @@ async function fetchAllWordPressPosts(
   const perPage = 100;
   const maxRetries = 3;
   const baseDelay = 1000; // 1 second
-
-  while (true) {
+  const MAX_SAFETY_PAGES = 50; // Safety guard to avoid memory leak / infinite loop
+  while (page <= MAX_SAFETY_PAGES) {
     console.log(`📄 Buscando página ${page}...`);
 
     const fetchStart = Date.now();

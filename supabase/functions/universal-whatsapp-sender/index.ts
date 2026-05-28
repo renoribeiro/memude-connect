@@ -80,7 +80,8 @@ async function sendViaEvolution(config: Map<string, string>, phone: string, mess
     const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': key },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(12000)
     });
 
     const data = await response.json();
@@ -111,7 +112,8 @@ async function sendViaWAHA(config: Map<string, string>, phone: string, message: 
     const response = await fetch(endpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(12000)
     });
 
     const data = await response.json();

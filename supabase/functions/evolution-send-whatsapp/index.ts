@@ -59,7 +59,8 @@ serve(async (req) => {
           textMessage: {
             text: message
           }
-        })
+        }),
+        signal: AbortSignal.timeout(12000)
       }
     );
 

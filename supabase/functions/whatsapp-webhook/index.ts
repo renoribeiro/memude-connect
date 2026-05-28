@@ -30,6 +30,24 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // SECURITY: Validate webhook secret against evolution_webhook_secret in system_settings
+    const webhookSecret = req.headers.get('x-webhook-secret');
+    const { data: secretSetting } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'evolution_webhook_secret')
+      .maybeSingle();
+
+    if (secretSetting?.value) {
+      if (!webhookSecret || webhookSecret !== secretSetting.value) {
+        console.warn('🚫 WhatsApp Webhook authentication failed: invalid or missing secret');
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: missing or invalid secret' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     const payload: WhatsAppWebhookPayload = await req.json();
     console.log('WhatsApp webhook received:', payload);
 

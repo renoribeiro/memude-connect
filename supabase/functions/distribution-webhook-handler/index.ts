@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
 };
 
 interface WebhookData {
@@ -35,6 +35,24 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // SEC-01: Webhook authentication verification
+    const webhookSecret = req.headers.get('x-webhook-secret');
+    const { data: secretSetting } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'evolution_webhook_secret')
+      .maybeSingle();
+
+    if (secretSetting?.value) {
+      if (!webhookSecret || webhookSecret !== secretSetting.value) {
+        console.warn('🚫 Webhook authentication failed: invalid or missing secret');
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: missing or invalid secret' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     const webhookData: WebhookData = await req.json();
     console.log('Webhook recebido:', JSON.stringify(webhookData, null, 2));
@@ -203,21 +221,63 @@ async function handleVisitResponse(supabase: any, attempt: any, messageText: str
   const response = analyzeResponse(messageText);
   console.log('Resposta analisada (Visita):', response);
 
-  // Atualizar tentativa
-  await supabase
-    .from('visit_distribution_attempts')
-    .update({
-      status: 'responded',
-      response_type: response.type,
-      response_message: messageText,
-      response_received_at: new Date().toISOString()
-    })
-    .eq('id', attempt.id);
-
   if (response.type === 'accepted') {
+    // SEC-02: Atomic acceptance using transactional PostgreSQL RPC to prevent race conditions
+    const { data: success, error: rpcError } = await supabase.rpc('accept_visit_distribution', {
+      p_attempt_id: attempt.id,
+      p_corretor_id: attempt.corretor.id
+    });
+
+    if (rpcError) {
+      console.error('Erro ao executar RPC accept_visit_distribution:', rpcError);
+      throw new Error(`Erro transacional ao aceitar visita: ${rpcError.message}`);
+    }
+
+    if (!success) {
+      console.log(`Oportunidade de visita ${attempt.visita.id} já aceita por outro corretor.`);
+      const takenMessage = `❌ *OPORTUNIDADE INDISPONÍVEL*\n\nDesculpe! A oportunidade de visita com o cliente *${attempt.visita.lead.nome}* já foi aceita por outro corretor. Fique atento para as próximas!`;
+      await supabase.functions.invoke('evolution-send-whatsapp-v2', {
+        body: {
+          phone: phoneNumber,
+          message: takenMessage,
+          metadata: { type: 'visit_already_taken' }
+        }
+      });
+
+      // Update attempt to prevent it from hanging as pending
+      await supabase
+        .from('visit_distribution_attempts')
+        .update({
+          status: 'timeout',
+          response_type: 'timeout',
+          response_message: 'Indisponível - já aceito por outro corretor',
+          response_received_at: new Date().toISOString()
+        })
+        .eq('id', attempt.id);
+
+      return {
+        status: 'processed',
+        type: 'visit',
+        response_type: 'rejected',
+        attempt_id: attempt.id
+      };
+    }
+
+    // Successfully accepted (db updates occurred in RPC)! Send notifications.
     await acceptVisit(supabase, attempt);
     await sendVisitConfirmation(supabase, attempt);
   } else if (response.type === 'rejected') {
+    // Atualizar tentativa
+    await supabase
+      .from('visit_distribution_attempts')
+      .update({
+        status: 'responded',
+        response_type: response.type,
+        response_message: messageText,
+        response_received_at: new Date().toISOString()
+      })
+      .eq('id', attempt.id);
+
     await rejectVisit(supabase, attempt);
   } else {
     // Pedir clarificação (Opcional, pode usar a mesma lógica de lead ou criar uma específica)
@@ -233,49 +293,7 @@ async function handleVisitResponse(supabase: any, attempt: any, messageText: str
 }
 
 async function acceptVisit(supabase: any, attempt: any) {
-  console.log('Visita aceita pelo corretor:', attempt.corretor.id);
-
-  // 1. Atualizar status da visita
-  await supabase
-    .from('visitas')
-    .update({
-      corretor_id: attempt.corretor.id,
-      status: 'confirmada'
-    })
-    .eq('id', attempt.visita.id);
-
-  // 2. Atualizar status do lead (se necessário)
-  await supabase
-    .from('leads')
-    .update({
-      corretor_designado_id: attempt.corretor.id,
-      status: 'visita_agendada'
-    })
-    .eq('id', attempt.visita.lead.id);
-
-  // 3. Finalizar fila de distribuição
-  await supabase
-    .from('visit_distribution_queue')
-    .update({
-      status: 'completed',
-      assigned_corretor_id: attempt.corretor.id,
-      completed_at: new Date().toISOString()
-    })
-    .eq('visita_id', attempt.visita.id);
-
-  // 4. Cancelar outras tentativas pendentes para esta visita
-  await supabase
-    .from('visit_distribution_attempts')
-    .update({
-      status: 'timeout',
-      response_type: 'cancelled',
-      response_message: 'Cancelado - visita aceita por outro corretor'
-    })
-    .eq('visita_id', attempt.visita.id)
-    .eq('status', 'pending')
-    .neq('id', attempt.id);
-
-  console.log('Visita confirmada e atribuída com sucesso');
+  console.log('Visita confirmada de forma atômica. Enviando notificações para cliente/admin.');
 
   // 5. Notificar CLIENTE
   try {
@@ -423,27 +441,67 @@ ${calendarLink}`;
 
 
 // ==========================================
-// LÓGICA DE LEADS (Existente, encapsulada)
-// ==========================================
-
 async function handleLeadResponse(supabase: any, attempt: any, messageText: string, phoneNumber: string) {
   const response = analyzeResponse(messageText);
   console.log('Resposta analisada (Lead):', response);
 
-  await supabase
-    .from('distribution_attempts')
-    .update({
-      status: 'responded',
-      response_type: response.type,
-      response_message: messageText,
-      response_received_at: new Date().toISOString()
-    })
-    .eq('id', attempt.id);
-
   if (response.type === 'accepted') {
+    // SEC-02: Atomic acceptance using transactional PostgreSQL RPC to prevent race conditions
+    const { data: success, error: rpcError } = await supabase.rpc('accept_lead_distribution', {
+      p_attempt_id: attempt.id,
+      p_corretor_id: attempt.corretor.id
+    });
+
+    if (rpcError) {
+      console.error('Erro ao executar RPC accept_lead_distribution:', rpcError);
+      throw new Error(`Erro transacional ao aceitar lead: ${rpcError.message}`);
+    }
+
+    if (!success) {
+      console.log(`Oportunidade de lead ${attempt.lead.id} já aceita por outro corretor.`);
+      const takenMessage = `❌ *OPORTUNIDADE INDISPONÍVEL*\n\nDesculpe! A oportunidade com o cliente *${attempt.lead.nome}* já foi aceita por outro corretor. Fique atento para as próximas!`;
+      await supabase.functions.invoke('evolution-send-whatsapp-v2', {
+        body: {
+          phone: phoneNumber,
+          message: takenMessage,
+          metadata: { type: 'lead_already_taken' }
+        }
+      });
+
+      // Update attempt to prevent it from hanging as pending
+      await supabase
+        .from('distribution_attempts')
+        .update({
+          status: 'timeout',
+          response_type: 'timeout',
+          response_message: 'Indisponível - já aceito por outro corretor',
+          response_received_at: new Date().toISOString()
+        })
+        .eq('id', attempt.id);
+
+      return {
+        status: 'processed',
+        type: 'lead',
+        response_type: 'rejected',
+        attempt_id: attempt.id
+      };
+    }
+
+    // Successfully accepted (db updates occurred in RPC)! Send notifications.
     await acceptLead(supabase, attempt);
     await sendLeadConfirmation(supabase, attempt);
   } else if (response.type === 'rejected') {
+    // Atualizar tentativa
+    await supabase
+      .from('distribution_attempts')
+      .update({
+        status: 'responded',
+        response_type: response.type,
+        response_message: messageText,
+        response_received_at: new Date().toISOString()
+      })
+      .eq('id', attempt.id);
+
     await rejectLead(supabase, attempt);
   } else {
     await requestClarification(supabase, attempt.lead, attempt.corretor, phoneNumber, 'lead');
@@ -473,14 +531,7 @@ function analyzeResponse(message: string): { type: 'accepted' | 'rejected' | 'un
 }
 
 async function acceptLead(supabase: any, attempt: any) {
-  // Lógica original de Lead
-  await supabase.from('leads').update({ corretor_designado_id: attempt.corretor.id, status: 'em_contato' }).eq('id', attempt.lead.id);
-  await supabase.from('distribution_queue').update({ status: 'completed', assigned_corretor_id: attempt.corretor.id, completed_at: new Date().toISOString() }).eq('lead_id', attempt.lead.id);
-  await supabase.from('distribution_attempts').update({ status: 'timeout', response_type: 'cancelled' }).eq('lead_id', attempt.lead.id).eq('status', 'pending').neq('id', attempt.id);
-
-  // Notificações (Simplificadas aqui, mas completas na implementação real acima)
-  // ... (Notificar Lead e Admin conforme seu pedido anterior)
-  // Vou reincluir a lógica completa de notificação que fiz no passo anterior para garantir que não se perca.
+  console.log('Lead confirmado de forma atômica. Enviando notificações para cliente/admin.');
 
   // --- NOTIFICAÇÃO LEAD ---
   try {

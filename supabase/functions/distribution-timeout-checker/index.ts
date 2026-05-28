@@ -11,6 +11,17 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Security check: Verify x-cron-secret header to prevent unauthorized triggers
+  const cronSecret = req.headers.get('x-cron-secret');
+  const expectedSecret = Deno.env.get('CRON_SECRET') || 'memude-cron-secret-2026-super-secure';
+  if (!cronSecret || cronSecret !== expectedSecret) {
+    console.warn('🚫 Cron authentication failed: invalid or missing secret');
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized: Invalid cron secret' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',

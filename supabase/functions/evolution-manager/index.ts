@@ -30,6 +30,40 @@ Deno.serve(async (req) => {
 
         const supabase = createClient(supabaseUrl, supabaseKey);
 
+        // SECURITY: Verify caller is authenticated and is admin
+        const authHeader = req.headers.get('Authorization');
+        if (!authHeader) {
+            return new Response(
+                JSON.stringify({ error: 'Unauthorized: No authorization header' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+            );
+        }
+
+        // Get the user from the JWT token
+        const { data: { user: callerUser }, error: authError } = await supabase.auth.getUser(
+            authHeader.replace('Bearer ', '')
+        );
+
+        if (authError || !callerUser) {
+            return new Response(
+                JSON.stringify({ error: 'Unauthorized: Invalid token' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+            );
+        }
+
+        // Verify role admin before proceeding
+        const { data: isAdmin, error: roleError } = await supabase.rpc('has_role', {
+            _user_id: callerUser.id,
+            _role: 'admin'
+        });
+
+        if (roleError || !isAdmin) {
+            return new Response(
+                JSON.stringify({ error: 'Forbidden: Caller is not an administrator' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+            );
+        }
+
         let body;
         try {
             body = await req.json();

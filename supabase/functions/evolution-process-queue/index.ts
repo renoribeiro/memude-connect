@@ -21,17 +21,10 @@ Deno.serve(async (req) => {
 
         console.log('👷 Evolution Queue Worker started');
 
-        // 1. Fetch pending messages (limit 10 per run to avoid timeouts)
-        // Ideally use RPC for atomic lock, but simple update loop works for low volume
-
-        // Fetch pending items
-        const { data: pendingItems, error: fetchError } = await supabase
-            .from('message_queue')
-            .select('*')
-            .eq('status', 'pending')
-            .order('priority', { ascending: false })
-            .order('created_at', { ascending: true })
-            .limit(10);
+        // 1. Fetch and atomic lock pending messages using RPC (FOR UPDATE SKIP LOCKED)
+        const { data: pendingItems, error: fetchError } = await supabase.rpc('dequeue_pending_messages', {
+            p_limit: 10
+        });
 
         if (fetchError) throw fetchError;
 
@@ -50,8 +43,7 @@ Deno.serve(async (req) => {
             let responseData = null;
 
             try {
-                // Lock item
-                await supabase.from('message_queue').update({ status: 'processing', last_attempt: new Date().toISOString() }).eq('id', item.id);
+                // Item is already locked and marked as processing by RPC. We load its configurations directly.
 
                 // Get instance
                 let instance: DbEvolutionInstance | null = null;

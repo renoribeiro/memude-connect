@@ -35,17 +35,17 @@ serve(async (req) => {
 
     // Webhook Security Validation (Opção A)
     const webhookSecret = req.headers.get('x-webhook-secret') || req.headers.get('X-Api-Key');
-    if (webhookSecret) {
-      const { data: secretSetting } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'waha_api_key')
-        .maybeSingle();
+    const { data: secretSetting } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'waha_api_key')
+      .maybeSingle();
 
-      if (secretSetting?.value && webhookSecret !== secretSetting.value) {
-        console.warn('🚫 WAHA Webhook authentication failed: invalid secret');
+    if (secretSetting?.value) {
+      if (!webhookSecret || webhookSecret !== secretSetting.value) {
+        console.warn('🚫 WAHA Webhook authentication failed: invalid or missing secret');
         return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
+          JSON.stringify({ error: 'Unauthorized: missing or invalid secret' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

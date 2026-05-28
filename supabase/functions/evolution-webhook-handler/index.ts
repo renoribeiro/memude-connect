@@ -37,17 +37,17 @@ Deno.serve(async (req) => {
 
     // EVO-07: Webhook authentication
     const webhookSecret = req.headers.get('x-webhook-secret');
-    if (webhookSecret) {
-      const { data: secretSetting } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'evolution_webhook_secret')
-        .maybeSingle();
+    const { data: secretSetting } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'evolution_webhook_secret')
+      .maybeSingle();
 
-      if (secretSetting?.value && webhookSecret !== secretSetting.value) {
-        console.warn('🚫 Webhook authentication failed: invalid secret');
+    if (secretSetting?.value) {
+      if (!webhookSecret || webhookSecret !== secretSetting.value) {
+        console.warn('🚫 Webhook authentication failed: invalid or missing secret');
         return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
+          JSON.stringify({ error: 'Unauthorized: missing or invalid secret' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

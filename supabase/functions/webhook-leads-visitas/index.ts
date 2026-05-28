@@ -8,7 +8,7 @@ const corsHeaders = {
         "authorization, x-client-info, apikey, content-type",
 };
 
-const WEBHOOK_TOKEN = "memude-api-token2026";
+const WEBHOOK_TOKEN = Deno.env.get("LEADS_WEBHOOK_TOKEN") || "memude-api-token2026";
 
 interface LeadPayload {
     nome: string;

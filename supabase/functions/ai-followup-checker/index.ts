@@ -9,8 +9,18 @@ const corsHeaders = {
 // ============================================================
 // AI FOLLOWUP CHECKER
 // Cron job que verifica conversas inativas e envia follow-ups
+// VERSÃO 2.0 - Suporte a áudio pré-gravado + bugs corrigidos
 // Executar a cada 5 minutos via pg_cron ou webhook externo
 // ============================================================
+
+// ============================================================
+// BUG-03 FIX: Retorna hora atual no fuso do agente (padrão: UTC-3 Brasília)
+// ============================================================
+function getCurrentHourInTimezone(timezoneOffset: number = -3): number {
+    const utcMs = Date.now();
+    const localMs = utcMs + timezoneOffset * 60 * 60 * 1000;
+    return new Date(localMs).getUTCHours();
+}
 
 serve(async (req) => {
     if (req.method === 'OPTIONS') {
@@ -27,20 +37,17 @@ serve(async (req) => {
     const cronSecret = Deno.env.get('CRON_SECRET');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    // Inicializa Supabase Client (necessário para buscar segredo interno do banco)
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         serviceRoleKey ?? ''
     );
 
-    // Aceita: Bearer CRON_SECRET ou Bearer SERVICE_ROLE_KEY
     const token = authHeader?.replace('Bearer ', '');
     const isValidCronAuth = token === cronSecret;
     const isValidServiceAuth = token === serviceRoleKey;
 
     let isValidInternalAuth = false;
 
-    // Se as auths padrão falharem, tentar validar com segredo do banco (para pg_cron)
     if (!isValidCronAuth && !isValidServiceAuth && token) {
         try {
             const { data: internalSecret } = await supabase
@@ -68,10 +75,9 @@ serve(async (req) => {
     console.log(`🔐 Auth válida: ${isValidCronAuth ? 'CRON_SECRET' : isValidServiceAuth ? 'SERVICE_ROLE_KEY' : 'INTERNAL_DB_SECRET'}`);
 
     try {
-        const currentHour = new Date().getHours();
         const now = new Date();
 
-        console.log(`🔄 Follow-up Checker executando às ${now.toISOString()}, hora local: ${currentHour}h`);
+        console.log(`🔄 Follow-up Checker executando às ${now.toISOString()}`);
 
         // 1. Buscar conversas ativas que estão inativas há pelo menos 1 hora
         const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -88,14 +94,19 @@ serve(async (req) => {
         lead_score,
         customer_name,
         total_messages,
-        ai_agents!inner ( evolution_instance_id )
+        presented_properties,
+        ai_agents!inner ( evolution_instance_id, timezone_offset, max_followup_attempts, followup_pause_stages )
       `)
             .eq('status', 'active')
             .lt('last_message_at', oneHourAgo)
             .order('last_message_at', { ascending: true })
             .limit(50);
 
-        // Also fetch qualifications for temperature checking
+        if (convError) {
+            throw new Error(`Erro ao buscar conversas: ${convError.message}`);
+        }
+
+        // Buscar qualifications para filtro de temperatura
         const conversationIds = inactiveConversations?.map(c => c.id) || [];
         const qualificationsMap: Record<string, any> = {};
 
@@ -112,21 +123,35 @@ serve(async (req) => {
             }
         }
 
-        if (convError) {
-            throw new Error(`Erro ao buscar conversas: ${convError.message}`);
-        }
-
         console.log(`📋 Encontradas ${inactiveConversations?.length || 0} conversas inativas`);
 
         const results = {
             checked: inactiveConversations?.length || 0,
             followupsSent: 0,
+            audiosSent: 0,
             skipped: 0,
             errors: 0
         };
 
         for (const conv of inactiveConversations || []) {
             try {
+                const agentConfig = conv.ai_agents as any;
+
+                // BUG-03 FIX: Usar fuso horário configurado no agente
+                const timezoneOffset = agentConfig?.timezone_offset ?? -3;
+                const currentHour = getCurrentHourInTimezone(timezoneOffset);
+
+                // Verificar limite máximo de follow-ups do agente
+                const maxAttempts = agentConfig?.max_followup_attempts ?? 5;
+                const pauseStages: string[] = agentConfig?.followup_pause_stages ?? ['closing'];
+
+                // Pausar se o lead está em estágio avançado
+                if (pauseStages.includes(conv.current_stage)) {
+                    console.log(`  ⏸️ ${conv.phone_number}: Pausado (estágio ${conv.current_stage})`);
+                    results.skipped++;
+                    continue;
+                }
+
                 // 2. Buscar follow-ups já enviados para esta conversa
                 const { data: sentFollowups } = await supabase
                     .from('agent_followup_log')
@@ -136,6 +161,17 @@ serve(async (req) => {
                     .limit(1);
 
                 const lastSentSequence = sentFollowups?.[0]?.sequence_order || 0;
+                const totalSent = await supabase
+                    .from('agent_followup_log')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('conversation_id', conv.id);
+
+                // Verificar limite máximo de tentativas
+                if ((totalSent.count || 0) >= maxAttempts) {
+                    console.log(`  🚫 ${conv.phone_number}: Limite de ${maxAttempts} follow-ups atingido`);
+                    results.skipped++;
+                    continue;
+                }
 
                 // 3. Buscar próximo follow-up na sequência
                 const { data: nextFollowup } = await supabase
@@ -162,9 +198,12 @@ serve(async (req) => {
                     continue;
                 }
 
-                // 5. Verificar horário comercial
-                if (currentHour < nextFollowup.send_after_hour || currentHour >= nextFollowup.send_before_hour) {
-                    console.log(`  🌙 ${conv.phone_number}: Fora do horário (${currentHour}h, permitido: ${nextFollowup.send_after_hour}-${nextFollowup.send_before_hour}h)`);
+                // 5. Verificar horário comercial (BUG-03 CORRIGIDO: usa fuso do agente)
+                const sendAfterHour = nextFollowup.send_after_hour ?? 8;
+                const sendBeforeHour = nextFollowup.send_before_hour ?? 20;
+
+                if (currentHour < sendAfterHour || currentHour >= sendBeforeHour) {
+                    console.log(`  🌙 ${conv.phone_number}: Fora do horário (${currentHour}h BRT, permitido: ${sendAfterHour}h-${sendBeforeHour}h)`);
                     results.skipped++;
                     continue;
                 }
@@ -184,7 +223,7 @@ serve(async (req) => {
                     }
                 }
 
-                // 6.5 Check temperature filtering (Phase 3 enhancement)
+                // 6.5 Verificar filtro de temperatura
                 const leadQual = qualificationsMap[conv.id];
                 const leadTemperature = leadQual?.lead_temperature || 'cold';
 
@@ -196,7 +235,7 @@ serve(async (req) => {
                     }
                 }
 
-                // 6.6 Check objection-based filtering
+                // 6.6 Verificar filtro por objeção
                 const lastObjection = conv.qualification_data?.last_objection;
                 if (nextFollowup.use_after_objection && lastObjection) {
                     if (nextFollowup.use_after_objection !== lastObjection) {
@@ -206,25 +245,93 @@ serve(async (req) => {
                     }
                 }
 
-                // 7. Personalizar mensagem
-                const personalizedMessage = await personalizeMessage(
-                    supabase,
-                    nextFollowup.message_template,
-                    conv,
-                    nextFollowup.include_property_reminder
-                );
+                // Determinar tipo de mídia do follow-up
+                const mediaType = nextFollowup.media_type || 'text';
+                console.log(`  📤 ${conv.phone_number}: Enviando follow-up #${nextFollowup.sequence_order} (tipo: ${mediaType})`);
 
-                // 8. Enviar follow-up
-                console.log(`  📤 ${conv.phone_number}: Enviando follow-up #${nextFollowup.sequence_order}`);
+                let sendError: any = null;
+                let audioWasSent = false;
 
-                const { error: sendError } = await supabase.functions.invoke('evolution-send-whatsapp-v2', {
-                    body: {
-                        phone_number: conv.phone_number,
-                        message: personalizedMessage,
-                        typing_delay_ms: 2000 + Math.random() * 2000, // 2-4s delay humanizado
-                        instance_id: (conv.ai_agents as any)?.evolution_instance_id
+                if (mediaType === 'audio' && nextFollowup.audio_url) {
+                    // =====================================================
+                    // NOVA FEATURE: Envio de áudio pré-gravado
+                    // =====================================================
+                    console.log(`  🎵 ${conv.phone_number}: Enviando áudio pré-gravado: ${nextFollowup.audio_url}`);
+
+                    const audioResult = await supabase.functions.invoke('evolution-send-whatsapp-v2', {
+                        body: {
+                            phone_number: conv.phone_number,
+                            audio_url: nextFollowup.audio_url,
+                            media_type: 'audio',
+                            instance_id: agentConfig?.evolution_instance_id
+                        }
+                    });
+                    sendError = audioResult.error;
+                    audioWasSent = !sendError;
+
+                    // Se tem mensagem de texto junto com o áudio, enviar após delay
+                    if (!sendError && nextFollowup.message_template) {
+                        await new Promise(r => setTimeout(r, 1500));
+                        const personalizedMessage = await personalizeMessage(
+                            supabase,
+                            nextFollowup.message_template,
+                            conv,
+                            nextFollowup.include_property_reminder
+                        );
+                        if (personalizedMessage.trim()) {
+                            await supabase.functions.invoke('evolution-send-whatsapp-v2', {
+                                body: {
+                                    phone_number: conv.phone_number,
+                                    message: personalizedMessage,
+                                    typing_delay_ms: 1500,
+                                    instance_id: agentConfig?.evolution_instance_id
+                                }
+                            });
+                        }
                     }
-                });
+
+                } else if (mediaType === 'image' && nextFollowup.image_url) {
+                    // =====================================================
+                    // Envio de imagem com legenda
+                    // =====================================================
+                    const imageCaption = nextFollowup.image_caption || nextFollowup.message_template || '';
+                    const personalizedCaption = imageCaption
+                        ? await personalizeMessage(supabase, imageCaption, conv, false)
+                        : '';
+
+                    const imageResult = await supabase.functions.invoke('evolution-send-whatsapp-v2', {
+                        body: {
+                            phone_number: conv.phone_number,
+                            image_url: nextFollowup.image_url,
+                            caption: personalizedCaption,
+                            media_type: 'image',
+                            typing_delay_ms: 2000 + Math.random() * 2000,
+                            instance_id: agentConfig?.evolution_instance_id
+                        }
+                    });
+                    sendError = imageResult.error;
+
+                } else {
+                    // =====================================================
+                    // Envio de mensagem de texto (padrão)
+                    // =====================================================
+                    const personalizedMessage = await personalizeMessage(
+                        supabase,
+                        nextFollowup.message_template,
+                        conv,
+                        nextFollowup.include_property_reminder
+                    );
+
+                    const textResult = await supabase.functions.invoke('evolution-send-whatsapp-v2', {
+                        body: {
+                            phone_number: conv.phone_number,
+                            message: personalizedMessage,
+                            typing_delay_ms: 2000 + Math.random() * 2000,
+                            instance_id: agentConfig?.evolution_instance_id
+                        }
+                    });
+                    sendError = textResult.error;
+                }
 
                 if (sendError) {
                     console.error(`  ❌ Erro ao enviar: ${sendError.message}`);
@@ -232,34 +339,47 @@ serve(async (req) => {
                     continue;
                 }
 
-                // 9. Registrar no log
+                // Personalizar mensagem de texto para registro
+                const messageForLog = mediaType === 'audio'
+                    ? `[ÁUDIO] ${nextFollowup.audio_url}`
+                    : mediaType === 'image'
+                        ? `[IMAGEM] ${nextFollowup.image_url}`
+                        : await personalizeMessage(supabase, nextFollowup.message_template, conv, false);
+
+                // BUG-01/07 FIX: Coluna correta 'message_sent' (não 'sent_message')
                 await supabase.from('agent_followup_log').insert({
                     conversation_id: conv.id,
                     followup_id: nextFollowup.id,
                     sequence_order: nextFollowup.sequence_order,
-                    message_sent: personalizedMessage
+                    message_sent: messageForLog,  // ← CORRIGIDO
+                    media_type: mediaType,
+                    audio_sent: audioWasSent,
+                    lead_responded: false
                 });
 
-                // 10. Salvar mensagem no histórico
+                // BUG-05 FIX: Usar 'followup_sent' — agora válido na constraint
                 await supabase.from('agent_messages').insert({
                     conversation_id: conv.id,
                     role: 'assistant',
-                    content: personalizedMessage,
+                    content: messageForLog,
                     intent_detected: 'followup',
-                    action_taken: 'followup_sent'
+                    action_taken: 'followup_sent'  // ← agora válido
                 });
 
-                // 11. Atualizar last_message_at
+                // BUG-02 FIX: Remover atualização manual de total_messages
+                // O trigger trg_update_conversation_metrics já faz isso automaticamente
+                // Apenas atualizar last_message_at para rastrear que um followup foi enviado
                 await supabase
                     .from('agent_conversations')
                     .update({
-                        last_message_at: new Date().toISOString(),
-                        total_messages: (conv.total_messages || 0) + 1
+                        last_message_at: new Date().toISOString()
+                        // REMOVIDO: total_messages manual (era double-counting)
                     })
                     .eq('id', conv.id);
 
                 results.followupsSent++;
-                console.log(`  ✅ Follow-up #${nextFollowup.sequence_order} enviado para ${conv.phone_number}`);
+                if (audioWasSent) results.audiosSent++;
+                console.log(`  ✅ Follow-up #${nextFollowup.sequence_order} enviado para ${conv.phone_number} (${mediaType})`);
 
             } catch (convError: any) {
                 console.error(`  ❌ Erro ao processar ${conv.phone_number}: ${convError.message}`);
@@ -267,7 +387,7 @@ serve(async (req) => {
             }
         }
 
-        console.log(`\n📊 Resultado: ${results.followupsSent} enviados, ${results.skipped} pulados, ${results.errors} erros`);
+        console.log(`\n📊 Resultado: ${results.followupsSent} enviados (${results.audiosSent} áudios), ${results.skipped} pulados, ${results.errors} erros`);
 
         return new Response(
             JSON.stringify({
@@ -299,73 +419,82 @@ serve(async (req) => {
 // HELPER FUNCTIONS
 // ============================================================
 
-function personalizeMessage(
+async function personalizeMessage(
     supabase: any,
     template: string,
     conversation: any,
     includePropertyReminder: boolean = false
 ): Promise<string> {
-    return (async () => {
-        let message = template;
+    if (!template) return '';
 
-        // Substituir variáveis
-        const replacements: Record<string, string> = {
-            '{{nome}}': conversation.customer_name || 'amigo(a)',
-            '{{telefone}}': conversation.phone_number || '',
-            '{{estagio}}': conversation.current_stage || 'conversa',
-            '{{mensagens}}': String(conversation.total_messages || 0)
-        };
+    let message = template;
 
-        // Extrair dados de qualificação se disponíveis
-        const qualData = conversation.qualification_data || {};
-        if (qualData.preferred_neighborhood) {
-            replacements['{{bairro}}'] = qualData.preferred_neighborhood;
+    // Substituir variáveis padrão
+    const replacements: Record<string, string> = {
+        '{{nome}}': conversation.customer_name || 'amigo(a)',
+        '{{telefone}}': conversation.phone_number || '',
+        '{{estagio}}': conversation.current_stage || 'conversa',
+        '{{mensagens}}': String(conversation.total_messages || 0)
+    };
+
+    // Extrair dados de qualificação se disponíveis
+    const qualData = conversation.qualification_data || {};
+    if (qualData.preferred_neighborhood || qualData.neighborhood) {
+        replacements['{{bairro}}'] = qualData.preferred_neighborhood || qualData.neighborhood;
+    }
+    if (qualData.property_type) {
+        replacements['{{tipo_imovel}}'] = qualData.property_type;
+    }
+    if (qualData.max_price || qualData.price_max) {
+        const price = qualData.max_price || qualData.price_max;
+        if (price >= 1_000_000) {
+            replacements['{{orcamento}}'] = `R$ ${(price / 1_000_000).toFixed(1)}M`;
+        } else {
+            replacements['{{orcamento}}'] = `R$ ${Math.round(price / 1000)}k`;
         }
-        if (qualData.property_type) {
-            replacements['{{tipo_imovel}}'] = qualData.property_type;
-        }
-        if (qualData.max_price) {
-            const priceK = Math.round(qualData.max_price / 1000);
-            replacements['{{orcamento}}'] = `${priceK}k`;
-        }
+    }
 
-        // Add property reminder if enabled (Phase 3)
-        if (includePropertyReminder && conversation.presented_properties?.length > 0) {
-            try {
-                const lastPropertyId = conversation.presented_properties.slice(-1)[0];
-                const { data: property } = await supabase
-                    .from('empreendimentos')
-                    .select('nome, bairro, valor_min, valor_max')
-                    .eq('id', lastPropertyId)
-                    .single();
+    // Adicionar lembrete de imóvel se habilitado
+    if (includePropertyReminder && conversation.presented_properties?.length > 0) {
+        try {
+            const lastPropertyId = conversation.presented_properties.slice(-1)[0];
+            const { data: property } = await supabase
+                .from('empreendimentos')
+                .select('nome, bairro, valor_min, valor_max')
+                .eq('id', lastPropertyId)
+                .single();
 
-                if (property) {
-                    const formatPrice = (v: number) => v >= 1000000 ? `R$ ${(v / 1000000).toFixed(1)}M` : `R$ ${(v / 1000).toFixed(0)}k`;
-                    const priceRange = property.valor_min && property.valor_max
-                        ? `${formatPrice(property.valor_min)} - ${formatPrice(property.valor_max)}`
-                        : property.valor_max ? formatPrice(property.valor_max) : '';
+            if (property) {
+                const formatPrice = (v: number) =>
+                    v >= 1_000_000
+                        ? `R$ ${(v / 1_000_000).toFixed(1)}M`
+                        : `R$ ${(v / 1000).toFixed(0)}k`;
 
-                    replacements['{{ultimo_imovel}}'] = property.nome;
-                    replacements['{{bairro_imovel}}'] = property.bairro || '';
-                    replacements['{{preco_imovel}}'] = priceRange;
+                const priceRange = property.valor_min && property.valor_max
+                    ? `${formatPrice(property.valor_min)} - ${formatPrice(property.valor_max)}`
+                    : property.valor_max ? formatPrice(property.valor_max) : '';
 
-                    // Add a reminder suffix if template doesn't use the variable
-                    if (!template.includes('{{ultimo_imovel}}')) {
-                        message += `\n\nLembrei aqui do ${property.nome}${property.bairro ? ` no ${property.bairro}` : ''}... Ainda tem interesse? 🏠`;
-                    }
+                replacements['{{ultimo_imovel}}'] = property.nome;
+                replacements['{{bairro_imovel}}'] = property.bairro || '';
+                replacements['{{preco_imovel}}'] = priceRange;
+
+                // Adicionar lembrete no final se o template não usa a variável
+                if (!template.includes('{{ultimo_imovel}}')) {
+                    message += `\n\nLembrei aqui do ${property.nome}${property.bairro ? ` no ${property.bairro}` : ''}... Ainda tem interesse? 🏠`;
                 }
-            } catch (e) {
-                console.warn('Property reminder error:', e);
             }
+        } catch (e) {
+            console.warn('Property reminder error:', e);
         }
+    }
 
-        for (const [variable, value] of Object.entries(replacements)) {
-            message = message.replace(new RegExp(variable.replace(/[{}]/g, '\\$&'), 'g'), value);
-        }
+    // Aplicar substituições
+    for (const [variable, value] of Object.entries(replacements)) {
+        message = message.replace(new RegExp(variable.replace(/[{}]/g, '\\$&'), 'g'), value);
+    }
 
-        // Remover variáveis não substituídas
-        message = message.replace(/\{\{[^}]+\}\}/g, '');
+    // Remover variáveis não substituídas
+    message = message.replace(/\{\{[^}]+\}\}/g, '');
 
-        return message.trim();
-    })();
+    return message.trim();
 }

@@ -234,6 +234,17 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                     .insert(payload);
                 if (error) throw error;
             }
+
+            // Sync lead owner for RLS visibility if not a direct sale and broker is selected
+            if (!vendaDireta && corretorId && leadId) {
+                const { error: leadUpdateError } = await supabase
+                    .from('leads')
+                    .update({ corretor_designado_id: corretorId })
+                    .eq('id', leadId);
+                if (leadUpdateError) {
+                    console.error('Error syncing lead broker:', leadUpdateError);
+                }
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['vendas'] });
@@ -284,10 +295,10 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                     {/* Lead & Empreendimento */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="lead">Lead *</Label>
+                            <Label htmlFor="lead">Cliente *</Label>
                             <Select value={leadId} onValueChange={setLeadId}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Selecione o lead" />
+                                    <SelectValue placeholder="Selecione o cliente" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {leads.map(lead => (

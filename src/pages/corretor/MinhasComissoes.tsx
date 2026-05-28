@@ -208,7 +208,7 @@ const MinhasComissoes = () => {
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>Lead</TableHead>
+                                                <TableHead>Cliente</TableHead>
                                                 <TableHead>Empreendimento</TableHead>
                                                 <TableHead className="text-right">Valor do Imóvel</TableHead>
                                                 <TableHead className="text-right">Sua Comissão</TableHead>

@@ -191,7 +191,7 @@ const Vendas = () => {
                     <div className="relative flex-1 max-w-sm">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                         <Input
-                            placeholder="Buscar por lead, empreendimento ou corretor..."
+                            placeholder="Buscar por cliente, empreendimento ou corretor..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10"
@@ -227,7 +227,7 @@ const Vendas = () => {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Lead</TableHead>
+                                        <TableHead>Cliente</TableHead>
                                         <TableHead>Empreendimento</TableHead>
                                         <TableHead>Corretor</TableHead>
                                         <TableHead className="text-right">Valor Imóvel</TableHead>

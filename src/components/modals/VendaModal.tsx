@@ -98,12 +98,23 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
     const { data: corretores = [] } = useQuery({
         queryKey: ['corretores-for-venda'],
         queryFn: async () => {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('corretores')
-                .select('id, nome')
-                .eq('status', 'ativo')
-                .order('nome');
-            return data || [];
+                .select(`
+                    id,
+                    profiles (
+                        first_name,
+                        last_name
+                    )
+                `)
+                .eq('status', 'ativo');
+            
+            if (error) throw error;
+            
+            return (data || []).map((cor: any) => ({
+                id: cor.id,
+                nome: `${cor.profiles?.first_name || ''} ${cor.profiles?.last_name || ''}`.trim() || 'Corretor sem nome'
+            }));
         },
     });
 

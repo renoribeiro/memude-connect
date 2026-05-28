@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -149,7 +149,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     setIsAuthenticating(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -183,9 +183,9 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       });
       return { error };
     }
-  };
+  }, [toast]);
 
-  const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
+  const signUp = useCallback(async (email: string, password: string, firstName: string, lastName: string) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
 
@@ -224,9 +224,9 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       });
       return { error };
     }
-  };
+  }, [toast]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -236,12 +236,12 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       title: "Logout realizado",
       description: "Você foi desconectado com sucesso.",
     });
-  };
+  }, [toast]);
 
-  const isAdmin = profile?.role === 'admin';
-  const isCorretor = profile?.role === 'corretor';
+  const isAdmin = useMemo(() => profile?.role === 'admin', [profile]);
+  const isCorretor = useMemo(() => profile?.role === 'corretor', [profile]);
 
-  const value: AuthContextType = {
+  const value = useMemo((): AuthContextType => ({
     user,
     session,
     profile,
@@ -251,7 +251,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     signOut,
     isAdmin,
     isCorretor,
-  };
+  }), [user, session, profile, loading, isAuthenticating, signIn, signUp, signOut, isAdmin, isCorretor]);
 
   return (
     <AuthContext.Provider value={value}>

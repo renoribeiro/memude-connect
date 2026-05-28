@@ -333,8 +333,9 @@ const AIAgents = () => {
                                                             deleteMutation.mutate(agent.id);
                                                         }
                                                     }}
+                                                    aria-label={`Excluir agente ${agent.name}`}
                                                 >
-                                                    <Trash2 className="h-4 w-4" />
+                                                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                                                 </Button>
                                             </div>
                                         </CardContent>

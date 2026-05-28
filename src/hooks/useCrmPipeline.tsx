@@ -312,30 +312,25 @@ export function useCrmPipeline(pipelineId?: string) {
             }
 
             // Upsert remaining
-            for (const stage of stagesData) {
-                if (stage.id) {
-                    const { error } = await db
-                        .from('crm_stages')
-                        .update({
-                            nome: stage.nome,
-                            cor: stage.cor,
-                            posicao: stage.posicao,
-                            is_final: stage.is_final ?? false,
-                        })
-                        .eq('id', stage.id);
-                    if (error) throw error;
-                } else {
-                    const { error } = await db
-                        .from('crm_stages')
-                        .insert({
-                            pipeline_id: pipelineId,
-                            nome: stage.nome,
-                            cor: stage.cor,
-                            posicao: stage.posicao,
-                            is_final: stage.is_final ?? false,
-                        });
-                    if (error) throw error;
-                }
+            if (stagesData.length > 0) {
+                const payload = stagesData.map((stage) => {
+                    const item: any = {
+                        pipeline_id: pipelineId,
+                        nome: stage.nome,
+                        cor: stage.cor,
+                        posicao: stage.posicao,
+                        is_final: stage.is_final ?? false,
+                    };
+                    if (stage.id) {
+                        item.id = stage.id;
+                    }
+                    return item;
+                });
+
+                const { error: upsertError } = await db
+                    .from('crm_stages')
+                    .upsert(payload);
+                if (upsertError) throw upsertError;
             }
         },
         onSuccess: () => {

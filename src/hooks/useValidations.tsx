@@ -1,5 +1,31 @@
 import { z } from "zod";
+import { useCallback } from "react";
 import { toast } from "@/hooks/use-toast";
+
+// Função matemática estrita de CPF para o Zod
+const isCPFValid = (cpf: string): boolean => {
+  const cleanCPF = cpf.replace(/[^\d]/g, "");
+  if (cleanCPF.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(cleanCPF)) return false;
+
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(cleanCPF.charAt(i)) * (10 - i);
+  }
+  let remainder = 11 - (sum % 11);
+  if (remainder >= 10) remainder = 0;
+  if (remainder !== parseInt(cleanCPF.charAt(9))) return false;
+
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(cleanCPF.charAt(i)) * (11 - i);
+  }
+  remainder = 11 - (sum % 11);
+  if (remainder >= 10) remainder = 0;
+  if (remainder !== parseInt(cleanCPF.charAt(10))) return false;
+
+  return true;
+};
 
 // Esquemas de validação
 export const leadValidationSchema = z.object({
@@ -25,7 +51,11 @@ export const corretorValidationSchema = z.object({
   cpf: z.string()
     .regex(/^\d{3}\.\d{3}\.\d{3}-\d{2}$|^\d{11}$/, "CPF inválido")
     .optional()
-    .or(z.literal("")),
+    .or(z.literal(""))
+    .refine(val => {
+      if (!val) return true;
+      return isCPFValid(val);
+    }, "Os dígitos verificadores do CPF são matematicamente inválidos"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   cidade: z.string().min(2, "Cidade deve ter pelo menos 2 caracteres").optional().or(z.literal("")),
   telefone: z.string()
@@ -58,7 +88,7 @@ export const whatsappMessageSchema = z.object({
 
 // Hook principal de validações
 export const useValidations = () => {
-  const validateLead = (data: any) => {
+  const validateLead = useCallback((data: unknown) => {
     try {
       return leadValidationSchema.parse(data);
     } catch (error) {
@@ -73,9 +103,9 @@ export const useValidations = () => {
       }
       throw error;
     }
-  };
+  }, []);
 
-  const validateCorretor = (data: any) => {
+  const validateCorretor = useCallback((data: unknown) => {
     try {
       return corretorValidationSchema.parse(data);
     } catch (error) {
@@ -90,9 +120,9 @@ export const useValidations = () => {
       }
       throw error;
     }
-  };
+  }, []);
 
-  const validateDistributionSettings = (data: any) => {
+  const validateDistributionSettings = useCallback((data: unknown) => {
     try {
       return distributionSettingsSchema.parse(data);
     } catch (error) {
@@ -107,9 +137,9 @@ export const useValidations = () => {
       }
       throw error;
     }
-  };
+  }, []);
 
-  const validateWhatsappMessage = (data: any) => {
+  const validateWhatsappMessage = useCallback((data: unknown) => {
     try {
       return whatsappMessageSchema.parse(data);
     } catch (error) {
@@ -124,63 +154,33 @@ export const useValidations = () => {
       }
       throw error;
     }
-  };
+  }, []);
 
-  const sanitizePhoneNumber = (phone: string): string => {
-    // Remove todos os caracteres não numéricos exceto +
+  const sanitizePhoneNumber = useCallback((phone: string): string => {
     const cleaned = phone.replace(/[^\d+]/g, "");
 
-    // Se começa com +55, mantém
     if (cleaned.startsWith("+55")) {
       return cleaned;
     }
 
-    // Se começa com 55 e tem mais de 11 dígitos, adiciona +
     if (cleaned.startsWith("55") && cleaned.length > 11) {
       return "+" + cleaned;
     }
 
-    // Se tem 11 dígitos e começa com DDD brasileiro, adiciona +55
     if (cleaned.length === 11 && /^[1-9][1-9]/.test(cleaned)) {
       return "+55" + cleaned;
     }
 
-    // Se tem 10 dígitos, adiciona 9 e +55 (celulares antigos)
     if (cleaned.length === 10 && /^[1-9][1-9]/.test(cleaned)) {
       return "+55" + cleaned.substring(0, 2) + "9" + cleaned.substring(2);
     }
 
     return cleaned;
-  };
+  }, []);
 
-  const validateCPF = (cpf: string): boolean => {
-    // Remove formatação
-    const cleanCPF = cpf.replace(/[^\d]/g, "");
-
-    if (cleanCPF.length !== 11) return false;
-
-    // Verifica sequências inválidas
-    if (/^(\d)\1{10}$/.test(cleanCPF)) return false;
-
-    // Valida dígitos verificadores
-    let sum = 0;
-    for (let i = 0; i < 9; i++) {
-      sum += parseInt(cleanCPF.charAt(i)) * (10 - i);
-    }
-    let remainder = 11 - (sum % 11);
-    if (remainder >= 10) remainder = 0;
-    if (remainder !== parseInt(cleanCPF.charAt(9))) return false;
-
-    sum = 0;
-    for (let i = 0; i < 10; i++) {
-      sum += parseInt(cleanCPF.charAt(i)) * (11 - i);
-    }
-    remainder = 11 - (sum % 11);
-    if (remainder >= 10) remainder = 0;
-    if (remainder !== parseInt(cleanCPF.charAt(10))) return false;
-
-    return true;
-  };
+  const validateCPF = useCallback((cpf: string): boolean => {
+    return isCPFValid(cpf);
+  }, []);
 
   return {
     validateLead,

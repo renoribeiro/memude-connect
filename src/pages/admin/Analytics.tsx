@@ -11,7 +11,7 @@ import { Navigate } from "react-router-dom";
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#3b82f6'];
 
 export default function Analytics() {
-  const { profile } = useAuth();
+  const { profile, loading } = useAuth();
 
   // Buscar métricas dos últimos 30 dias
   const { data: metrics } = useQuery({
@@ -55,6 +55,16 @@ export default function Analytics() {
     },
     enabled: profile?.role === 'admin',
   });
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <TrendingUp className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (profile?.role !== 'admin') {
     return <Navigate to="/unauthorized" replace />;

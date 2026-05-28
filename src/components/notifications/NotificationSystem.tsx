@@ -175,7 +175,7 @@ export function NotificationSystem() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative" aria-label={`Notificações: ${unreadCount} não lidas`}>
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge 
@@ -256,6 +256,7 @@ export function NotificationSystem() {
                           e.stopPropagation();
                           markAsReadMutation.mutate(notification.id);
                         }}
+                        aria-label="Marcar notificação como lida"
                       >
                         <X className="h-4 w-4" />
                       </Button>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +49,7 @@ interface PerformanceMetric {
 }
 
 export default function SincronizacaoWordpress() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, loading } = useAuth();
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,26 +57,18 @@ export default function SincronizacaoWordpress() {
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSyncingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    if (isAdmin) {
-      loadSyncData();
-    }
-  }, [isAdmin]);
+    return () => {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+      if (isSyncingTimeoutRef.current) clearTimeout(isSyncingTimeoutRef.current);
+    };
+  }, []);
 
-  // Redirect non-admin users
-  if (!isAdmin) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">Acesso negado. Apenas administradores podem acessar esta página.</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-
-
-  const loadSyncData = async () => {
+  // Memoizing loadSyncData to prevent re-render loops and satisfy ESLint rule
+  const loadSyncData = useCallback(async () => {
     try {
       setIsLoading(true);
 
@@ -110,7 +102,35 @@ export default function SincronizacaoWordpress() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadSyncData();
+    }
+  }, [isAdmin, loadSyncData]);
+
+  // Loading guard to prevent flashes of non-authorized messages
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Redirect non-admin users
+  if (!isAdmin) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Acesso negado. Apenas administradores podem acessar esta página.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const executeSyncNow = async () => {
     try {
@@ -136,7 +156,7 @@ export default function SincronizacaoWordpress() {
       });
 
       // Reload data after sync with proper delay
-      setTimeout(() => {
+      syncTimeoutRef.current = setTimeout(() => {
         loadSyncData();
       }, 1500);
 
@@ -148,7 +168,7 @@ export default function SincronizacaoWordpress() {
         variant: "destructive"
       });
     } finally {
-      setTimeout(() => {
+      isSyncingTimeoutRef.current = setTimeout(() => {
         setIsSyncing(false);
       }, 3000);
     }
@@ -186,7 +206,7 @@ export default function SincronizacaoWordpress() {
         variant: "destructive"
       });
     } finally {
-      setTimeout(() => {
+      isSyncingTimeoutRef.current = setTimeout(() => {
         setIsSyncing(false);
       }, 2000);
     }

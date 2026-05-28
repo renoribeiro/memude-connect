@@ -85,7 +85,7 @@ export function FollowupEditor({ agentId }: FollowupEditorProps) {
     const queryClient = useQueryClient();
     const [editingId, setEditingId] = useState<string | null>(null);
 
-    const { data: followups, isLoading } = useQuery({
+    const { data: followups, isLoading, isError, error } = useQuery({
         queryKey: ['agent-followups', agentId],
         queryFn: async () => {
             const { data, error } = await supabase
@@ -153,6 +153,24 @@ export function FollowupEditor({ agentId }: FollowupEditorProps) {
         }
     });
 
+    const reorderMutation = useMutation({
+        mutationFn: async ({ current, target }: { current: Followup; target: Followup }) => {
+            const [r1, r2] = await Promise.all([
+                supabase.from('agent_followups').update({ sequence_order: target.sequence_order }).eq('id', current.id),
+                supabase.from('agent_followups').update({ sequence_order: current.sequence_order }).eq('id', target.id)
+            ]);
+            if (r1.error) throw r1.error;
+            if (r2.error) throw r2.error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['agent-followups', agentId] });
+            toast({ title: "Ordem atualizada", description: "A sequência foi reordenada com sucesso." });
+        },
+        onError: (err: any) => {
+            toast({ title: "Erro ao reordenar", description: err.message, variant: "destructive" });
+        }
+    });
+
     const addFollowup = () => {
         const newOrder = (followups?.length || 0) + 1;
         const newFollowup: Followup = {
@@ -163,19 +181,31 @@ export function FollowupEditor({ agentId }: FollowupEditorProps) {
         saveMutation.mutate(newFollowup);
     };
 
-    const moveFollowup = async (index: number, direction: 'up' | 'down') => {
-        if (!followups) return;
+    const moveFollowup = (index: number, direction: 'up' | 'down') => {
+        if (!followups || reorderMutation.isPending) return;
         const newIndex = direction === 'up' ? index - 1 : index + 1;
         if (newIndex < 0 || newIndex >= followups.length) return;
 
         const current = followups[index];
         const target = followups[newIndex];
 
-        await supabase.from('agent_followups').update({ sequence_order: target.sequence_order }).eq('id', current.id);
-        await supabase.from('agent_followups').update({ sequence_order: current.sequence_order }).eq('id', target.id);
-
-        queryClient.invalidateQueries({ queryKey: ['agent-followups', agentId] });
+        reorderMutation.mutate({ current, target });
     };
+
+    if (isError) {
+        return (
+            <Card className="border-destructive bg-destructive/5 p-6 text-center">
+                <AlertCircle className="h-10 w-10 mx-auto text-destructive mb-2" />
+                <h4 className="font-semibold text-destructive">Falha na conexão</h4>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Não foi possível carregar as sequências de follow-up. Verifique sua conexão ou tente novamente.
+                </p>
+                <Button className="mt-4" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['agent-followups', agentId] })}>
+                    Tentar Novamente
+                </Button>
+            </Card>
+        );
+    }
 
     if (isLoading) {
         return <div className="flex justify-center p-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>;
@@ -241,6 +271,7 @@ export function FollowupEditor({ agentId }: FollowupEditorProps) {
                             onMoveUp={() => moveFollowup(index, 'up')}
                             onMoveDown={() => moveFollowup(index, 'down')}
                             onCancel={() => setEditingId(null)}
+                            isReordering={reorderMutation.isPending}
                         />
                     ))}
                 </div>
@@ -260,9 +291,10 @@ interface FollowupCardProps {
     onMoveUp: () => void;
     onMoveDown: () => void;
     onCancel: () => void;
+    isReordering: boolean;
 }
 
-function FollowupCard({ followup, index, total, isEditing, onEdit, onSave, onDelete, onMoveUp, onMoveDown, onCancel }: FollowupCardProps) {
+function FollowupCard({ followup, index, total, isEditing, onEdit, onSave, onDelete, onMoveUp, onMoveDown, onCancel, isReordering }: FollowupCardProps) {
     const [form, setForm] = useState<Followup>(followup);
 
     useEffect(() => {
@@ -272,7 +304,7 @@ function FollowupCard({ followup, index, total, isEditing, onEdit, onSave, onDel
     const mediaType = form.media_type || 'text';
 
     const getMediaIcon = () => {
-        if (mediaType === 'audio') return <Mic className="h-4 w-4 text-purple-500" />;
+        if (mediaType === 'audio') return <Mic className="h-4 w-4 text-cyan-500" />;
         if (mediaType === 'image') return <Image className="h-4 w-4 text-green-500" />;
         return <MessageSquare className="h-4 w-4 text-blue-500" />;
     };
@@ -289,10 +321,24 @@ function FollowupCard({ followup, index, total, isEditing, onEdit, onSave, onDel
                 <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                         <div className="flex flex-col gap-1">
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onMoveUp} disabled={index === 0}>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={onMoveUp}
+                                disabled={index === 0 || isReordering}
+                                aria-label="Mover follow-up para cima"
+                            >
                                 <ChevronUp className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onMoveDown} disabled={index === total - 1}>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={onMoveDown}
+                                disabled={index === total - 1 || isReordering}
+                                aria-label="Mover follow-up para baixo"
+                            >
                                 <ChevronDown className="h-4 w-4" />
                             </Button>
                         </div>
@@ -321,7 +367,7 @@ function FollowupCard({ followup, index, total, isEditing, onEdit, onSave, onDel
 
                             {/* Preview do conteúdo */}
                             {mediaType === 'audio' && followup.audio_url ? (
-                                <div className="flex items-center gap-2 text-sm text-purple-600">
+                                <div className="flex items-center gap-2 text-sm text-cyan-600">
                                     <PlayCircle className="h-4 w-4" />
                                     <span className="truncate max-w-[300px]">{followup.audio_url}</span>
                                 </div>
@@ -332,7 +378,13 @@ function FollowupCard({ followup, index, total, isEditing, onEdit, onSave, onDel
 
                         <div className="flex gap-1">
                             <Button variant="outline" size="sm" onClick={onEdit}>Editar</Button>
-                            <Button variant="ghost" size="icon" className="text-destructive" onClick={onDelete}>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive"
+                                onClick={onDelete}
+                                aria-label="Excluir este follow-up"
+                            >
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                         </div>
@@ -411,10 +463,10 @@ function FollowupCard({ followup, index, total, isEditing, onEdit, onSave, onDel
 
                 {/* Campos específicos por tipo de mídia */}
                 {(form.media_type || 'text') === 'audio' && (
-                    <div className="space-y-3 p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                    <div className="space-y-3 p-3 bg-cyan-50 dark:bg-cyan-950/20 rounded-lg border border-cyan-200 dark:border-cyan-800">
                         <div className="flex items-center gap-2">
-                            <Mic className="h-4 w-4 text-purple-600" />
-                            <Label className="text-purple-800 dark:text-purple-200">Configuração de Áudio</Label>
+                            <Mic className="h-4 w-4 text-cyan-600" />
+                            <Label className="text-cyan-800 dark:text-cyan-200">Configuração de Áudio</Label>
                         </div>
                         <div className="space-y-2">
                             <Label>URL do Áudio *</Label>

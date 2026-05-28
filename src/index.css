@@ -152,13 +152,13 @@
 
   /* Glassmorphism effects */
   .glass {
-    @apply backdrop-blur-xl bg-white/10 border border-white/20;
+    @apply backdrop-blur-xl bg-white/40 border border-border/80 shadow-sm;
   }
   
   .glass-card {
     background: var(--gradient-card);
     backdrop-filter: blur(20px);
-    @apply border border-white/10 shadow-xl;
+    @apply border border-border/80 shadow-lg shadow-gray-200/20;
   }
 
   /* Gradient backgrounds */

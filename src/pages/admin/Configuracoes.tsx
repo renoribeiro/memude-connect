@@ -399,7 +399,7 @@ export default function Configuracoes() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="flex flex-row overflow-x-auto justify-start md:grid md:grid-cols-6 w-full h-auto p-1 whitespace-nowrap scrollbar-none">
             <TabsTrigger value="geral" className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
               Geral

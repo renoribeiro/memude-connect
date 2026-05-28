@@ -229,8 +229,8 @@ export default function MeusLeads() {
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </select>
-                <Button variant="outline" size="icon">
-                  <Filter className="w-4 h-4" />
+                <Button variant="outline" size="icon" aria-label="Filtrar leads">
+                  <Filter className="w-4 h-4" aria-hidden="true" />
                 </Button>
               </div>
             </div>

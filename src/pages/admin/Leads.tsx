@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter, Phone, Mail, Calendar, MapPin, Eye, Edit, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Search, Filter, Phone, Mail, Calendar, MapPin, Eye, Edit, Trash2, RotateCcw, AlertCircle } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { TableSkeleton } from "@/components/ui/loading-skeleton";
@@ -69,6 +69,7 @@ const statusLabels = {
 
 export default function Leads() {
   const { profile } = useAuth();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [viewMode, setViewMode] = useState<'active' | 'trash'>('active');
@@ -79,11 +80,13 @@ export default function Leads() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
 
-  const { data: leads = [], isLoading } = useQuery({
-    queryKey: ['leads', debouncedSearchTerm, filterStatus, viewMode],
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['leads', debouncedSearchTerm, filterStatus, viewMode, currentPage],
     queryFn: async () => {
       try {
-        // TENTATIVA 1: Query com filtro de Lixeira (Padrão)
+        const from = (currentPage - 1) * ITEMS_PER_PAGE;
+        const to = from + ITEMS_PER_PAGE - 1;
+
         let query = supabase
           .from('leads')
           .select(`
@@ -92,7 +95,7 @@ export default function Leads() {
             corretores(
               profiles(first_name, last_name)
             )
-          `)
+          `, { count: 'exact' })
           .order('created_at', { ascending: false });
 
         if (debouncedSearchTerm) {
@@ -111,21 +114,24 @@ export default function Leads() {
           queryWithFilter = query.not('deleted_at', 'is', null);
         }
 
-        const { data, error } = await queryWithFilter;
+        // Aplicando paginação via range
+        queryWithFilter = queryWithFilter.range(from, to);
+
+        const { data, count, error } = await queryWithFilter;
 
         if (error) {
-          // Se o erro for de coluna inexistente (PGRST204 ou similar), tentar sem o filtro
           console.warn("Erro ao filtrar por deleted_at, tentando query sem filtro de lixeira:", error.message);
-          throw error; // Lançar para o catch
+          throw error;
         }
 
-        return data as Lead[];
+        return { leads: (data || []) as Lead[], totalCount: count || 0 };
 
       } catch (err: any) {
-        // TENTATIVA 2: Fallback (Modo de Compatibilidade - Banco Desatualizado)
-        // Se falhar (ex: coluna deleted_at não existe), carrega tudo sem filtrar lixeira
+        // Fallback (Modo de Compatibilidade - Banco Desatualizado)
         if (err.message?.includes('deleted_at') || err.code === 'PGRST204' || err.code === '42703') {
           console.log("Ativando modo de compatibilidade (sem lixeira)...");
+          const from = (currentPage - 1) * ITEMS_PER_PAGE;
+          const to = from + ITEMS_PER_PAGE - 1;
 
           let fallbackQuery = supabase
             .from('leads')
@@ -135,8 +141,9 @@ export default function Leads() {
               corretores(
                 profiles(first_name, last_name)
               )
-            `)
-            .order('created_at', { ascending: false });
+            `, { count: 'exact' })
+            .order('created_at', { ascending: false })
+            .range(from, to);
 
           if (searchTerm) {
             fallbackQuery = fallbackQuery.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
@@ -146,10 +153,10 @@ export default function Leads() {
             fallbackQuery = fallbackQuery.eq('status', filterStatus as any);
           }
 
-          const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+          const { data: fallbackData, count: fallbackCount, error: fallbackError } = await fallbackQuery;
 
           if (fallbackError) throw fallbackError;
-          return fallbackData as Lead[];
+          return { leads: (fallbackData || []) as Lead[], totalCount: fallbackCount || 0 };
         }
 
         throw err;
@@ -158,14 +165,37 @@ export default function Leads() {
   });
 
   // Reset page when filters change
-  useState(() => {
+  useEffect(() => {
     setCurrentPage(1);
-  });
+  }, [debouncedSearchTerm, filterStatus, viewMode]);
 
   if (!profile) return null;
 
-  const totalPages = Math.ceil(leads.length / ITEMS_PER_PAGE);
-  const paginatedLeads = leads.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  if (isError) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold">Gerenciamento de Leads</h1>
+          </div>
+          <Card className="border-destructive bg-destructive/5 p-6 text-center max-w-md mx-auto mt-12">
+            <AlertCircle className="h-10 w-10 mx-auto text-destructive mb-2" />
+            <h4 className="font-semibold text-destructive">Falha na conexão</h4>
+            <p className="text-sm text-muted-foreground mt-1">
+              Não foi possível carregar os leads a partir do banco de dados do Supabase. Verifique sua conexão.
+            </p>
+            <Button className="mt-4" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['leads'] })}>
+              Tentar Novamente
+            </Button>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const leads = data?.leads || [];
+  const totalCount = data?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   return (
     <DashboardLayout>
@@ -217,7 +247,7 @@ export default function Leads() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{leads.length}</div>
+                <div className="text-2xl font-bold">{totalCount}</div>
               </CardContent>
             </Card>
 
@@ -288,8 +318,8 @@ export default function Leads() {
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </select>
-                <Button variant="outline" size="icon">
-                  <Filter className="w-4 h-4" />
+                <Button variant="outline" size="icon" aria-label="Filtrar leads">
+                  <Filter className="w-4 h-4" aria-hidden="true" />
                 </Button>
               </div>
             </div>
@@ -315,7 +345,7 @@ export default function Leads() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {paginatedLeads.map((lead) => (
+                {leads.map((lead) => (
                   <div
                     key={lead.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-white/50"

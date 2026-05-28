@@ -46,7 +46,7 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
     lead_qualified: { label: "Lead Qualificado", color: "bg-teal-500" },
     lead_transferred: { label: "Lead Transferido", color: "bg-orange-500" },
     visit_scheduled: { label: "Visita Agendada", color: "bg-green-600" },
-    property_searched: { label: "Busca de Imóveis", color: "bg-indigo-500" },
+    property_searched: { label: "Busca de Imóveis", color: "bg-cyan-500" },
     agent_config_changed: { label: "Config Alterada", color: "bg-yellow-500" },
     prompt_modified: { label: "Prompt Modificado", color: "bg-yellow-600" },
     error_occurred: { label: "Erro Ocorrido", color: "bg-red-500" },

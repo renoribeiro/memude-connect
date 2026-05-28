@@ -158,10 +158,10 @@ const MinhasComissoes = () => {
                     <CardHeader>
                         <CardTitle className="text-lg">Histórico de Vendas</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-0">
+                    <CardContent className="p-0 md:p-6">
                         {isLoading ? (
                             <div className="flex items-center justify-center h-48">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                                <Loader2 className="animate-spin h-8 w-8 text-primary" />
                             </div>
                         ) : vendas.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-48 text-gray-500">
@@ -169,44 +169,82 @@ const MinhasComissoes = () => {
                                 <p>Nenhuma venda registrada</p>
                             </div>
                         ) : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Lead</TableHead>
-                                        <TableHead>Empreendimento</TableHead>
-                                        <TableHead className="text-right">Valor do Imóvel</TableHead>
-                                        <TableHead className="text-right">Sua Comissão</TableHead>
-                                        <TableHead>Data Pagamento</TableHead>
-                                        <TableHead>Status</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
+                            <>
+                                {/* Mobile view (Lista de Cartões) */}
+                                <div className="block md:hidden divide-y divide-border">
                                     {vendas.map((venda) => (
-                                        <TableRow key={venda.id}>
-                                            <TableCell className="font-medium">
-                                                {venda.leads?.nome || '—'}
-                                            </TableCell>
-                                            <TableCell>{venda.empreendimentos?.nome || '—'}</TableCell>
-                                            <TableCell className="text-right font-mono">
-                                                {formatCurrency(Number(venda.valor_imovel))}
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono font-semibold text-emerald-600">
-                                                {formatCurrency(Number(venda.valor_corretor))}
-                                            </TableCell>
-                                            <TableCell>
-                                                {venda.data_pagamento
-                                                    ? new Date(venda.data_pagamento + 'T12:00:00').toLocaleDateString('pt-BR')
-                                                    : '—'}
-                                            </TableCell>
-                                            <TableCell>
+                                        <div key={venda.id} className="p-4 space-y-3">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h4 className="font-semibold text-foreground">{venda.leads?.nome || '—'}</h4>
+                                                    <p className="text-xs text-muted-foreground">{venda.empreendimentos?.nome || '—'}</p>
+                                                </div>
                                                 <Badge variant={statusConfig[venda.status]?.variant || 'outline'}>
                                                     {statusConfig[venda.status]?.label || venda.status}
                                                 </Badge>
-                                            </TableCell>
-                                        </TableRow>
+                                            </div>
+                                            <div className="flex justify-between text-xs pt-1 border-t border-dashed">
+                                                <span className="text-muted-foreground">Valor do Imóvel:</span>
+                                                <span className="font-mono text-foreground">{formatCurrency(Number(venda.valor_imovel))}</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground font-medium">Sua Comissão:</span>
+                                                <span className="font-mono font-semibold text-emerald-600">
+                                                    {formatCurrency(Number(venda.valor_corretor))}
+                                                </span>
+                                            </div>
+                                            {venda.data_pagamento && (
+                                                <div className="flex justify-between text-xs text-muted-foreground">
+                                                    <span>Pago em:</span>
+                                                    <span>{new Date(venda.data_pagamento + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     ))}
-                                </TableBody>
-                            </Table>
+                                </div>
+
+                                {/* Desktop view (Tabela Tradicional) */}
+                                <div className="hidden md:block">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Lead</TableHead>
+                                                <TableHead>Empreendimento</TableHead>
+                                                <TableHead className="text-right">Valor do Imóvel</TableHead>
+                                                <TableHead className="text-right">Sua Comissão</TableHead>
+                                                <TableHead>Data Pagamento</TableHead>
+                                                <TableHead>Status</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {vendas.map((venda) => (
+                                                <TableRow key={venda.id}>
+                                                    <TableCell className="font-medium">
+                                                        {venda.leads?.nome || '—'}
+                                                    </TableCell>
+                                                    <TableCell>{venda.empreendimentos?.nome || '—'}</TableCell>
+                                                    <TableCell className="text-right font-mono">
+                                                        {formatCurrency(Number(venda.valor_imovel))}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-mono font-semibold text-emerald-600">
+                                                        {formatCurrency(Number(venda.valor_corretor))}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {venda.data_pagamento
+                                                            ? new Date(venda.data_pagamento + 'T12:00:00').toLocaleDateString('pt-BR')
+                                                            : '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={statusConfig[venda.status]?.variant || 'outline'}>
+                                                            {statusConfig[venda.status]?.label || venda.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </>
                         )}
                     </CardContent>
                 </Card>

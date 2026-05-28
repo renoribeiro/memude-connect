@@ -94,13 +94,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-lg border-b border-white/20 sticky top-0 z-50">
+      <header className="bg-white border-b border-border sticky top-0 z-50 shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-2">
               <Sheet>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="md:hidden">
+                  <Button variant="ghost" size="icon" className="md:hidden" aria-label="Abrir menu lateral">
                     <Menu className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
@@ -147,7 +147,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <NotificationSystem />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="Menu de perfil do usuário">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={profile?.avatar_url} alt={profile?.first_name} />
                       <AvatarFallback className="bg-primary text-white">
@@ -181,7 +181,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       <div className="flex h-[calc(100vh-4rem)]">
         {/* Sidebar (Desktop) */}
-        <nav className="hidden md:flex w-64 bg-white/70 backdrop-blur-lg border-r border-white/20">
+        <nav className="hidden md:flex w-64 bg-slate-50/50 border-r border-border">
           <div className="flex h-full flex-col">
             <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
               <div className="flex flex-1 flex-col space-y-1 px-3">

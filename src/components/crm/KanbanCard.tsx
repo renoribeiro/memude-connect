@@ -55,8 +55,9 @@ export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardPro
                                     variant="ghost"
                                     size="icon"
                                     className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    aria-label={`Mais opções para o lead ${lead.nome}`}
                                 >
-                                    <MoreHorizontal className="h-3.5 w-3.5" />
+                                    <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">

@@ -92,12 +92,16 @@ export function EvolutionInstances() {
         },
         onError: async (error: any) => {
             let errorMsg = error.message || "Erro na operação";
-            if (error.context instanceof Response) {
+            if (error.context) {
                 try {
-                    const clonedRes = error.context.clone();
-                    const errorData = await clonedRes.json();
-                    if (errorData && errorData.error) {
-                        errorMsg = errorData.error;
+                    const text = typeof error.context.text === 'function' ? await error.context.clone().text() : '';
+                    try {
+                        const errorData = JSON.parse(text);
+                        if (errorData && (errorData.error || errorData.message)) {
+                            errorMsg = errorData.error || errorData.message;
+                        }
+                    } catch {
+                        if (text) errorMsg = text;
                     }
                 } catch (e) {
                     console.error("Erro ao fazer parse do corpo do erro HTTP:", e);
@@ -130,12 +134,16 @@ export function EvolutionInstances() {
         },
         onError: async (error: any) => {
             let errorMsg = error.message || "Erro ao excluir";
-            if (error.context instanceof Response) {
+            if (error.context) {
                 try {
-                    const clonedRes = error.context.clone();
-                    const errorData = await clonedRes.json();
-                    if (errorData && errorData.error) {
-                        errorMsg = errorData.error;
+                    const text = typeof error.context.text === 'function' ? await error.context.clone().text() : '';
+                    try {
+                        const errorData = JSON.parse(text);
+                        if (errorData && (errorData.error || errorData.message)) {
+                            errorMsg = errorData.error || errorData.message;
+                        }
+                    } catch {
+                        if (text) errorMsg = text;
                     }
                 } catch (e) {
                     console.error("Erro ao fazer parse do corpo do erro HTTP:", e);
@@ -189,12 +197,16 @@ export function EvolutionInstances() {
         },
         onError: async (error: any) => {
             let errorMsg = error.message || "Erro ao salvar";
-            if (error.context instanceof Response) {
+            if (error.context) {
                 try {
-                    const clonedRes = error.context.clone();
-                    const errorData = await clonedRes.json();
-                    if (errorData && errorData.error) {
-                        errorMsg = errorData.error;
+                    const text = typeof error.context.text === 'function' ? await error.context.clone().text() : '';
+                    try {
+                        const errorData = JSON.parse(text);
+                        if (errorData && (errorData.error || errorData.message)) {
+                            errorMsg = errorData.error || errorData.message;
+                        }
+                    } catch {
+                        if (text) errorMsg = text;
                     }
                 } catch (e) {
                     console.error("Erro ao fazer parse do corpo do erro HTTP:", e);

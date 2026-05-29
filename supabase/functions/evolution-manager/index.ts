@@ -118,7 +118,18 @@ Deno.serve(async (req) => {
                 }
 
                 if (!response.ok) {
-                    const errorMessage = responseData.message || responseData.error || (responseData.response?.message) || `Error ${response.status}: ${text}`;
+                    let errorMessage = responseData.message || responseData.error || (responseData.response?.message);
+                    if (!errorMessage) {
+                        if (response.status === 404) {
+                            errorMessage = `Servidor Evolution API retornou 404 (Não Encontrado) para o endpoint '${endpoint}'. Certifique-se de que a URL base está correta e corresponde à versão V2.`;
+                        } else if (response.status === 401 || response.status === 403) {
+                            errorMessage = `Não autorizado (Status ${response.status}). A API Key configurada é inválida ou não possui permissão para esta ação.`;
+                        } else {
+                            errorMessage = `Erro ${response.status}: ${text || 'Sem resposta do servidor'}`;
+                        }
+                    } else if (typeof errorMessage === 'object') {
+                        errorMessage = JSON.stringify(errorMessage);
+                    }
                     throw new Error(errorMessage);
                 }
                 return responseData;
@@ -180,16 +191,17 @@ Deno.serve(async (req) => {
 
                     if (!createResponse.ok) {
                         const strData = JSON.stringify(createData).toLowerCase();
-                        if (strData.includes('already exists')) {
-                            console.log(`Instance ${instanceName} already exists in Evolution. Proceeding to register in DB.`);
+                        if (strData.includes('already exists') || strData.includes('already in use')) {
+                            console.log(`Instance ${instanceName} already exists/in-use in Evolution. Proceeding to register in DB.`);
                         } else {
                             const errMsg = createData.message || createData.error || 'Failed to create instance in Evolution API';
                             throw new Error(errMsg);
                         }
                     }
                 } catch (error: any) {
-                    if (error.message?.toLowerCase().includes('already exists')) {
-                        console.log(`Instance ${instanceName} already exists (caught error). Proceeding to register in DB.`);
+                    const errStr = error.message?.toLowerCase() || '';
+                    if (errStr.includes('already exists') || errStr.includes('already in use')) {
+                        console.log(`Instance ${instanceName} already exists/in-use (caught error). Proceeding to register in DB.`);
                     } else {
                         // Throw unless it's a fetch error that we want to bypass? No, creation failure is usually fatal.
                         // But if we can't reach the API, we definitely shouldn't create in DB? 
@@ -239,9 +251,26 @@ Deno.serve(async (req) => {
 
             case 'fetch': {
                 const instFetch = await getInstance(instance_id!);
-                const fetchData = await evoCall(instFetch, `/instance/fetchInstances?instanceName=${instFetch.instance_name}`);
+                let fetchData;
+                try {
+                    // Try V2 connectionState endpoint first
+                    fetchData = await evoCall(instFetch, `/instance/connectionState/${instFetch.instance_name}`);
+                } catch (e: any) {
+                    console.log(`Failed to fetch connectionState, trying V2 list endpoint /instance: ${e.message}`);
+                    try {
+                        fetchData = await evoCall(instFetch, `/instance`);
+                    } catch (e2: any) {
+                        console.log(`Failed V2 list, falling back to V1 /instance/fetchInstances: ${e2.message}`);
+                        fetchData = await evoCall(instFetch, `/instance/fetchInstances`);
+                    }
+                }
+                
                 if (Array.isArray(fetchData)) {
-                    result = fetchData.find((i: any) => i.instance?.instanceName === instFetch.instance_name || i.instanceName === instFetch.instance_name) || fetchData[0];
+                    const match = fetchData.find((i: any) => i.instance?.instanceName === instFetch.instance_name || i.instanceName === instFetch.instance_name);
+                    if (!match) {
+                        throw new Error(`A instância '${instFetch.instance_name}' não foi encontrada no servidor Evolution API.`);
+                    }
+                    result = match;
                 } else {
                     result = fetchData;
                 }

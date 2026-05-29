@@ -56,7 +56,6 @@ export default function Configuracoes() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("geral");
-  const [evolutionStatus, setEvolutionStatus] = useState<ConnectionStatus>('idle');
   const [wahaStatus, setWahaStatus] = useState<ConnectionStatus>('idle');
   const [isSaving, setIsSaving] = useState<string | null>(null);
 
@@ -76,15 +75,6 @@ export default function Configuracoes() {
   // Efeito para testar conexão automaticamente quando entrar na aba comunicação
   useEffect(() => {
     if (activeTab === 'comunicacao') {
-      if (evolutionStatus === 'idle') {
-        const hasEvolutionConfig = getSetting('evolution_api_url') &&
-          getSetting('evolution_api_key') &&
-          getSetting('evolution_instance_name');
-
-        if (hasEvolutionConfig) {
-          setTimeout(() => testEvolutionConnection(), 1000);
-        }
-      }
       if (wahaStatus === 'idle') {
         const hasWahaConfig = getSetting('waha_api_url');
         if (hasWahaConfig) {
@@ -179,96 +169,7 @@ export default function Configuracoes() {
     }
   };
 
-  // Função para testar conexão com Evolution API
-  const testEvolutionConnection = async () => {
-    setEvolutionStatus('testing');
-
-    // Validar campos antes de testar
-    const apiUrl = getSetting('evolution_api_url')?.trim();
-    const apiKey = getSetting('evolution_api_key')?.trim();
-    const instanceName = getSetting('evolution_instance_name')?.trim();
-
-    if (!apiUrl || !apiKey || !instanceName) {
-      setEvolutionStatus('error');
-      const missingFields = [];
-      if (!apiUrl) missingFields.push('URL da API');
-      if (!apiKey) missingFields.push('Chave da API');
-      if (!instanceName) missingFields.push('Nome da Instância');
-
-      toast({
-        title: "Configuração incompleta",
-        description: `Por favor, preencha: ${missingFields.join(', ')}`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!validateUrl(apiUrl)) {
-      setEvolutionStatus('error');
-      toast({
-        title: "URL inválida",
-        description: "A URL da API deve ser válida (ex: https://api.evolution.com)",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    console.log('Testing Evolution API V2 connection with:', {
-      url: apiUrl,
-      instance: instanceName,
-      hasApiKey: !!apiKey
-    });
-
-    try {
-      const { data, error } = await supabase.functions.invoke('evolution-check-connection');
-
-      if (error) {
-        console.error('Function invocation error:', error);
-        throw error;
-      }
-
-      if (data.success && data.connected) {
-        setEvolutionStatus('connected');
-        toast({
-          title: "✅ Conexão bem-sucedida",
-          description: `Instância "${data.instance_name}" conectada. Status: ${data.instance_state}`,
-        });
-      } else {
-        setEvolutionStatus('error');
-        const errorMsg = data.error || "Não foi possível conectar à Evolution API";
-        console.error('Connection test failed:', data);
-        toast({
-          title: "❌ Falha na conexão",
-          description: errorMsg,
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      console.error('Connection test error:', error);
-      setEvolutionStatus('error');
-      
-      let errorMsg = error.message || "Não foi possível testar a conexão";
-      
-      // Se for um erro HTTP de Edge Function, o corpo da resposta está no context
-      if (error.context instanceof Response) {
-        try {
-          const clonedRes = error.context.clone();
-          const errorData = await clonedRes.json();
-          if (errorData && errorData.error) {
-            errorMsg = errorData.error;
-          }
-        } catch (e) {
-          console.error("Erro ao fazer parse do corpo do erro HTTP:", e);
-        }
-      }
-      
-      toast({
-        title: "❌ Erro de conexão",
-        description: errorMsg,
-        variant: "destructive",
-      });
-    }
-  };
+  // Legacy testEvolutionConnection removed (Connection status is managed inside the EvolutionInstances component)
 
   // Função para testar conexão com WAHA API
   const testWahaConnection = async () => {
@@ -328,12 +229,16 @@ export default function Configuracoes() {
       let errorMsg = error.message || "Não foi possível testar a conexão com o WAHA";
       
       // Se for um erro HTTP de Edge Function, o corpo da resposta está no context
-      if (error.context instanceof Response) {
+      if (error.context) {
         try {
-          const clonedRes = error.context.clone();
-          const errorData = await clonedRes.json();
-          if (errorData && errorData.error) {
-            errorMsg = errorData.error;
+          const text = typeof error.context.text === 'function' ? await error.context.clone().text() : '';
+          try {
+            const errorData = JSON.parse(text);
+            if (errorData && (errorData.error || errorData.message)) {
+              errorMsg = errorData.error || errorData.message;
+            }
+          } catch {
+            if (text) errorMsg = text;
           }
         } catch (e) {
           console.error("Erro ao fazer parse do corpo do erro HTTP:", e);
@@ -381,39 +286,7 @@ export default function Configuracoes() {
     }
   };
 
-  // Função para renderizar o status da conexão
-  const getConnectionBadge = () => {
-    switch (evolutionStatus) {
-      case 'testing':
-        return (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Testando conexão...
-          </div>
-        );
-      case 'connected':
-        return (
-          <div className="flex items-center gap-2 text-sm text-green-600">
-            <CheckCircle className="w-4 h-4" />
-            Conectado
-          </div>
-        );
-      case 'error':
-        return (
-          <div className="flex items-center gap-2 text-sm text-red-600">
-            <XCircle className="w-4 h-4" />
-            Erro de conexão
-          </div>
-        );
-      default:
-        return (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <AlertTriangle className="w-4 h-4" />
-            Não testado
-          </div>
-        );
-    }
-  };
+  // Legacy getConnectionBadge removed
 
   if (!profile) return null;
 

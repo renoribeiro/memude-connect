@@ -175,8 +175,9 @@ Deno.serve(async (req) => {
                         },
                         body: JSON.stringify({
                             instanceName: instanceName,
-                            token: payload.token,
-                            qrcode: true
+                            token: payload.token || undefined,
+                            qrcode: true,
+                            integration: "WHATSAPP-BAILEYS"
                         }),
                         signal: AbortSignal.timeout(10000)
                     });
@@ -194,7 +195,26 @@ Deno.serve(async (req) => {
                         if (strData.includes('already exists') || strData.includes('already in use')) {
                             console.log(`Instance ${instanceName} already exists/in-use in Evolution. Proceeding to register in DB.`);
                         } else {
-                            const errMsg = createData.message || createData.error || 'Failed to create instance in Evolution API';
+                            let errMsg = '';
+                            if (createData.response?.message) {
+                                if (Array.isArray(createData.response.message)) {
+                                    errMsg = createData.response.message.join(', ');
+                                } else {
+                                    errMsg = typeof createData.response.message === 'object'
+                                        ? JSON.stringify(createData.response.message)
+                                        : String(createData.response.message);
+                                }
+                            } else {
+                                errMsg = createData.message || createData.error || 'Failed to create instance in Evolution API';
+                            }
+                            
+                            if (createResponse.status === 401 || createResponse.status === 403) {
+                                errMsg = `Não autorizado (Status ${createResponse.status}). A API Key ou token fornecido é inválido. Verifique suas credenciais. Detalhes: ${errMsg}`;
+                            } else if (createResponse.status === 404) {
+                                errMsg = `O endpoint de criação de instância retornou 404. Certifique-se de que a URL da API está correta (ex: https://sua-api.com) e corresponde à Evolution API V2. Detalhes: ${errMsg}`;
+                            } else {
+                                errMsg = `Erro ${createResponse.status}: ${errMsg}`;
+                            }
                             throw new Error(errMsg);
                         }
                     }
@@ -203,10 +223,6 @@ Deno.serve(async (req) => {
                     if (errStr.includes('already exists') || errStr.includes('already in use')) {
                         console.log(`Instance ${instanceName} already exists/in-use (caught error). Proceeding to register in DB.`);
                     } else {
-                        // Throw unless it's a fetch error that we want to bypass? No, creation failure is usually fatal.
-                        // But if we can't reach the API, we definitely shouldn't create in DB? 
-                        // Actually, user might want to register valid instance even if currently offline? 
-                        // Let's stick to throwing error for safety.
                         throw error;
                     }
                 }
@@ -328,7 +344,7 @@ Deno.serve(async (req) => {
             JSON.stringify({ success: false, error: error.message }),
             {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 400
+                status: 200
             }
         );
     }

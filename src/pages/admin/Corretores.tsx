@@ -288,7 +288,7 @@ export default function Corretores() {
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-3">
                           <h3 className="font-semibold">
-                            {corretor.profiles.first_name} {corretor.profiles.last_name}
+                            {corretor.profiles?.first_name || "Corretor"} {corretor.profiles?.last_name || "Sem Nome"}
                           </h3>
                           <Badge variant={statusVariants[corretor.status as keyof typeof statusVariants] || 'default'}>
                             {statusLabels[corretor.status as keyof typeof statusLabels] || corretor.status}

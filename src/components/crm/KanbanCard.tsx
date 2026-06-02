@@ -47,7 +47,7 @@ export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardPro
                 <div className="space-y-2">
                     <div className="flex items-start justify-between">
                         <h4 className="font-semibold text-sm leading-tight truncate flex-1 mr-2">
-                            {lead.nome}
+                            {lead?.nome || "Lead Desconhecido"}
                         </h4>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -55,7 +55,7 @@ export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardPro
                                     variant="ghost"
                                     size="icon"
                                     className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    aria-label={`Mais opções para o lead ${lead.nome}`}
+                                    aria-label={`Mais opções para o lead ${lead?.nome || "Desconhecido"}`}
                                 >
                                     <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
                                 </Button>
@@ -77,24 +77,24 @@ export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardPro
 
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Phone className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{lead.telefone}</span>
+                        <span className="truncate">{lead?.telefone || "—"}</span>
                     </div>
 
-                    {lead.email && (
+                    {lead?.email && (
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Mail className="h-3 w-3 flex-shrink-0" />
                             <span className="truncate">{lead.email}</span>
                         </div>
                     )}
 
-                    {lead.empreendimentos && (
+                    {lead?.empreendimentos && (
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Building2 className="h-3 w-3 flex-shrink-0" />
                             <span className="truncate">{lead.empreendimentos.nome}</span>
                         </div>
                     )}
 
-                    {lead.corretores && (
+                    {lead?.corretores?.profiles && (
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <User className="h-3 w-3 flex-shrink-0" />
                             <span className="truncate">

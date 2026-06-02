@@ -385,7 +385,7 @@ export default function Leads() {
                           </div>
                         )}
                       </div>
-                      {lead.corretores && (
+                      {lead.corretores?.profiles && (
                         <div className="text-sm text-muted-foreground">
                           Corretor: {lead.corretores.profiles.first_name} {lead.corretores.profiles.last_name}
                         </div>

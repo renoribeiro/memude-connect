@@ -47,7 +47,7 @@ export interface CrmLead {
         corretores: {
             profiles: { first_name: string; last_name: string };
         } | null;
-    };
+    } | null;
 }
 
 export interface CrmAutomation {

@@ -52,7 +52,7 @@ export default function Relatorios() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('vendas')
-        .select('valor_imovel, comissao_total, status, created_at');
+        .select('valor_imovel, valor_comissao_bruta, status, created_at');
       
       if (error) throw error;
       return data;
@@ -318,7 +318,7 @@ export default function Relatorios() {
       ? corretoresData.reduce((acc, c) => acc + c.nota_media, 0) / corretoresData.length
       : 0;
 
-    const totalRevenue = filteredVendas.reduce((acc: number, v: any) => acc + (v.comissao_total || 0), 0);
+    const totalRevenue = filteredVendas.reduce((acc: number, v: any) => acc + (v.valor_comissao_bruta || 0), 0);
 
     // 5. Preparar dados dos gráficos
     const leadsOverTime = Array.from({ length: 7 }, (_, i) => {

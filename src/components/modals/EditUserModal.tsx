@@ -220,188 +220,190 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="first_name">Nome *</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="first_name">Nome *</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="first_name"
+                    placeholder="Nome"
+                    className="pl-10"
+                    value={formData.first_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="last_name">Sobrenome *</Label>
                 <Input
-                  id="first_name"
-                  placeholder="Nome"
-                  className="pl-10"
-                  value={formData.first_name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
+                  id="last_name"
+                  placeholder="Sobrenome"
+                  value={formData.last_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
                   required
                 />
               </div>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="last_name">Sobrenome *</Label>
+              <Label htmlFor="email">Email *</Label>
               <Input
-                id="last_name"
-                placeholder="Sobrenome"
-                value={formData.last_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
+                id="email"
+                type="email"
+                placeholder="exemplo@email.com"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 required
               />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="exemplo@email.com"
-              value={formData.email}
-              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phone">Telefone</Label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                id="phone"
-                placeholder="(85) 99999-9999"
-                className="pl-10"
-                value={formData.phone}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="role">Função *</Label>
-            <Select value={formData.role} onValueChange={(value: typeof formData.role) => setFormData(prev => ({ ...prev, role: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione a função" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Administrador</SelectItem>
-                <SelectItem value="corretor">Corretor</SelectItem>
-                <SelectItem value="cliente">Cliente</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {formData.role === 'corretor' && (
-            <div className="space-y-4 pt-4 border-t border-gray-100">
-              <div className="flex items-center gap-2 text-primary font-semibold text-sm">
-                <Award className="w-4 h-4" />
-                <span>Dados Profissionais do Corretor</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="creci">CRECI *</Label>
-                  <Input
-                    id="creci"
-                    placeholder="Ex: 12345-F"
-                    value={corretorData.creci}
-                    onChange={(e) => setCorretorData(prev => ({ ...prev, creci: e.target.value }))}
-                    required={formData.role === 'corretor'}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cpf">CPF</Label>
-                  <Input
-                    id="cpf"
-                    placeholder="Ex: 000.000.000-00"
-                    value={corretorData.cpf}
-                    onChange={(e) => setCorretorData(prev => ({ ...prev, cpf: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="whatsapp">WhatsApp *</Label>
-                  <Input
-                    id="whatsapp"
-                    placeholder="Ex: (85) 99999-9999"
-                    value={corretorData.whatsapp}
-                    onChange={(e) => setCorretorData(prev => ({ ...prev, whatsapp: e.target.value }))}
-                    required={formData.role === 'corretor'}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cidade">Cidade</Label>
-                  <Input
-                    id="cidade"
-                    placeholder="Ex: Fortaleza"
-                    value={corretorData.cidade}
-                    onChange={(e) => setCorretorData(prev => ({ ...prev, cidade: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="estado">Estado</Label>
-                  <Select value={corretorData.estado} onValueChange={(value) => setCorretorData(prev => ({ ...prev, estado: value }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="AC">Acre</SelectItem>
-                      <SelectItem value="AL">Alagoas</SelectItem>
-                      <SelectItem value="AP">Amapá</SelectItem>
-                      <SelectItem value="AM">Amazonas</SelectItem>
-                      <SelectItem value="BA">Bahia</SelectItem>
-                      <SelectItem value="CE">Ceará</SelectItem>
-                      <SelectItem value="DF">Distrito Federal</SelectItem>
-                      <SelectItem value="ES">Espírito Santo</SelectItem>
-                      <SelectItem value="GO">Goiás</SelectItem>
-                      <SelectItem value="MA">Maranhão</SelectItem>
-                      <SelectItem value="MT">Mato Grosso</SelectItem>
-                      <SelectItem value="MS">Mato Grosso do Sul</SelectItem>
-                      <SelectItem value="MG">Minas Gerais</SelectItem>
-                      <SelectItem value="PA">Pará</SelectItem>
-                      <SelectItem value="PB">Paraíba</SelectItem>
-                      <SelectItem value="PR">Paraná</SelectItem>
-                      <SelectItem value="PE">Pernambuco</SelectItem>
-                      <SelectItem value="PI">Piauí</SelectItem>
-                      <SelectItem value="RJ">Rio de Janeiro</SelectItem>
-                      <SelectItem value="RN">Rio Grande do Norte</SelectItem>
-                      <SelectItem value="RS">Rio Grande do Sul</SelectItem>
-                      <SelectItem value="RO">Rondônia</SelectItem>
-                      <SelectItem value="RR">Roraima</SelectItem>
-                      <SelectItem value="SC">Santa Catarina</SelectItem>
-                      <SelectItem value="SP">São Paulo</SelectItem>
-                      <SelectItem value="SE">Sergipe</SelectItem>
-                      <SelectItem value="TO">Tocantins</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tipo_imovel">Tipo de Imóvel</Label>
-                  <Select value={corretorData.tipo_imovel} onValueChange={(value: any) => setCorretorData(prev => ({ ...prev, tipo_imovel: value }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todos</SelectItem>
-                      <SelectItem value="residencial">Residencial</SelectItem>
-                      <SelectItem value="comercial">Comercial</SelectItem>
-                      <SelectItem value="terreno">Terreno</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="observacoes">Observações</Label>
-                <Textarea
-                  id="observacoes"
-                  placeholder="Informações adicionais do corretor..."
-                  value={corretorData.observacoes}
-                  onChange={(e) => setCorretorData(prev => ({ ...prev, observacoes: e.target.value }))}
-                  rows={3}
+            <div className="space-y-2">
+              <Label htmlFor="phone">Telefone</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="phone"
+                  placeholder="(85) 99999-9999"
+                  className="pl-10"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                 />
               </div>
             </div>
-          )}
 
-          <div className="flex justify-end space-x-2 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="role">Função *</Label>
+              <Select value={formData.role} onValueChange={(value: typeof formData.role) => setFormData(prev => ({ ...prev, role: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a função" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="corretor">Corretor</SelectItem>
+                  <SelectItem value="cliente">Cliente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formData.role === 'corretor' && (
+              <div className="space-y-4 pt-4 border-t border-gray-100">
+                <div className="flex items-center gap-2 text-primary font-semibold text-sm">
+                  <Award className="w-4 h-4" />
+                  <span>Dados Profissionais do Corretor</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="creci">CRECI *</Label>
+                    <Input
+                      id="creci"
+                      placeholder="Ex: 12345-F"
+                      value={corretorData.creci}
+                      onChange={(e) => setCorretorData(prev => ({ ...prev, creci: e.target.value }))}
+                      required={formData.role === 'corretor'}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cpf">CPF</Label>
+                    <Input
+                      id="cpf"
+                      placeholder="Ex: 000.000.000-00"
+                      value={corretorData.cpf}
+                      onChange={(e) => setCorretorData(prev => ({ ...prev, cpf: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="whatsapp">WhatsApp *</Label>
+                    <Input
+                      id="whatsapp"
+                      placeholder="Ex: (85) 99999-9999"
+                      value={corretorData.whatsapp}
+                      onChange={(e) => setCorretorData(prev => ({ ...prev, whatsapp: e.target.value }))}
+                      required={formData.role === 'corretor'}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cidade">Cidade</Label>
+                    <Input
+                      id="cidade"
+                      placeholder="Ex: Fortaleza"
+                      value={corretorData.cidade}
+                      onChange={(e) => setCorretorData(prev => ({ ...prev, cidade: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="estado">Estado</Label>
+                    <Select value={corretorData.estado} onValueChange={(value) => setCorretorData(prev => ({ ...prev, estado: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="AC">Acre</SelectItem>
+                        <SelectItem value="AL">Alagoas</SelectItem>
+                        <SelectItem value="AP">Amapá</SelectItem>
+                        <SelectItem value="AM">Amazonas</SelectItem>
+                        <SelectItem value="BA">Bahia</SelectItem>
+                        <SelectItem value="CE">Ceará</SelectItem>
+                        <SelectItem value="DF">Distrito Federal</SelectItem>
+                        <SelectItem value="ES">Espírito Santo</SelectItem>
+                        <SelectItem value="GO">Goiás</SelectItem>
+                        <SelectItem value="MA">Maranhão</SelectItem>
+                        <SelectItem value="MT">Mato Grosso</SelectItem>
+                        <SelectItem value="MS">Mato Grosso do Sul</SelectItem>
+                        <SelectItem value="MG">Minas Gerais</SelectItem>
+                        <SelectItem value="PA">Pará</SelectItem>
+                        <SelectItem value="PB">Paraíba</SelectItem>
+                        <SelectItem value="PR">Paraná</SelectItem>
+                        <SelectItem value="PE">Pernambuco</SelectItem>
+                        <SelectItem value="PI">Piauí</SelectItem>
+                        <SelectItem value="RJ">Rio de Janeiro</SelectItem>
+                        <SelectItem value="RN">Rio Grande do Norte</SelectItem>
+                        <SelectItem value="RS">Rio Grande do Sul</SelectItem>
+                        <SelectItem value="RO">Rondônia</SelectItem>
+                        <SelectItem value="RR">Roraima</SelectItem>
+                        <SelectItem value="SC">Santa Catarina</SelectItem>
+                        <SelectItem value="SP">São Paulo</SelectItem>
+                        <SelectItem value="SE">Sergipe</SelectItem>
+                        <SelectItem value="TO">Tocantins</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tipo_imovel">Tipo de Imóvel</Label>
+                    <Select value={corretorData.tipo_imovel} onValueChange={(value: any) => setCorretorData(prev => ({ ...prev, tipo_imovel: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos</SelectItem>
+                        <SelectItem value="residencial">Residencial</SelectItem>
+                        <SelectItem value="comercial">Comercial</SelectItem>
+                        <SelectItem value="terreno">Terreno</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="observacoes">Observações</Label>
+                  <Textarea
+                    id="observacoes"
+                    placeholder="Informações adicionais do corretor..."
+                    value={corretorData.observacoes}
+                    onChange={(e) => setCorretorData(prev => ({ ...prev, observacoes: e.target.value }))}
+                    rows={3}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+ 
+          <div className="flex justify-end space-x-2 pt-4 border-t border-gray-100">
             <Button
               type="button"
               variant="outline"

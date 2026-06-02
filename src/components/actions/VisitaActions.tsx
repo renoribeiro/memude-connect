@@ -542,8 +542,8 @@ export function VisitaActions({
         </AlertDialog>
       )}
 
-      {/* Reschedule */}
-      {status === 'cancelada' && (
+      {/* Reschedule / Remarcar */}
+      {((status === 'cancelada') || (isCorretor && (status === 'agendada' || status === 'confirmada' || status === 'reagendada'))) && (
         <Button
           variant="outline"
           size="sm"
@@ -551,7 +551,7 @@ export function VisitaActions({
           onClick={onEdit}
         >
           <Calendar className="w-3 h-3 mr-1" />
-          Reagendar
+          Remarcar
         </Button>
       )}
 

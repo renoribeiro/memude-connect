@@ -15,6 +15,9 @@ import { ptBR } from "date-fns/locale";
 import { isToday, isTomorrow, isPast, parseLocalDate } from "@/utils/dateHelpers";
 import { useDebounce } from "@/hooks/use-debounce";
 import { VisitaActions } from "@/components/actions/VisitaActions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { VisitaModal } from "@/components/modals/VisitaModal";
+import { VisitaDetails } from "@/components/modals/VisitaDetails";
 
 interface Visita {
   id: string;
@@ -56,6 +59,9 @@ export default function MinhasVisitas() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
+  const [selectedVisitaId, setSelectedVisitaId] = useState<string | undefined>();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   const { data: corretor, isLoading: isLoadingCorretor } = useQuery({
     queryKey: ['my-corretor-profile'],
@@ -291,8 +297,8 @@ export default function MinhasVisitas() {
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-3">
                           <h3 className="font-semibold">{visita.leads?.nome || "Lead Desconhecido"}</h3>
-                          <Badge variant={statusVariants[visitaStatus as keyof typeof statusVariants] || 'default'}>
-                            {statusLabels[visitaStatus as keyof typeof statusLabels] || visitaStatus}
+                          <Badge variant={statusVariants[visita.status as keyof typeof statusVariants] || 'default'}>
+                            {statusLabels[visita.status as keyof typeof statusLabels] || visita.status}
                           </Badge>
                           {priority === 'hoje' && (
                             <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
@@ -357,36 +363,17 @@ export default function MinhasVisitas() {
                       </div>
 
                       <div className="flex items-center gap-2 ml-4">
-                        {visita.status === 'agendada' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-green-600 border-green-600 hover:bg-green-50"
-                          >
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            Confirmar
-                          </Button>
-                        )}
-                        {visita.status === 'confirmada' && !isPast(new Date(`${visita.data_visita}T${visita.horario_visita}`)) && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                          >
-                            <MessageSquare className="w-3 h-3 mr-1" />
-                            Lembrar Cliente
-                          </Button>
-                        )}
                         <VisitaActions
                           visitaId={visita.id}
-                          status={visitaStatus}
+                          status={visita.status}
                           leadId={visita.lead_id || ''}
                           onEdit={() => {
-                            // Broker can't edit, only view
-                            console.log('View visita details:', visita.id);
+                            setSelectedVisitaId(visita.id);
+                            setIsModalOpen(true);
                           }}
                           onView={() => {
-                            console.log('View visita details:', visita.id);
+                            setSelectedVisitaId(visita.id);
+                            setIsViewModalOpen(true);
                           }}
                           isCorretor={true}
                         />
@@ -404,6 +391,27 @@ export default function MinhasVisitas() {
           </Card>
         )}
       </div>
+
+      {/* Visita Modal for Rescheduling */}
+      <VisitaModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedVisitaId(undefined);
+        }}
+        visitaId={selectedVisitaId}
+        isCorretor={true}
+      />
+
+      {/* View Details Dialog */}
+      <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes da Visita</DialogTitle>
+          </DialogHeader>
+          {selectedVisitaId && <VisitaDetails visitaId={selectedVisitaId} />}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

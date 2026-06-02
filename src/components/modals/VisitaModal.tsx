@@ -14,9 +14,10 @@ interface VisitaModalProps {
   visitaId?: string;
   leadId?: string;
   corretorId?: string;
+  isCorretor?: boolean;
 }
 
-export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: VisitaModalProps) {
+export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId, isCorretor = false }: VisitaModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
@@ -357,7 +358,8 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId }: V
                 leads={leads}
                 corretores={corretores}
                 empreendimentos={empreendimentos}
-                onAddNewLead={() => setIsLeadModalOpen(true)}
+                onAddNewLead={isCorretor ? undefined : () => setIsLeadModalOpen(true)}
+                isCorretor={isCorretor}
               />
             </>
           )}

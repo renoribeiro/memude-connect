@@ -51,6 +51,7 @@ interface VisitaFormProps {
   corretores: Array<{ id: string; profiles: { first_name: string; last_name: string } }>;
   empreendimentos: Array<{ id: string; nome: string }>;
   onAddNewLead?: () => void;
+  isCorretor?: boolean;
 }
 
 export function VisitaForm({ 
@@ -60,7 +61,8 @@ export function VisitaForm({
   leads = [], 
   corretores = [], 
   empreendimentos = [],
-  onAddNewLead
+  onAddNewLead,
+  isCorretor = false
 }: VisitaFormProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     initialData?.data_visita ? new Date(initialData.data_visita) : undefined
@@ -98,7 +100,7 @@ export function VisitaForm({
         lead_id: initialData.lead_id || '',
         corretor_id: initialData.corretor_id || '',
         empreendimento_id: initialData.empreendimento_id || '',
-        status: initialData.status || 'agendada',
+        status: isCorretor ? 'reagendada' : (initialData.status || 'agendada'),
         data_visita: initialData?.data_visita ? new Date(initialData.data_visita) : undefined,
         horario_visita: normalizeTime(initialData.horario_visita),
         auto_assign_corretor: initialData.auto_assign_corretor || false,
@@ -118,7 +120,7 @@ export function VisitaForm({
         setRating(initialData.avaliacao_lead);
       }
     }
-  }, [initialData, reset]);
+  }, [initialData, reset, isCorretor]);
 
   // Sync rating with form value
   useEffect(() => {
@@ -170,6 +172,7 @@ export function VisitaForm({
             <Select 
               value={watch('lead_id')} 
               onValueChange={(value) => setValue('lead_id', value)}
+              disabled={isCorretor}
             >
               <SelectTrigger className="flex-1">
                 <SelectValue placeholder="Selecione um lead" />
@@ -206,7 +209,7 @@ export function VisitaForm({
           <Select 
             value={watch('corretor_id')}
             onValueChange={(value) => setValue('corretor_id', value)}
-            disabled={autoAssign}
+            disabled={autoAssign || isCorretor}
           >
             <SelectTrigger>
               <SelectValue placeholder="Selecione um corretor" />
@@ -222,32 +225,34 @@ export function VisitaForm({
         </div>
 
         {/* Auto Assign Checkbox - Spans 2 columns on desktop */}
-        <div className="md:col-span-2">
-          <div className="flex items-start space-x-3 rounded-lg border border-border bg-muted/50 p-4">
-            <Checkbox
-              id="auto_assign_corretor"
-              checked={autoAssign || false}
-              onCheckedChange={(checked) => {
-                setValue('auto_assign_corretor', checked as boolean);
-                if (checked) {
-                  setValue('corretor_id', '');
-                }
-              }}
-              className="mt-1"
-            />
-            <div className="space-y-1 leading-none flex-1">
-              <Label 
-                htmlFor="auto_assign_corretor" 
-                className="text-sm font-medium cursor-pointer"
-              >
-                Escolha automática de corretores
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                O sistema irá distribuir automaticamente esta visita para corretores qualificados usando critérios de construtora, bairro, tipo de imóvel, nota e número de visitas. Quando ativado, o campo de corretor será desabilitado.
-              </p>
+        {!isCorretor && (
+          <div className="md:col-span-2">
+            <div className="flex items-start space-x-3 rounded-lg border border-border bg-muted/50 p-4">
+              <Checkbox
+                id="auto_assign_corretor"
+                checked={autoAssign || false}
+                onCheckedChange={(checked) => {
+                  setValue('auto_assign_corretor', checked as boolean);
+                  if (checked) {
+                    setValue('corretor_id', '');
+                  }
+                }}
+                className="mt-1"
+              />
+              <div className="space-y-1 leading-none flex-1">
+                <Label 
+                  htmlFor="auto_assign_corretor" 
+                  className="text-sm font-medium cursor-pointer"
+                >
+                  Escolha automática de corretores
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  O sistema irá distribuir automaticamente esta visita para corretores qualificados usando critérios de construtora, bairro, tipo de imóvel, nota e número de visitas. Quando ativado, o campo de corretor será desabilitado.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Empreendimento Selection */}
         <div className="space-y-2">
@@ -255,6 +260,7 @@ export function VisitaForm({
           <Select 
             value={watch('empreendimento_id') || ''}
             onValueChange={(value) => setValue('empreendimento_id', value)}
+            disabled={isCorretor}
           >
             <SelectTrigger>
               <SelectValue placeholder="Selecione um empreendimento" />
@@ -275,6 +281,7 @@ export function VisitaForm({
           <Select 
             value={watch('status') || 'agendada'}
             onValueChange={(value) => setValue('status', value as any)}
+            disabled={isCorretor}
           >
             <SelectTrigger>
               <SelectValue placeholder="Selecione o status" />

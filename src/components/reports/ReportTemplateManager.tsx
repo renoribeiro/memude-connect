@@ -35,9 +35,10 @@ interface ReportTemplate {
 
 interface ReportTemplateManagerProps {
   onSelectTemplate: (template: ReportTemplate) => void;
+  onNewTemplate?: () => void;
 }
 
-export function ReportTemplateManager({ onSelectTemplate }: ReportTemplateManagerProps) {
+export function ReportTemplateManager({ onSelectTemplate, onNewTemplate }: ReportTemplateManagerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const { profile } = useAuth();
@@ -167,7 +168,7 @@ export function ReportTemplateManager({ onSelectTemplate }: ReportTemplateManage
             Selecione um template para gerar seu relatório
           </p>
         </div>
-        <Button className="md:w-auto">
+        <Button className="md:w-auto" onClick={onNewTemplate}>
           <Plus className="mr-2 h-4 w-4" />
           Novo Template
         </Button>

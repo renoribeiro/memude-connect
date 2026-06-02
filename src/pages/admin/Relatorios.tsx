@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { GeneratedReportDialog } from "@/components/reports/GeneratedReportDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,104 @@ export default function Relatorios() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  const [generatedReportOpen, setGeneratedReportOpen] = useState(false);
+  const [generatedReportConfig, setGeneratedReportConfig] = useState<any>(null);
+  const [generatedReportData, setGeneratedReportData] = useState<any>(null);
+
+  // Dados de vendas para faturamento
+  const { data: vendasData = [], isLoading: isLoadingVendas } = useQuery({
+    queryKey: ['reports-vendas'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('vendas')
+        .select('valor_imovel, comissao_total, status, created_at');
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // Relatórios agendados
+  const { data: scheduledReports = [], isLoading: isLoadingScheduled } = useQuery({
+    queryKey: ['scheduled-reports'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('scheduled_reports')
+        .select('*, report_templates(name)')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  const deleteScheduleMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('scheduled_reports')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduled-reports'] });
+      toast({
+        title: 'Agendamento cancelado',
+        description: 'O envio programado foi cancelado com sucesso.',
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Erro ao cancelar agendamento',
+        description: err.message || 'Não foi possível cancelar o agendamento.',
+        variant: 'destructive',
+      });
+    }
+  });
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (template: any) => {
+      if (!profile) throw new Error('Perfil não encontrado');
+
+      const templatePayload = {
+        name: template.name,
+        description: template.description,
+        template_config: template.template_config,
+        category: template.category,
+        is_public: template.is_public || false,
+        created_by: profile.id,
+      };
+
+      if (template.id) {
+        const { error } = await supabase
+          .from('report_templates')
+          .update(templatePayload)
+          .eq('id', template.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('report_templates')
+          .insert(templatePayload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['report-templates'] });
+      toast({
+        title: 'Template salvo',
+        description: 'O template de relatório foi salvo com sucesso.',
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Erro ao salvar template',
+        description: err.message || 'Não foi possível salvar o template.',
+        variant: 'destructive',
+      });
+    }
+  });
 
   // Dados de leads por período
   const { data: leadsData = [], isLoading: isLoadingLeads } = useQuery({
@@ -166,7 +265,7 @@ export default function Relatorios() {
   };
 
   if (!profile) return null;
-  if (isLoadingLeads || isLoadingCorretores || isLoadingVisitas) return <DashboardSkeleton />;
+  if (isLoadingLeads || isLoadingCorretores || isLoadingVisitas || isLoadingVendas || isLoadingScheduled) return <DashboardSkeleton />;
 
   const chartData = processLeadsData();
   const statusData = processStatusData();
@@ -181,13 +280,178 @@ export default function Relatorios() {
   };
 
   const handleSaveTemplate = (template: any) => {
-    // Implementation for saving template
-    console.log('Saving template:', template);
+    saveTemplateMutation.mutate(template);
   };
 
   const handleGenerateReport = (config: any) => {
-    // Implementation for generating report
-    console.log('Generating report with config:', config);
+    const { filters } = config;
+
+    // 1. Filtrar leads com base nos filtros
+    let filteredLeads = [...leadsData];
+    if (filters.status) {
+      filteredLeads = filteredLeads.filter(l => l.status === filters.status);
+    }
+    
+    // Filtrar por período de data
+    const now = new Date();
+    let startDate = subDays(now, 30); // default 30 dias
+    if (filters.date_range === 'last_7_days') startDate = subDays(now, 7);
+    else if (filters.date_range === 'last_90_days') startDate = subDays(now, 90);
+    else if (filters.date_range === 'this_year') startDate = new Date(now.getFullYear(), 0, 1);
+
+    filteredLeads = filteredLeads.filter(l => new Date(l.created_at) >= startDate);
+
+    // 2. Filtrar visitas
+    let filteredVisitas = visitasData.filter(v => new Date(v.data_visita) >= startDate);
+
+    // 3. Filtrar vendas
+    let filteredVendas = vendasData.filter(v => new Date(v.created_at) >= startDate);
+
+    // 4. Calcular métricas
+    const totalLeads = filteredLeads.length;
+    const totalVisits = filteredVisitas.length;
+    
+    const convertedLeads = filteredLeads.filter(l => l.status === 'visita_realizada').length;
+    const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
+
+    const computedAvgRating = corretoresData.length > 0
+      ? corretoresData.reduce((acc, c) => acc + c.nota_media, 0) / corretoresData.length
+      : 0;
+
+    const totalRevenue = filteredVendas.reduce((acc: number, v: any) => acc + (v.comissao_total || 0), 0);
+
+    // 5. Preparar dados dos gráficos
+    const leadsOverTime = Array.from({ length: 7 }, (_, i) => {
+      const date = subDays(new Date(), i);
+      return {
+        name: format(date, 'dd/MM', { locale: ptBR }),
+        value: filteredLeads.filter(lead =>
+          format(new Date(lead.created_at), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+        ).length
+      };
+    }).reverse();
+
+    const statusCounts = filteredLeads.reduce((acc: Record<string, number>, lead) => {
+      acc[lead.status] = (acc[lead.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    const leadsByStatus = Object.entries(statusCounts).map(([status, count]) => ({
+      name: status?.replace('_', ' ') || 'Outro',
+      value: count
+    }));
+
+    const conversionFunnel = [
+      { name: 'Leads', value: totalLeads },
+      { name: 'Visitas', value: totalVisits },
+      { name: 'Vendas', value: filteredVendas.length },
+    ];
+
+    const corretorPerformance = corretoresData.slice(0, 5).map(c => ({
+      name: `${c.profiles.first_name} ${c.profiles.last_name}`,
+      visitas: c.total_visitas || 0,
+      nota: c.nota_media || 0,
+    }));
+
+    const visitsByMonth = filteredVisitas.reduce((acc: any[], visita) => {
+      const month = format(new Date(visita.data_visita), 'MMM', { locale: ptBR });
+      const existing = acc.find(item => item.month === month);
+
+      if (existing) {
+        if (visita.status === 'realizada') existing.realizadas++;
+        else existing.agendadas++;
+      } else {
+        acc.push({
+          month,
+          realizadas: visita.status === 'realizada' ? 1 : 0,
+          agendadas: visita.status !== 'realizada' ? 1 : 0,
+        });
+      }
+      return acc;
+    }, []);
+
+    const leadSources = filteredLeads.reduce((acc: { name: string; value: number }[], lead) => {
+      const key = lead.status?.replace('_', ' ') || 'Outro';
+      const existing = acc.find(s => s.name === key);
+      if (existing) existing.value++;
+      else acc.push({ name: key, value: 1 });
+      return acc;
+    }, []);
+
+    setGeneratedReportConfig({
+      name: config.name || 'Relatório de Performance',
+      description: config.description || 'Relatório detalhado gerado dinamicamente com filtros do sistema.',
+      period: config.period,
+      charts: config.charts,
+      metrics: config.metrics,
+      filters: config.filters
+    });
+    setGeneratedReportData({
+      leadsOverTime,
+      leadsByStatus,
+      conversionFunnel,
+      corretorPerformance,
+      visitsByMonth,
+      leadSources,
+      metrics: {
+        totalLeads,
+        conversionRate,
+        totalVisits,
+        avgRating: computedAvgRating,
+        totalRevenue
+      },
+      rawLeads: filteredLeads,
+      rawVisitas: filteredVisitas,
+      rawVendas: filteredVendas
+    });
+    setGeneratedReportOpen(true);
+  };
+
+  const handleExportDashboard = async () => {
+    try {
+      toast({
+        title: "Exportando dados...",
+        description: "Carregando planilha do dashboard.",
+      });
+
+      const payload = leadsData.map(l => ({
+        Nome: l.nome || 'Sem Nome',
+        Status: l.status ? l.status.replace(/_/g, ' ') : 'Novo',
+        CriadoEm: format(new Date(l.created_at), 'dd/MM/yyyy HH:mm')
+      }));
+
+      const response = await supabase.functions.invoke('export-reports', {
+        body: {
+          format: 'csv',
+          data: payload,
+          title: 'Dashboard_Leads',
+          period: '30_dias'
+        }
+      });
+
+      if (response.error) throw new Error(response.error.message || 'Erro ao exportar');
+
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `leads_dashboard_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Exportação Concluída",
+        description: "Os dados do dashboard foram salvos em CSV.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Erro ao exportar",
+        description: err.message || "Não foi possível exportar os dados do dashboard.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -212,10 +476,7 @@ export default function Relatorios() {
             </Button>
             <Button
               className="flex items-center gap-2"
-              onClick={() => toast({
-                title: "Exportar Dados",
-                description: "A exportação para Excel/CSV será implementada em breve.",
-              })}
+              onClick={handleExportDashboard}
             >
               <Download className="w-4 h-4" />
               Exportar Dados
@@ -405,7 +666,10 @@ export default function Relatorios() {
 
           {/* Templates Tab */}
           <TabsContent value="templates">
-            <ReportTemplateManager onSelectTemplate={handleSelectTemplate} />
+            <ReportTemplateManager 
+              onSelectTemplate={handleSelectTemplate} 
+              onNewTemplate={() => { setSelectedTemplate(null); setActiveTab('builder'); }}
+            />
           </TabsContent>
 
           {/* Builder Tab */}
@@ -427,15 +691,54 @@ export default function Relatorios() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Clock className="w-12 h-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Nenhum relatório agendado</h3>
-                  <p>Configure relatórios automáticos para receber insights regulares.</p>
-                  <Button className="mt-4" onClick={() => setScheduleModalOpen(true)}>
-                    <Clock className="w-4 h-4 mr-2" />
-                    Agendar Primeiro Relatório
-                  </Button>
-                </div>
+                {scheduledReports.length > 0 ? (
+                  <div className="space-y-4">
+                    {scheduledReports.map((schedule: any) => (
+                      <div
+                        key={schedule.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:shadow-sm transition-shadow"
+                      >
+                        <div className="space-y-1">
+                          <h4 className="font-semibold text-sm">
+                            {schedule.report_templates?.name || 'Template de Relatório'}
+                          </h4>
+                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mt-1">
+                            <Badge variant="secondary" className="capitalize">
+                              {schedule.schedule_type === 'daily' ? 'Diário' :
+                               schedule.schedule_type === 'weekly' ? 'Semanal' :
+                               schedule.schedule_type === 'monthly' ? 'Mensal' : 'Trimestral'}
+                            </Badge>
+                            <span>•</span>
+                            <span>Próximo envio: {new Date(schedule.next_run).toLocaleDateString('pt-BR')}</span>
+                            <span>•</span>
+                            <span className="truncate max-w-[200px]" title={schedule.recipients.join(', ')}>
+                              Destinatários: {schedule.recipients.length} email(s)
+                            </span>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/5"
+                          onClick={() => deleteScheduleMutation.mutate(schedule.id)}
+                          disabled={deleteScheduleMutation.isPending}
+                        >
+                          Cancelar Agendamento
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Clock className="w-12 h-12 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Nenhum relatório agendado</h3>
+                    <p>Configure relatórios automáticos para receber insights regulares.</p>
+                    <Button className="mt-4" onClick={() => setScheduleModalOpen(true)}>
+                      <Clock className="w-4 h-4 mr-2" />
+                      Agendar Primeiro Relatório
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -447,6 +750,16 @@ export default function Relatorios() {
           onOpenChange={setScheduleModalOpen}
           template={selectedTemplate}
         />
+
+        {/* Generated Report Dialog */}
+        {generatedReportConfig && generatedReportData && (
+          <GeneratedReportDialog
+            open={generatedReportOpen}
+            onOpenChange={setGeneratedReportOpen}
+            config={generatedReportConfig}
+            data={generatedReportData}
+          />
+        )}
       </div>
     </DashboardLayout>
   );

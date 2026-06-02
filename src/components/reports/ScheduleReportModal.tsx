@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -38,13 +38,42 @@ export function ScheduleReportModal({ open, onOpenChange, template }: ScheduleRe
     email_message: '',
   });
 
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+
   const { toast } = useToast();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
 
+  // Load templates list if no template is pre-selected
+  const { data: templates = [] } = useQuery({
+    queryKey: ['report-templates-dropdown'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('report_templates')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !template,
+  });
+
+  useEffect(() => {
+    if (open) {
+      if (template) {
+        setSelectedTemplateId(template.id);
+      } else {
+        setSelectedTemplateId('');
+      }
+    }
+  }, [template, open]);
+
   const scheduleReportMutation = useMutation({
     mutationFn: async (scheduleData: any) => {
-      if (!template || !profile) throw new Error('Template ou perfil não encontrado');
+      const activeTemplateId = template?.id || selectedTemplateId;
+      if (!activeTemplateId || !profile) throw new Error('Template ou perfil não encontrado');
+
+      const activeTemplateName = template?.name || templates.find(t => t.id === activeTemplateId)?.name || 'Personalizado';
 
       // Calculate next run date based on schedule type
       const now = new Date();
@@ -68,10 +97,10 @@ export function ScheduleReportModal({ open, onOpenChange, template }: ScheduleRe
       const { error } = await supabase
         .from('scheduled_reports')
         .insert({
-          report_template_id: template.id,
+          report_template_id: activeTemplateId,
           schedule_type: scheduleData.schedule_type,
           recipients: scheduleData.recipients.filter((email: string) => email.trim()),
-          email_subject: scheduleData.email_subject || `Relatório ${template.name}`,
+          email_subject: scheduleData.email_subject || `Relatório ${activeTemplateName}`,
           email_message: scheduleData.email_message,
           next_run: nextRun.toISOString(),
           created_by: profile.id,
@@ -132,6 +161,16 @@ export function ScheduleReportModal({ open, onOpenChange, template }: ScheduleRe
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const activeTemplateId = template?.id || selectedTemplateId;
+    if (!activeTemplateId) {
+      toast({
+        title: 'Template obrigatório',
+        description: 'Por favor, selecione um template para agendar.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const validRecipients = formData.recipients.filter(email => email.trim() && email.includes('@'));
     if (validRecipients.length === 0) {
       toast({
@@ -158,7 +197,7 @@ export function ScheduleReportModal({ open, onOpenChange, template }: ScheduleRe
     }
   };
 
-  if (!template) return null;
+  // Removed early return to allow open when template is null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -169,11 +208,38 @@ export function ScheduleReportModal({ open, onOpenChange, template }: ScheduleRe
             Agendar Relatório
           </DialogTitle>
           <DialogDescription>
-            Configure o envio automático do relatório "{template.name}"
+            {template 
+              ? `Configure o envio automático do relatório "${template.name}"` 
+              : "Configure o envio automático de um relatório personalizado"}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Template Selection dropdown if not pre-provided */}
+          {!template && (
+            <div className="space-y-2">
+              <Label htmlFor="template_id">Selecione o Relatório Template *</Label>
+              <Select
+                value={selectedTemplateId}
+                onValueChange={setSelectedTemplateId}
+              >
+                <SelectTrigger id="template_id">
+                  <SelectValue placeholder="Selecione um relatório..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.length === 0 ? (
+                    <SelectItem value="none" disabled>Nenhum template disponível</SelectItem>
+                  ) : (
+                    templates.map(t => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {/* Schedule Type */}
           <div className="space-y-2">
             <Label htmlFor="schedule_type">Frequência de Envio</Label>
@@ -263,7 +329,7 @@ export function ScheduleReportModal({ open, onOpenChange, template }: ScheduleRe
             <Label htmlFor="email_subject">Assunto do Email</Label>
             <Input
               id="email_subject"
-              placeholder={`Relatório ${template.name}`}
+              placeholder={template ? `Relatório ${template.name}` : "Assunto do email"}
               value={formData.email_subject}
               onChange={(e) => setFormData(prev => ({ ...prev, email_subject: e.target.value }))}
             />
@@ -287,7 +353,9 @@ export function ScheduleReportModal({ open, onOpenChange, template }: ScheduleRe
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
                 <span>Relatório:</span>
-                <Badge variant="outline">{template.name}</Badge>
+                <Badge variant="outline">
+                  {template?.name || templates.find(t => t.id === selectedTemplateId)?.name || 'Nenhum selecionado'}
+                </Badge>
               </div>
               <div className="flex justify-between">
                 <span>Frequência:</span>

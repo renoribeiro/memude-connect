@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +57,7 @@ const AVAILABLE_METRICS = [
 ];
 
 export function ReportBuilder({ template, onSave, onGenerate }: ReportBuilderProps) {
+  const { toast } = useToast();
   const [config, setConfig] = useState({
     name: template?.name || '',
     description: template?.description || '',
@@ -104,6 +106,23 @@ export function ReportBuilder({ template, onSave, onGenerate }: ReportBuilderPro
     ]
   });
 
+  useEffect(() => {
+    setConfig({
+      name: template?.name || '',
+      description: template?.description || '',
+      category: template?.category || 'custom',
+      period: template?.template_config?.period || 'monthly',
+      charts: template?.template_config?.charts || [],
+      metrics: template?.template_config?.metrics || [],
+      filters: template?.template_config?.filters || {
+        empreendimento: '',
+        corretor: '',
+        status: '',
+        date_range: 'last_30_days'
+      }
+    });
+  }, [template]);
+
   const handleChartToggle = (chartId: string) => {
     setConfig(prev => ({
       ...prev,
@@ -123,6 +142,15 @@ export function ReportBuilder({ template, onSave, onGenerate }: ReportBuilderPro
   };
 
   const handleSave = () => {
+    if (!config.name.trim()) {
+      toast({
+        title: 'Nome obrigatório',
+        description: 'Por favor, insira um nome para o template.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const templateData: ReportTemplate = {
       id: template?.id,
       name: config.name,

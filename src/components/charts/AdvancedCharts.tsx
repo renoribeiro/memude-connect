@@ -171,7 +171,7 @@ export function AdvancedCharts({
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={corretorPerformance} layout="horizontal">
+            <BarChart data={corretorPerformance} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis type="number" tick={{ fontSize: 12 }} />
               <YAxis 

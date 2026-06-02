@@ -41,6 +41,16 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
     phone: '',
   });
 
+  const [corretorData, setCorretorData] = useState({
+    creci: '',
+    cpf: '',
+    whatsapp: '',
+    cidade: '',
+    estado: 'CE',
+    tipo_imovel: 'todos',
+    observacoes: '',
+  });
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -55,6 +65,41 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
       });
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user && formData.role === 'corretor') {
+      const fetchCorretor = async () => {
+        const { data, error } = await supabase
+          .from('corretores')
+          .select('*')
+          .eq('profile_id', user.id)
+          .maybeSingle();
+        
+        if (data) {
+          setCorretorData({
+            creci: data.creci || '',
+            cpf: data.cpf || '',
+            whatsapp: data.whatsapp || data.telefone || '',
+            cidade: data.cidade || '',
+            estado: data.estado || 'CE',
+            tipo_imovel: data.tipo_imovel || 'todos',
+            observacoes: data.observacoes || '',
+          });
+        } else {
+          setCorretorData({
+            creci: '',
+            cpf: '',
+            whatsapp: user.phone || '',
+            cidade: '',
+            estado: 'CE',
+            tipo_imovel: 'todos',
+            observacoes: '',
+          });
+        }
+      };
+      fetchCorretor();
+    }
+  }, [formData.role, user]);
 
   const updateUserMutation = useMutation({
     mutationFn: async (userData: typeof formData) => {
@@ -77,6 +122,48 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
 
       if (error) throw error;
       if (!data.success) throw new Error(data.error);
+
+      // If role is corretor, we update or insert corretores table details
+      if (userData.role === 'corretor') {
+        const { data: existingCorretor } = await supabase
+          .from('corretores')
+          .select('id')
+          .eq('profile_id', user.id)
+          .maybeSingle();
+
+        const corretorPayload = {
+          creci: corretorData.creci,
+          cpf: corretorData.cpf || null,
+          whatsapp: corretorData.whatsapp || userData.phone || '',
+          telefone: userData.phone || null,
+          cidade: corretorData.cidade || null,
+          estado: corretorData.estado || 'CE',
+          tipo_imovel: corretorData.tipo_imovel || 'todos',
+          observacoes: corretorData.observacoes || null,
+          email: userData.email,
+        };
+
+        if (existingCorretor) {
+          const { error: corretorUpdateError } = await supabase
+            .from('corretores')
+            .update(corretorPayload)
+            .eq('id', existingCorretor.id);
+          
+          if (corretorUpdateError) throw corretorUpdateError;
+        } else {
+          const { error: corretorInsertError } = await supabase
+            .from('corretores')
+            .insert({
+              profile_id: user.id,
+              status: 'ativo',
+              nota_media: 5.0,
+              total_visitas: 0,
+              ...corretorPayload
+            });
+
+          if (corretorInsertError) throw corretorInsertError;
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['managed-users'] });
@@ -101,6 +188,14 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
       toast({
         title: 'Campos obrigatórios',
         description: 'Nome, sobrenome e email são obrigatórios.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (formData.role === 'corretor' && !corretorData.creci) {
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'CRECI é obrigatório para corretores.',
         variant: 'destructive',
       });
       return;
@@ -191,6 +286,120 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
               </SelectContent>
             </Select>
           </div>
+
+          {formData.role === 'corretor' && (
+            <div className="space-y-4 pt-4 border-t border-gray-100">
+              <div className="flex items-center gap-2 text-primary font-semibold text-sm">
+                <Award className="w-4 h-4" />
+                <span>Dados Profissionais do Corretor</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="creci">CRECI *</Label>
+                  <Input
+                    id="creci"
+                    placeholder="Ex: 12345-F"
+                    value={corretorData.creci}
+                    onChange={(e) => setCorretorData(prev => ({ ...prev, creci: e.target.value }))}
+                    required={formData.role === 'corretor'}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cpf">CPF</Label>
+                  <Input
+                    id="cpf"
+                    placeholder="Ex: 000.000.000-00"
+                    value={corretorData.cpf}
+                    onChange={(e) => setCorretorData(prev => ({ ...prev, cpf: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp">WhatsApp *</Label>
+                  <Input
+                    id="whatsapp"
+                    placeholder="Ex: (85) 99999-9999"
+                    value={corretorData.whatsapp}
+                    onChange={(e) => setCorretorData(prev => ({ ...prev, whatsapp: e.target.value }))}
+                    required={formData.role === 'corretor'}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cidade">Cidade</Label>
+                  <Input
+                    id="cidade"
+                    placeholder="Ex: Fortaleza"
+                    value={corretorData.cidade}
+                    onChange={(e) => setCorretorData(prev => ({ ...prev, cidade: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="estado">Estado</Label>
+                  <Select value={corretorData.estado} onValueChange={(value) => setCorretorData(prev => ({ ...prev, estado: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AC">Acre</SelectItem>
+                      <SelectItem value="AL">Alagoas</SelectItem>
+                      <SelectItem value="AP">Amapá</SelectItem>
+                      <SelectItem value="AM">Amazonas</SelectItem>
+                      <SelectItem value="BA">Bahia</SelectItem>
+                      <SelectItem value="CE">Ceará</SelectItem>
+                      <SelectItem value="DF">Distrito Federal</SelectItem>
+                      <SelectItem value="ES">Espírito Santo</SelectItem>
+                      <SelectItem value="GO">Goiás</SelectItem>
+                      <SelectItem value="MA">Maranhão</SelectItem>
+                      <SelectItem value="MT">Mato Grosso</SelectItem>
+                      <SelectItem value="MS">Mato Grosso do Sul</SelectItem>
+                      <SelectItem value="MG">Minas Gerais</SelectItem>
+                      <SelectItem value="PA">Pará</SelectItem>
+                      <SelectItem value="PB">Paraíba</SelectItem>
+                      <SelectItem value="PR">Paraná</SelectItem>
+                      <SelectItem value="PE">Pernambuco</SelectItem>
+                      <SelectItem value="PI">Piauí</SelectItem>
+                      <SelectItem value="RJ">Rio de Janeiro</SelectItem>
+                      <SelectItem value="RN">Rio Grande do Norte</SelectItem>
+                      <SelectItem value="RS">Rio Grande do Sul</SelectItem>
+                      <SelectItem value="RO">Rondônia</SelectItem>
+                      <SelectItem value="RR">Roraima</SelectItem>
+                      <SelectItem value="SC">Santa Catarina</SelectItem>
+                      <SelectItem value="SP">São Paulo</SelectItem>
+                      <SelectItem value="SE">Sergipe</SelectItem>
+                      <SelectItem value="TO">Tocantins</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tipo_imovel">Tipo de Imóvel</Label>
+                  <Select value={corretorData.tipo_imovel} onValueChange={(value: any) => setCorretorData(prev => ({ ...prev, tipo_imovel: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos</SelectItem>
+                      <SelectItem value="residencial">Residencial</SelectItem>
+                      <SelectItem value="comercial">Comercial</SelectItem>
+                      <SelectItem value="terreno">Terreno</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="observacoes">Observações</Label>
+                <Textarea
+                  id="observacoes"
+                  placeholder="Informações adicionais do corretor..."
+                  value={corretorData.observacoes}
+                  onChange={(e) => setCorretorData(prev => ({ ...prev, observacoes: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end space-x-2 pt-4">
             <Button

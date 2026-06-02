@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Loader2, DollarSign, TrendingDown, ArrowRight } from 'lucide-react';
+import { CalendarIcon, Loader2, DollarSign, TrendingDown, ArrowRight, Paperclip } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/utils/formatters';
@@ -56,6 +56,8 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
     const [dataVenda, setDataVenda] = useState<Date>(new Date());
     const [dataPagamento, setDataPagamento] = useState<Date | undefined>();
     const [observacoes, setObservacoes] = useState('');
+    const [comprovantes, setComprovantes] = useState<string[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
 
     // Fetch system settings for defaults
     const { data: settings } = useQuery({
@@ -158,6 +160,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
             setDataVenda(vendaData.data_venda ? new Date(vendaData.data_venda + 'T12:00:00') : new Date());
             setDataPagamento(vendaData.data_pagamento ? new Date(vendaData.data_pagamento + 'T12:00:00') : undefined);
             setObservacoes(vendaData.observacoes || '');
+            setComprovantes(vendaData.comprovantes || []);
         }
     }, [vendaData]);
 
@@ -175,6 +178,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
             setDataVenda(new Date());
             setDataPagamento(undefined);
             setObservacoes('');
+            setComprovantes([]);
         }
     }, [isOpen]);
 
@@ -220,6 +224,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                 data_pagamento: dataPagamento ? format(dataPagamento, 'yyyy-MM-dd') : null,
                 observacoes: observacoes || null,
                 created_by: profile?.id,
+                comprovantes,
             };
 
             if (isEditing) {
@@ -262,6 +267,66 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
             });
         },
     });
+
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+
+        const file = files[0];
+        if (file.size > 5 * 1024 * 1024) {
+            toast({
+                title: 'Arquivo muito grande',
+                description: 'O tamanho máximo do comprovante é de 5MB.',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+        if (!allowedTypes.includes(file.type)) {
+            toast({
+                title: 'Formato não suportado',
+                description: 'Selecione um arquivo PDF ou imagem (PNG, JPG).',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        try {
+            setIsUploading(true);
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            const { data, error } = await supabase.storage
+                .from('comprovantes')
+                .upload(filePath, file);
+
+            if (error) throw error;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('comprovantes')
+                .getPublicUrl(filePath);
+
+            setComprovantes(prev => [...prev, publicUrl]);
+            toast({
+                title: 'Upload concluído',
+                description: 'O comprovante foi anexado com sucesso.',
+            });
+        } catch (error: any) {
+            toast({
+                title: 'Erro no upload',
+                description: error.message || 'Não foi possível enviar o arquivo.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleRemoveFile = (urlToRemove: string) => {
+        setComprovantes(prev => prev.filter(url => url !== urlToRemove));
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -513,14 +578,83 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex justify-end gap-3 pt-2">
-                        <Button type="button" variant="outline" onClick={onClose}>
-                            Cancelar
-                        </Button>
-                        <Button type="submit" disabled={saveMutation.isPending} className="shadow-glow">
-                            {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {isEditing ? 'Salvar Alterações' : 'Registrar Venda'}
-                        </Button>
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 pt-4 border-t">
+                        <div className="flex flex-col items-start gap-2 max-w-full sm:max-w-[65%] w-full">
+                            <Label className="text-xs text-muted-foreground font-medium">Comprovantes de Pagamento</Label>
+                            
+                            {comprovantes.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto mb-1 w-full">
+                                    {comprovantes.map((url, idx) => {
+                                        const decodedUrl = decodeURIComponent(url);
+                                        const fileName = decodedUrl.split('/').pop() || `Comprovante ${idx + 1}`;
+                                        const displayName = fileName.length > 25 
+                                            ? fileName.substring(0, 22) + '...'
+                                            : fileName;
+                                        return (
+                                            <Badge key={url} variant="secondary" className="flex items-center gap-1 text-xs py-0.5 px-2 bg-slate-100 hover:bg-slate-200">
+                                                <a 
+                                                    href={url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="underline hover:text-primary truncate max-w-[150px]"
+                                                    title={fileName}
+                                                >
+                                                    {displayName}
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveFile(url)}
+                                                    className="text-muted-foreground hover:text-destructive ml-1 text-sm font-bold leading-none focus:outline-none"
+                                                >
+                                                    &times;
+                                                </button>
+                                            </Badge>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    id="comprovante-upload"
+                                    className="hidden"
+                                    onChange={handleFileUpload}
+                                    accept=".pdf,image/png,image/jpeg,image/jpg"
+                                    disabled={isUploading}
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs px-2.5 flex items-center gap-1.5"
+                                    disabled={isUploading}
+                                    onClick={() => document.getElementById('comprovante-upload')?.click()}
+                                >
+                                    {isUploading ? (
+                                        <>
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                            Enviando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Paperclip className="h-3 w-3" />
+                                            Anexar Comprovante
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2 self-end">
+                            <Button type="button" variant="outline" onClick={onClose} size="sm">
+                                Cancelar
+                            </Button>
+                            <Button type="submit" disabled={saveMutation.isPending || isUploading} className="shadow-glow" size="sm">
+                                {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {isEditing ? 'Salvar Alterações' : 'Registrar Venda'}
+                            </Button>
+                        </div>
                     </div>
                 </form>
             </DialogContent>

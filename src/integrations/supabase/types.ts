@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -3124,6 +3124,7 @@ export type Database = {
       vendas: {
         Row: {
           comissao_percentual: number
+          comprovantes: string[] | null
           corretor_id: string | null
           created_at: string | null
           created_by: string | null
@@ -3147,6 +3148,7 @@ export type Database = {
         }
         Insert: {
           comissao_percentual?: number
+          comprovantes?: string[] | null
           corretor_id?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -3170,6 +3172,7 @@ export type Database = {
         }
         Update: {
           comissao_percentual?: number
+          comprovantes?: string[] | null
           corretor_id?: string | null
           created_at?: string | null
           created_by?: string | null

@@ -73,6 +73,8 @@ const STATUS_OPTIONS = [
 
 export default function CorretorForm({ initialData, onSuccess, onCancel }: CorretorFormProps) {
   const queryClient = useQueryClient();
+  const [userMode, setUserMode] = useState<'novo' | 'existente'>('novo');
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const [selectedBairros, setSelectedBairros] = useState<string[]>([]);
   const [selectedConstrutoras, setSelectedConstrutoras] = useState<string[]>([]);
   const [bairroSearch, setBairroSearch] = useState('');
@@ -129,6 +131,41 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
       if (error) throw error;
       return data;
     }
+  });
+
+  // Buscar perfis de usuários disponíveis (não vinculados a corretores)
+  const { data: availableProfiles = [] } = useQuery({
+    queryKey: ['available-profiles-for-corretor', userMode],
+    queryFn: async () => {
+      const { data: manageUserData, error: manageUserError } = await supabase.functions.invoke('manage-user', {
+        body: { action: 'list' }
+      });
+
+      if (manageUserError) throw manageUserError;
+      if (!manageUserData?.success) throw new Error(manageUserData?.error || 'Erro ao carregar usuários');
+
+      const allUsers = (manageUserData.users || []) as any[];
+
+      const { data: corretoresData, error: corretoresError } = await supabase
+        .from('corretores')
+        .select('profile_id')
+        .is('deleted_at', null);
+
+      if (corretoresError) throw corretoresError;
+
+      const linkedProfileIds = new Set(corretoresData.map((c: any) => c.profile_id));
+      
+      return allUsers
+        .filter(u => !linkedProfileIds.has(u.id))
+        .map(u => ({
+          id: u.id,
+          nome: `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Sem Nome',
+          phone: u.phone || '',
+          email: u.email || ''
+        }))
+        .sort((a, b) => a.nome.localeCompare(b.nome));
+    },
+    enabled: userMode === 'existente' && !initialData?.id
   });
 
   // Estados para busca e filtro
@@ -201,62 +238,128 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
       }
 
       try {
-        // Create new corretor - first create user via edge function
-        const tempEmail = email || `${creci}@temp.memude.com`;
-        const tempPassword = `Memude@${creci}`;
+        let profileId = '';
 
-        const [firstName, ...lastNameParts] = nome.split(' ');
-        const lastName = lastNameParts.join(' ') || 'Corretor';
+        if (userMode === 'novo') {
+          // Create new corretor - first create user via edge function
+          const tempEmail = email || `${creci}@temp.memude.com`;
+          const tempPassword = `Memude@${creci}`;
 
-        // Create auth user using edge function (has service_role permissions)
-        const { data: userData, error: userError } = await supabase.functions.invoke('create-user', {
-          body: {
-            email: tempEmail,
-            password: tempPassword,
-            first_name: firstName,
-            last_name: lastName,
-            role: 'corretor',
-            phone: telefone
+          const [firstName, ...lastNameParts] = nome.split(' ');
+          const lastName = lastNameParts.join(' ') || 'Corretor';
+
+          // Create auth user using edge function (has service_role permissions)
+          const { data: userData, error: userError } = await supabase.functions.invoke('create-user', {
+            body: {
+              email: tempEmail,
+              password: tempPassword,
+              first_name: firstName,
+              last_name: lastName,
+              role: 'corretor',
+              phone: telefone
+            }
+          });
+
+          if (userError) throw userError;
+          if (!userData?.user?.id) throw new Error('Falha ao criar usuário');
+
+          const userId = userData.user.id;
+
+          // Fetch the profile created by the edge function
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+
+          if (profileError) throw profileError;
+          if (!profile) throw new Error('Falha ao buscar perfil do usuário');
+
+          profileId = profile.id;
+        } else {
+          // Vincular a usuário existente
+          if (!selectedProfileId) {
+            throw new Error('Selecione um usuário para vincular');
           }
-        });
+          profileId = selectedProfileId;
 
-        if (userError) throw userError;
-        if (!userData?.user?.id) throw new Error('Falha ao criar usuário');
+          // Garantir que a função do usuário na tabela user_roles seja 'corretor'
+          const { data: profileData, error: profileFetchError } = await supabase
+            .from('profiles')
+            .select('user_id')
+            .eq('id', profileId)
+            .single();
 
-        const userId = userData.user.id;
+          if (profileFetchError) throw profileFetchError;
 
-        // Fetch the profile created by the edge function
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', userId)
-          .single();
+          const { error: roleUpsertError } = await supabase
+            .from('user_roles')
+            .upsert({
+              user_id: profileData.user_id,
+              role: 'corretor'
+            }, {
+              onConflict: 'user_id,role'
+            });
 
-        if (profileError) throw profileError;
-        if (!profile) throw new Error('Falha ao buscar perfil do usuário');
+          if (roleUpsertError) throw roleUpsertError;
+        }
 
-        // Create corretor
-        const { data: corretor, error: corretorError } = await supabase
+        // Check if corretor record exists (it might due to trigger!)
+        const { data: existingCorretor } = await supabase
           .from('corretores')
-          .insert({
-            creci,
-            whatsapp: telefone, // Usar telefone no lugar de whatsapp
-            telefone,
-            email: email || null,
-            cpf: cpf || null,
-            cidade,
-            estado,
-            tipo_imovel,
-            observacoes: observacoes || null,
-            status: status || 'em_avaliacao',
-            nota_media: nota_media || 0,
-            data_avaliacao: (nota_media && nota_media > 0) ? new Date().toISOString().split('T')[0] : null,
-            profile_id: profile.id
-          })
-          .select()
-          .single();
+          .select('id')
+          .eq('profile_id', profileId)
+          .maybeSingle();
 
-        if (corretorError) throw corretorError;
+        let corretor;
+
+        if (existingCorretor) {
+          const { data: updatedCorretor, error: corretorError } = await supabase
+            .from('corretores')
+            .update({
+              creci,
+              whatsapp: telefone,
+              telefone,
+              email: email || null,
+              cpf: cpf || null,
+              cidade,
+              estado,
+              tipo_imovel,
+              observacoes: observacoes || null,
+              status: status || 'em_avaliacao',
+              nota_media: nota_media || 0,
+              data_avaliacao: (nota_media && nota_media > 0) ? new Date().toISOString().split('T')[0] : null,
+            })
+            .eq('id', existingCorretor.id)
+            .select()
+            .single();
+
+          if (corretorError) throw corretorError;
+          corretor = updatedCorretor;
+        } else {
+          const { data: insertedCorretor, error: corretorError } = await supabase
+            .from('corretores')
+            .insert({
+              creci,
+              whatsapp: telefone,
+              telefone,
+              email: email || null,
+              cpf: cpf || null,
+              cidade,
+              estado,
+              tipo_imovel,
+              observacoes: observacoes || null,
+              status: status || 'em_avaliacao',
+              nota_media: nota_media || 0,
+              data_avaliacao: (nota_media && nota_media > 0) ? new Date().toISOString().split('T')[0] : null,
+              profile_id: profileId
+            })
+            .select()
+            .single();
+
+          if (corretorError) throw corretorError;
+          corretor = insertedCorretor;
+        }
 
         // Associate bairros
         if (selectedBairros.length > 0) {
@@ -286,42 +389,20 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
           if (construtorasError) throw construtorasError;
         }
 
-        // Note: Password reset link generation removed as create-user edge function doesn't support it
-        // User will receive welcome email/WhatsApp with temporary credentials
-        const resetUrl = `${window.location.origin}/auth?mode=reset`;
+        if (userMode === 'novo') {
+          const tempEmail = email || `${creci}@temp.memude.com`;
+          const resetUrl = `${window.location.origin}/auth?mode=reset`;
 
-        try {
-          // Send welcome email
-          const { error: emailError } = await supabase.functions.invoke('send-welcome-email', {
-            body: {
-              email: tempEmail,
-              name: nome,
-              creci,
-              resetUrl: resetUrl
-            }
-          });
-
-          if (emailError) {
-            console.error('Error sending welcome email:', emailError);
+          try {
+            await supabase.functions.invoke('send-welcome-email', {
+              body: { email: tempEmail, name: nome, creci, resetUrl }
+            });
+            await supabase.functions.invoke('send-whatsapp-invitation', {
+              body: { phone_number: telefone, name: nome, creci, email: tempEmail, resetUrl, corretor_id: corretor.id }
+            });
+          } catch (notificationError) {
+            console.error('Error sending notifications:', notificationError);
           }
-
-          // Send WhatsApp invitation
-          const { error: whatsappError } = await supabase.functions.invoke('send-whatsapp-invitation', {
-            body: {
-              phone_number: telefone,
-              name: nome,
-              creci,
-              email: tempEmail,
-              resetUrl: resetUrl,
-              corretor_id: corretor.id
-            }
-          });
-
-          if (whatsappError) {
-            console.error('Error sending WhatsApp invitation:', whatsappError);
-          }
-        } catch (notificationError) {
-          console.error('Error sending notifications:', notificationError);
         }
 
         return corretor;
@@ -332,13 +413,20 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['corretores'] });
-      const tempEmail = variables.email || `${variables.creci}@temp.memude.com`;
-      const tempPassword = `Memude@${variables.creci}`;
-      toast({
-        title: "Corretor cadastrado com sucesso!",
-        description: `Credenciais de acesso criadas:\nEmail: ${tempEmail}\nSenha: ${tempPassword}\n\nRepasse essas credenciais ao corretor.`,
-        duration: 20000,
-      });
+      if (userMode === 'novo') {
+        const tempEmail = variables.email || `${variables.creci}@temp.memude.com`;
+        const tempPassword = `Memude@${variables.creci}`;
+        toast({
+          title: "Corretor cadastrado com sucesso!",
+          description: `Credenciais de acesso criadas:\nEmail: ${tempEmail}\nSenha: ${tempPassword}\n\nRepasse essas credenciais ao corretor.`,
+          duration: 20000,
+        });
+      } else {
+        toast({
+          title: "Corretor cadastrado com sucesso!",
+          description: "O corretor foi vinculado com sucesso ao usuário existente.",
+        });
+      }
       onSuccess();
     },
     onError: (error: any) => {
@@ -455,12 +543,20 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
   });
 
   const onSubmit = (formData: CorretorFormData) => {
-    // Garantir que os arrays estão atualizados antes da validação
     const updatedData = {
       ...formData,
       bairros: selectedBairros,
       construtoras: selectedConstrutoras
     };
+
+    if (userMode === 'existente' && !selectedProfileId && !initialData?.id) {
+      toast({
+        title: "Usuário não selecionado",
+        description: "Por favor, selecione um usuário existente para vincular.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     if (initialData?.id) {
       updateCorretorMutation.mutate(updatedData);
@@ -496,72 +592,208 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="nome">Nome Completo *</Label>
-              <Input
-                id="nome"
-                {...form.register("nome")}
-                placeholder="Nome completo do corretor"
-              />
-              {form.formState.errors.nome && (
-                <p className="text-sm text-destructive">{form.formState.errors.nome.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="cpf">CPF</Label>
-              <div className="relative">
-                <Input
-                  id="cpf"
-                  {...form.register("cpf")}
-                  placeholder="000.000.000-00"
-                  onChange={(e) => {
-                    const maskedValue = applyMask(e.target.value, 'cpf');
-                    form.setValue('cpf', maskedValue);
+          {!initialData?.id && (
+            <div className="flex flex-col space-y-2 pb-4 border-b border-gray-100">
+              <Label className="text-sm font-semibold text-muted-foreground">Configuração de Conta do Corretor</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={userMode === 'novo' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setUserMode('novo');
+                    form.setValue('nome', '');
+                    form.setValue('telefone', '');
+                    form.setValue('email', '');
+                    setSelectedProfileId('');
                   }}
-                />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  {form.watch('cpf') && (
-                    validateCPF(form.watch('cpf')) ?
-                      <CheckCircle className="h-4 w-4 text-green-500" /> :
-                      <XCircle className="h-4 w-4 text-red-500" />
+                  className="text-xs"
+                >
+                  Criar Novo Usuário
+                </Button>
+                <Button
+                  type="button"
+                  variant={userMode === 'existente' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setUserMode('existente');
+                    form.setValue('nome', '');
+                    form.setValue('telefone', '');
+                    form.setValue('email', '');
+                    setSelectedProfileId('');
+                  }}
+                  className="text-xs"
+                >
+                  Vincular a Usuário Existente
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {userMode === 'existente' && !initialData?.id ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="existing-profile">Selecionar Usuário Existente *</Label>
+                <Select value={selectedProfileId} onValueChange={(value) => {
+                  setSelectedProfileId(value);
+                  const selectedProfile = availableProfiles.find((p: any) => p.id === value);
+                  if (selectedProfile) {
+                    form.setValue('nome', selectedProfile.nome);
+                    form.setValue('telefone', selectedProfile.phone || '');
+                    form.setValue('email', selectedProfile.email || '');
+                  }
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o usuário..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableProfiles.length === 0 ? (
+                      <SelectItem value="none" disabled>Nenhum usuário disponível</SelectItem>
+                    ) : (
+                      availableProfiles.map((p: any) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.nome} {p.phone ? `(${p.phone})` : ''}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nome">Nome Completo *</Label>
+                  <Input
+                    id="nome"
+                    {...form.register("nome")}
+                    placeholder="Nome do usuário selecionado"
+                  />
+                  {form.formState.errors.nome && (
+                    <p className="text-sm text-destructive">{form.formState.errors.nome.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="telefone">Telefone *</Label>
+                  <PhoneInput
+                    value={form.watch("telefone")}
+                    onChange={(value) => form.setValue("telefone", value)}
+                    placeholder="(85) 99999-9999"
+                  />
+                  {form.formState.errors.telefone && (
+                    <p className="text-sm text-destructive">{form.formState.errors.telefone.message}</p>
                   )}
                 </div>
               </div>
-              {form.formState.errors.cpf && (
-                <p className="text-sm text-destructive">{form.formState.errors.cpf.message}</p>
-              )}
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="telefone">Telefone *</Label>
-              <PhoneInput
-                value={form.watch("telefone")}
-                onChange={(value) => form.setValue("telefone", value)}
-                placeholder="(85) 99999-9999"
-              />
-              <PhoneVerification phoneNumber={form.watch("telefone")} />
-              {form.formState.errors.telefone && (
-                <p className="text-sm text-destructive">{form.formState.errors.telefone.message}</p>
-              )}
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cpf">CPF</Label>
+                  <div className="relative">
+                    <Input
+                      id="cpf"
+                      {...form.register("cpf")}
+                      placeholder="000.000.000-00"
+                      onChange={(e) => {
+                        const maskedValue = applyMask(e.target.value, 'cpf');
+                        form.setValue('cpf', maskedValue);
+                      }}
+                    />
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      {form.watch('cpf') && (
+                        validateCPF(form.watch('cpf')) ?
+                          <CheckCircle className="h-4 w-4 text-green-500" /> :
+                          <XCircle className="h-4 w-4 text-red-500" />
+                      )}
+                    </div>
+                  </div>
+                  {form.formState.errors.cpf && (
+                    <p className="text-sm text-destructive">{form.formState.errors.cpf.message}</p>
+                  )}
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                {...form.register("email")}
-                placeholder="corretor@email.com"
-              />
-              {form.formState.errors.email && (
-                <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
-              )}
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    {...form.register("email")}
+                    placeholder="corretor@email.com"
+                    disabled
+                  />
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nome">Nome Completo *</Label>
+                  <Input
+                    id="nome"
+                    {...form.register("nome")}
+                    placeholder="Nome completo do corretor"
+                  />
+                  {form.formState.errors.nome && (
+                    <p className="text-sm text-destructive">{form.formState.errors.nome.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cpf">CPF</Label>
+                  <div className="relative">
+                    <Input
+                      id="cpf"
+                      {...form.register("cpf")}
+                      placeholder="000.000.000-00"
+                      onChange={(e) => {
+                        const maskedValue = applyMask(e.target.value, 'cpf');
+                        form.setValue('cpf', maskedValue);
+                      }}
+                    />
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      {form.watch('cpf') && (
+                        validateCPF(form.watch('cpf')) ?
+                          <CheckCircle className="h-4 w-4 text-green-500" /> :
+                          <XCircle className="h-4 w-4 text-red-500" />
+                      )}
+                    </div>
+                  </div>
+                  {form.formState.errors.cpf && (
+                    <p className="text-sm text-destructive">{form.formState.errors.cpf.message}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="telefone">Telefone *</Label>
+                  <PhoneInput
+                    value={form.watch("telefone")}
+                    onChange={(value) => form.setValue("telefone", value)}
+                    placeholder="(85) 99999-9999"
+                  />
+                  <PhoneVerification phoneNumber={form.watch("telefone")} />
+                  {form.formState.errors.telefone && (
+                    <p className="text-sm text-destructive">{form.formState.errors.telefone.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    {...form.register("email")}
+                    placeholder="corretor@email.com"
+                  />
+                  {form.formState.errors.email && (
+                    <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

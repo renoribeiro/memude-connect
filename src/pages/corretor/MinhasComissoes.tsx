@@ -13,6 +13,8 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
 import {
     DollarSign,
     TrendingUp,
@@ -20,6 +22,7 @@ import {
     CheckCircle2,
     AlertCircle,
     Loader2,
+    Paperclip,
 } from 'lucide-react';
 import { formatCurrency } from '@/utils/formatters';
 
@@ -34,6 +37,7 @@ interface Venda {
     is_venda_direta: boolean;
     leads: { nome: string } | null;
     empreendimentos: { nome: string } | null;
+    comprovantes: string[] | null;
 }
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -70,7 +74,8 @@ const MinhasComissoes = () => {
           data_pagamento,
           is_venda_direta,
           leads ( nome ),
-          empreendimentos ( nome )
+          empreendimentos ( nome ),
+          comprovantes
         `)
                 .eq('corretor_id', corretor.id)
                 .order('created_at', { ascending: false });
@@ -199,6 +204,32 @@ const MinhasComissoes = () => {
                                                     <span>{new Date(venda.data_pagamento + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
                                                 </div>
                                             )}
+                                            {venda.comprovantes && venda.comprovantes.length > 0 && (
+                                                <div className="flex flex-col gap-1 pt-2 border-t border-dashed">
+                                                    <span className="text-xs text-muted-foreground font-medium">Comprovantes:</span>
+                                                    <div className="flex flex-wrap gap-1.5 mt-1">
+                                                        {venda.comprovantes.map((url, idx) => {
+                                                            const decodedUrl = decodeURIComponent(url);
+                                                            const fileName = decodedUrl.split('/').pop() || `Comprovante ${idx + 1}`;
+                                                            const displayName = fileName.length > 25 
+                                                                ? fileName.substring(0, 22) + '...'
+                                                                : fileName;
+                                                            return (
+                                                                <a 
+                                                                    key={url}
+                                                                    href={url} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    className="inline-flex items-center gap-1.5 text-xs py-0.5 px-2.5 bg-slate-100 hover:bg-slate-200 rounded-full text-muted-foreground hover:text-foreground transition-colors font-medium"
+                                                                >
+                                                                    <Paperclip className="h-3 w-3" />
+                                                                    {displayName}
+                                                                </a>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -214,6 +245,7 @@ const MinhasComissoes = () => {
                                                 <TableHead className="text-right">Sua Comissão</TableHead>
                                                 <TableHead>Data Pagamento</TableHead>
                                                 <TableHead>Status</TableHead>
+                                                <TableHead className="text-center">Comprovantes</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -239,6 +271,43 @@ const MinhasComissoes = () => {
                                                             {statusConfig[venda.status]?.label || venda.status}
                                                         </Badge>
                                                     </TableCell>
+                                                    <TableCell className="text-center">
+                                                         {venda.comprovantes && venda.comprovantes.length > 0 ? (
+                                                             <Popover>
+                                                                 <PopoverTrigger asChild>
+                                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                                                                         <Paperclip className="h-4 w-4" />
+                                                                         <span className="sr-only">Visualizar comprovantes</span>
+                                                                     </Button>
+                                                                 </PopoverTrigger>
+                                                                 <PopoverContent className="w-56 p-2" align="end">
+                                                                     <div className="space-y-1.5">
+                                                                         <h5 className="text-xs font-semibold text-muted-foreground px-2 py-1">Comprovantes</h5>
+                                                                         <div className="flex flex-col gap-1">
+                                                                             {venda.comprovantes.map((url, idx) => {
+                                                                                 const decodedUrl = decodeURIComponent(url);
+                                                                                 const fileName = decodedUrl.split('/').pop() || `Comprovante ${idx + 1}`;
+                                                                                 return (
+                                                                                     <a
+                                                                                         key={url}
+                                                                                         href={url}
+                                                                                         target="_blank"
+                                                                                         rel="noopener noreferrer"
+                                                                                         className="text-xs text-foreground hover:text-primary hover:bg-slate-50 rounded px-2 py-1.5 flex items-center gap-1.5 truncate transition-colors font-medium"
+                                                                                     >
+                                                                                         <Paperclip className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                                                                                         <span className="truncate w-full">{fileName}</span>
+                                                                                     </a>
+                                                                                 );
+                                                                             })}
+                                                                         </div>
+                                                                     </div>
+                                                                 </PopoverContent>
+                                                             </Popover>
+                                                         ) : (
+                                                             <span className="text-muted-foreground text-xs">—</span>
+                                                         )}
+                                                     </TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>

@@ -37,13 +37,13 @@ interface CommunicationLog {
   created_at: string;
   leads?: {
     nome: string;
-  };
+  } | null;
   corretores?: {
     profiles: {
       first_name: string;
       last_name: string;
-    };
-  };
+    } | null;
+  } | null;
 }
 
 const typeVariants = {
@@ -332,13 +332,13 @@ export default function Comunicacoes() {
                             {comm.leads && (
                               <div className="flex items-center gap-1">
                                 <User className="w-3 h-3" />
-                                Lead: {comm.leads.nome}
+                                Lead: {comm.leads?.nome || "Lead Desconhecido"}
                               </div>
                             )}
                             {comm.corretores && (
                               <div className="flex items-center gap-1">
                                 <User className="w-3 h-3" />
-                                Corretor: {comm.corretores.profiles.first_name} {comm.corretores.profiles.last_name}
+                                Corretor: {comm.corretores.profiles?.first_name || ""} {comm.corretores.profiles?.last_name || ""}
                               </div>
                             )}
                           </div>

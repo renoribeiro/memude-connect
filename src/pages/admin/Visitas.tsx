@@ -44,16 +44,16 @@ interface Visita {
   leads: {
     nome: string;
     telefone: string;
-  };
+  } | null;
   corretores?: {
     profiles: {
       first_name: string;
       last_name: string;
-    };
-  };
+    } | null;
+  } | null;
   empreendimentos?: {
     nome: string;
-  };
+  } | null;
 }
 
 const statusVariants = {
@@ -325,7 +325,7 @@ export default function Visitas() {
                       >
                         <div className="flex-1 space-y-1">
                           <div className="flex items-center gap-3">
-                            <h3 className="font-semibold">{visita.leads.nome}</h3>
+                            <h3 className="font-semibold">{visita.leads?.nome || "Lead Desconhecido"}</h3>
                             <Badge variant={statusVariants[visita.status as keyof typeof statusVariants] || 'default'}>
                               {statusLabels[visita.status as keyof typeof statusLabels] || visita.status}
                             </Badge>
@@ -364,7 +364,7 @@ export default function Visitas() {
                             {visita.corretores && (
                               <div className="flex items-center gap-1">
                                 <User className="w-3 h-3" />
-                                {visita.corretores.profiles.first_name} {visita.corretores.profiles.last_name}
+                                {visita.corretores.profiles?.first_name || ""} {visita.corretores.profiles?.last_name || ""}
                               </div>
                             )}
                           </div>

@@ -87,6 +87,10 @@ def run_tests(cmd: list, cwd: Path) -> dict:
         "tests_failed": 0
     }
     
+    import sys as os_sys
+    if os_sys.platform == 'win32' and cmd and cmd[0] in ['npm', 'npx']:
+        cmd = [cmd[0] + '.cmd'] + cmd[1:]
+        
     try:
         proc = subprocess.run(
             cmd,

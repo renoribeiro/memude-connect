@@ -176,7 +176,7 @@ export default function Leads() {
       <DashboardLayout>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold">Gerenciamento de Leads</h1>
+            <div className="text-3xl font-bold">Gerenciamento de Leads</div>
           </div>
           <Card className="border-destructive bg-destructive/5 p-6 text-center max-w-md mx-auto mt-12">
             <AlertCircle className="h-10 w-10 mx-auto text-destructive mb-2" />

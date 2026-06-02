@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from "./card";
 import { Loader2 } from "lucide-react";
 
 export const AuthLoadingScreen = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gradient-primary">
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-500 to-violet-600">
     <div className="text-center text-white space-y-4">
       <Loader2 className="mx-auto h-12 w-12 animate-spin" />
       <div className="space-y-2">

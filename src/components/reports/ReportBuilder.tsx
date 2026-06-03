@@ -241,6 +241,65 @@ export function ReportBuilder({ template, onSave, onGenerate }: ReportBuilderPro
             </CardContent>
           </Card>
 
+          {/* Filtros do Relatório */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Filtros do Relatório
+              </CardTitle>
+              <CardDescription>
+                Defina o escopo dos dados do relatório
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="filter-date-range">Período dos Dados</Label>
+                <Select 
+                  value={config.filters?.date_range || 'last_30_days'} 
+                  onValueChange={(value) => setConfig(prev => ({ 
+                    ...prev, 
+                    filters: { ...prev.filters, date_range: value } 
+                  }))}
+                >
+                  <SelectTrigger id="filter-date-range">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="last_7_days">Últimos 7 dias</SelectItem>
+                    <SelectItem value="last_30_days">Últimos 30 dias</SelectItem>
+                    <SelectItem value="last_90_days">Últimos 90 dias</SelectItem>
+                    <SelectItem value="this_year">Este ano</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="filter-status">Filtrar por Status</Label>
+                <Select 
+                  value={config.filters?.status || 'all'} 
+                  onValueChange={(value) => setConfig(prev => ({ 
+                    ...prev, 
+                    filters: { ...prev.filters, status: value === 'all' ? '' : value } 
+                  }))}
+                >
+                  <SelectTrigger id="filter-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os status</SelectItem>
+                    <SelectItem value="novo">Novo</SelectItem>
+                    <SelectItem value="buscando_corretor">Em Contato</SelectItem>
+                    <SelectItem value="visita_agendada">Agendado</SelectItem>
+                    <SelectItem value="visita_realizada">Visitou</SelectItem>
+                    <SelectItem value="cancelado">Perdido</SelectItem>
+                    <SelectItem value="follow_up">Follow-up</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Charts Selection */}
           <Card>
             <CardHeader>

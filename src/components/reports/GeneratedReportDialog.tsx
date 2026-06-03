@@ -46,6 +46,12 @@ import { ptBR } from 'date-fns/locale';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', '#8884d8', '#82ca9d', '#ffc658'];
 
+const FallbackNoData = () => (
+  <div className="flex flex-col items-center justify-center h-[220px] text-muted-foreground text-xs bg-slate-50/30 rounded-lg border border-dashed border-slate-200">
+    Sem dados no período
+  </div>
+);
+
 interface GeneratedReportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -417,15 +423,19 @@ export function GeneratedReportDialog({ open, onOpenChange, config, data }: Gene
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <AreaChart data={data.leadsOverTime}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.1} strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  {data.leadsOverTime?.some((d: any) => d.value > 0) ? (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <AreaChart data={data.leadsOverTime}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.1} strokeWidth={2} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <FallbackNoData />
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -439,23 +449,27 @@ export function GeneratedReportDialog({ open, onOpenChange, config, data }: Gene
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie
-                        data={data.leadsByStatus}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={65}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {data.leadsByStatus.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  {data.leadsByStatus?.length > 0 && data.leadsByStatus.some((d: any) => d.value > 0) ? (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={data.leadsByStatus}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={65}
+                          dataKey="value"
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {data.leadsByStatus.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <FallbackNoData />
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -469,13 +483,17 @@ export function GeneratedReportDialog({ open, onOpenChange, config, data }: Gene
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <RadialBarChart cx="50%" cy="50%" innerRadius="25%" outerRadius="80%" data={data.conversionFunnel}>
-                      <RadialBar dataKey="value" cornerRadius={6} fill="hsl(var(--primary))" />
-                      <Legend iconSize={8} layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: '10px' }} />
-                      <Tooltip content={<CustomTooltip />} />
-                    </RadialBarChart>
-                  </ResponsiveContainer>
+                  {data.conversionFunnel?.some((d: any) => d.value > 0) ? (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <RadialBarChart cx="50%" cy="50%" innerRadius="25%" outerRadius="80%" data={data.conversionFunnel}>
+                        <RadialBar dataKey="value" cornerRadius={6} fill="hsl(var(--primary))" />
+                        <Legend iconSize={8} layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: '10px' }} />
+                        <Tooltip content={<CustomTooltip />} />
+                      </RadialBarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <FallbackNoData />
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -489,15 +507,19 @@ export function GeneratedReportDialog({ open, onOpenChange, config, data }: Gene
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={data.corretorPerformance} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" tick={{ fontSize: 10 }} />
-                      <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 10 }} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="visitas" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  {data.corretorPerformance?.length > 0 && data.corretorPerformance.some((d: any) => d.visitas > 0) ? (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={data.corretorPerformance} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" tick={{ fontSize: 10 }} />
+                        <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 10 }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="visitas" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <FallbackNoData />
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -511,16 +533,20 @@ export function GeneratedReportDialog({ open, onOpenChange, config, data }: Gene
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={data.visitsByMonth}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Line type="monotone" dataKey="realizadas" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={{ fill: "hsl(var(--primary))", r: 3 }} />
-                      <Line type="monotone" dataKey="agendadas" stroke="hsl(var(--secondary))" strokeWidth={1.5} strokeDasharray="3 3" dot={{ fill: "hsl(var(--secondary))", r: 2 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  {data.visitsByMonth?.length > 0 && data.visitsByMonth.some((d: any) => d.realizadas > 0 || d.agendadas > 0) ? (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <LineChart data={data.visitsByMonth}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Line type="monotone" dataKey="realizadas" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={{ fill: "hsl(var(--primary))", r: 3 }} />
+                        <Line type="monotone" dataKey="agendadas" stroke="hsl(var(--secondary))" strokeWidth={1.5} strokeDasharray="3 3" dot={{ fill: "hsl(var(--secondary))", r: 2 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <FallbackNoData />
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -534,23 +560,27 @@ export function GeneratedReportDialog({ open, onOpenChange, config, data }: Gene
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie
-                        data={data.leadSources}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={65}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {data.leadSources.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  {data.leadSources?.length > 0 && data.leadSources.some((d: any) => d.value > 0) ? (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={data.leadSources}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={65}
+                          dataKey="value"
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {data.leadSources.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <FallbackNoData />
+                  )}
                 </CardContent>
               </Card>
             )}

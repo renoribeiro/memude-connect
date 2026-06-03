@@ -143,10 +143,10 @@ export default function Relatorios() {
   const { data: leadsData = [], isLoading: isLoadingLeads } = useQuery({
     queryKey: ['reports-leads'],
     queryFn: async () => {
-      const startDate = subDays(new Date(), 30);
+      const startDate = subDays(new Date(), 365); // Busca 365 dias para habilitar relatórios históricos
       const { data, error } = await supabase
         .from('leads')
-        .select('created_at, status')
+        .select('created_at, status, nome')
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: true });
 
@@ -200,13 +200,17 @@ export default function Relatorios() {
   };
 
   const processStatusData = () => {
-    const statusCounts = leadsData.reduce((acc: Record<string, number>, lead) => {
+    // Filtra para os últimos 30 dias no gráfico do Dashboard principal
+    const cutoffDate = subDays(new Date(), 30);
+    const recentLeads = leadsData.filter(l => new Date(l.created_at) >= cutoffDate);
+    
+    const statusCounts = recentLeads.reduce((acc: Record<string, number>, lead) => {
       acc[lead.status] = (acc[lead.status] || 0) + 1;
       return acc;
     }, {});
 
     return Object.entries(statusCounts).map(([status, count]) => ({
-      name: status.replace('_', ' '),
+      name: status.replace(/_/g, ' '),
       value: count
     }));
   };

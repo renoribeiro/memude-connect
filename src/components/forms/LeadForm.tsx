@@ -12,6 +12,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { PhoneVerification } from "@/components/ui/phone-verification";
+import { Switch } from "@/components/ui/switch";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -24,11 +25,29 @@ const leadSchema = z.object({
   telefone: z.string().min(1, "Telefone é obrigatório"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   empreendimento_id: z.string().min(1, "Empreendimento é obrigatório"),
-  data_visita_solicitada: z.date(),
-  horario_visita_solicitada: z.string().min(1, "Horário é obrigatório"),
+  data_visita_solicitada: z.date().optional().nullable(),
+  horario_visita_solicitada: z.string().optional().nullable(),
   origem: z.string().min(1, "Origem é obrigatória"),
   observacoes: z.string().optional(),
-  corretor_designado_id: z.string().optional()
+  corretor_designado_id: z.string().optional(),
+  cadastrar_sem_visita: z.boolean().default(false)
+}).superRefine((data, ctx) => {
+  if (!data.cadastrar_sem_visita) {
+    if (!data.data_visita_solicitada) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Data da visita é obrigatória",
+        path: ["data_visita_solicitada"],
+      });
+    }
+    if (!data.horario_visita_solicitada || data.horario_visita_solicitada.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Horário da visita é obrigatório",
+        path: ["horario_visita_solicitada"],
+      });
+    }
+  }
 });
 
 type LeadFormData = z.infer<typeof leadSchema>;
@@ -62,9 +81,11 @@ export default function LeadForm({ initialData, onSuccess, onCancel }: LeadFormP
     defaultValues: initialData ? {
       ...initialData,
       email: initialData.email || "",
-      data_visita_solicitada: initialData.data_visita_solicitada ? new Date(initialData.data_visita_solicitada) : undefined
+      data_visita_solicitada: initialData.data_visita_solicitada ? new Date(initialData.data_visita_solicitada) : undefined,
+      cadastrar_sem_visita: !initialData.data_visita_solicitada
     } : {
-      origem: "website"
+      origem: "website",
+      cadastrar_sem_visita: false
     }
   });
 
@@ -103,12 +124,22 @@ export default function LeadForm({ initialData, onSuccess, onCancel }: LeadFormP
 
   const createLeadMutation = useMutation({
     mutationFn: async (data: LeadFormData) => {
+      // 1. Criar o Lead
       const leadData = {
-        ...data,
+        nome: data.nome,
+        telefone: data.telefone,
         email: data.email || null,
-        data_visita_solicitada: format(data.data_visita_solicitada, 'yyyy-MM-dd'),
+        empreendimento_id: data.empreendimento_id || null,
+        data_visita_solicitada: data.cadastrar_sem_visita 
+          ? null 
+          : (data.data_visita_solicitada ? format(data.data_visita_solicitada, 'yyyy-MM-dd') : null),
+        horario_visita_solicitada: data.cadastrar_sem_visita 
+          ? null 
+          : (data.horario_visita_solicitada || null),
         corretor_designado_id: data.corretor_designado_id || null,
-        status: 'novo' as const
+        origem: data.origem,
+        observacoes: data.observacoes || null,
+        status: data.cadastrar_sem_visita ? ('novo' as const) : ('visita_agendada' as const)
       };
 
       const { data: result, error } = await supabase
@@ -118,47 +149,85 @@ export default function LeadForm({ initialData, onSuccess, onCancel }: LeadFormP
         .single();
       
       if (error) throw error;
-      return result;
+
+      // 2. Se cadastrar_sem_visita for falso, cria o agendamento em 'visitas'
+      let visitId = null;
+      if (!data.cadastrar_sem_visita) {
+        const { data: visitResult, error: visitError } = await supabase
+          .from('visitas')
+          .insert({
+            lead_id: result.id,
+            corretor_id: leadData.corretor_designado_id,
+            empreendimento_id: leadData.empreendimento_id,
+            data_visita: leadData.data_visita_solicitada,
+            horario_visita: leadData.horario_visita_solicitada,
+            status: 'agendada'
+          })
+          .select('id')
+          .single();
+
+        if (visitError) throw visitError;
+        visitId = visitResult.id;
+      }
+
+      return { lead_id: result.id, visit_id: visitId };
     },
     onSuccess: async (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['visitas'] });
       
       // Se não escolheu corretor, disparar distribuição automática estilo "Uber"
       if (!variables.corretor_designado_id) {
         try {
+          if (variables.cadastrar_sem_visita) {
+            toast({
+              title: "Lead criado",
+              description: "Iniciando distribuição automática de corretores...",
+            });
+
+            const { error: distError } = await supabase.functions.invoke('distribute-lead', {
+              body: { lead_id: result.lead_id }
+            });
+
+            if (distError) throw distError;
+          } else if (result.visit_id) {
+            toast({
+              title: "Lead e Visita criados",
+              description: "Iniciando distribuição automática da visita...",
+            });
+
+            const { error: distError } = await supabase.functions.invoke('distribute-visit', {
+              body: { visita_id: result.visit_id }
+            });
+
+            if (distError) throw distError;
+          }
+
           toast({
-            title: "Lead criado",
-            description: "Iniciando distribuição automática de corretores...",
-          });
-
-          const { error: distError } = await supabase.functions.invoke('distribute-lead', {
-            body: { lead_id: result.id }
-          });
-
-          if (distError) throw distError;
-
-          toast({
-            title: "Distribuição em andamento",
+            title: "Distribuição iniciada",
             description: "O sistema está notificando os corretores compatíveis.",
           });
         } catch (err) {
           console.error("Erro ao iniciar distribuição:", err);
           toast({
             title: "Atenção",
-            description: "Lead salvo, mas houve erro ao iniciar a distribuição automática.",
+            description: "Registros salvos, mas houve erro ao iniciar a distribuição automática.",
             variant: "destructive",
           });
         }
       } else {
         toast({
-          title: "Lead criado",
-          description: "Lead criado e atribuído manualmente com sucesso!",
+          title: variables.cadastrar_sem_visita ? "Lead criado" : "Lead e Visita criados",
+          description: variables.cadastrar_sem_visita 
+            ? "Lead criado e atribuído manualmente com sucesso!"
+            : "Lead e Visita criados e atribuídos manualmente com sucesso!",
         });
       }
       
-      onSuccess(result?.id);
+      onSuccess(result?.lead_id);
     },
     onError: (error) => {
+      console.error("Erro ao criar lead:", error);
       toast({
         title: "Erro ao criar lead",
         description: "Não foi possível criar o lead.",
@@ -170,10 +239,19 @@ export default function LeadForm({ initialData, onSuccess, onCancel }: LeadFormP
   const updateLeadMutation = useMutation({
     mutationFn: async (data: LeadFormData) => {
       const leadData = {
-        ...data,
+        nome: data.nome,
+        telefone: data.telefone,
         email: data.email || null,
-        data_visita_solicitada: format(data.data_visita_solicitada, 'yyyy-MM-dd'),
-        corretor_designado_id: data.corretor_designado_id || null
+        empreendimento_id: data.empreendimento_id || null,
+        data_visita_solicitada: data.cadastrar_sem_visita 
+          ? null 
+          : (data.data_visita_solicitada ? format(data.data_visita_solicitada, 'yyyy-MM-dd') : null),
+        horario_visita_solicitada: data.cadastrar_sem_visita 
+          ? null 
+          : (data.horario_visita_solicitada || null),
+        corretor_designado_id: data.corretor_designado_id || null,
+        origem: data.origem,
+        observacoes: data.observacoes || null
       };
 
       const { error } = await supabase
@@ -185,6 +263,7 @@ export default function LeadForm({ initialData, onSuccess, onCancel }: LeadFormP
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['visitas'] });
       toast({
         title: "Lead atualizado",
         description: "Lead atualizado com sucesso!",
@@ -274,61 +353,90 @@ export default function LeadForm({ initialData, onSuccess, onCancel }: LeadFormP
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Data da Visita *</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !date && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {date ? format(date, "dd/MM/yyyy", { locale: ptBR }) : "Selecione a data"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={(newDate) => {
-                  setDate(newDate);
-                  if (newDate) {
-                    setValue("data_visita_solicitada", newDate);
-                  }
-                }}
-                initialFocus
-                disabled={(date) => date < new Date()}
-              />
-            </PopoverContent>
-          </Popover>
-          {errors.data_visita_solicitada && (
-            <p className="text-sm text-red-500">{errors.data_visita_solicitada.message}</p>
-          )}
+      {/* Cadastro de Visita Toggle - Somente na Criação */}
+      {!initialData?.id && (
+        <div className="flex items-center space-x-2 bg-slate-50 p-4 rounded-lg border border-slate-100 mb-2">
+          <Switch
+            id="cadastrar_sem_visita"
+            checked={watch("cadastrar_sem_visita")}
+            onCheckedChange={(checked) => {
+              setValue("cadastrar_sem_visita", checked);
+              if (checked) {
+                setValue("data_visita_solicitada", null);
+                setValue("horario_visita_solicitada", "");
+              }
+            }}
+          />
+          <div className="space-y-0.5">
+            <Label htmlFor="cadastrar_sem_visita" className="text-sm font-semibold cursor-pointer">
+              Cadastrar sem Visita
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Ative para registrar o lead sem agendar uma visita inicial
+            </p>
+          </div>
         </div>
+      )}
 
-        <div className="space-y-2">
-          <Label>Horário da Visita *</Label>
-          <Select onValueChange={(value) => setValue("horario_visita_solicitada", value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione o horário" />
-            </SelectTrigger>
-            <SelectContent>
-              {horarios.map((horario) => (
-                <SelectItem key={horario} value={horario}>
-                  {horario}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.horario_visita_solicitada && (
-            <p className="text-sm text-red-500">{errors.horario_visita_solicitada.message}</p>
-          )}
+      {/* Se não for sem visita, exibe data e horário */}
+      {!watch("cadastrar_sem_visita") && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Data da Visita *</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !date && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? format(date, "dd/MM/yyyy", { locale: ptBR }) : "Selecione a data"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={(newDate) => {
+                    setDate(newDate);
+                    setValue("data_visita_solicitada", newDate || null);
+                  }}
+                  initialFocus
+                  disabled={(date) => date < new Date()}
+                />
+              </PopoverContent>
+            </Popover>
+            {errors.data_visita_solicitada && (
+              <p className="text-sm text-red-500">{errors.data_visita_solicitada.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Horário da Visita *</Label>
+            <Select 
+              value={watch("horario_visita_solicitada") || ""}
+              onValueChange={(value) => setValue("horario_visita_solicitada", value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o horário" />
+              </SelectTrigger>
+              <SelectContent>
+                {horarios.map((horario) => (
+                  <SelectItem key={horario} value={horario}>
+                    {horario}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.horario_visita_solicitada && (
+              <p className="text-sm text-red-500">{errors.horario_visita_solicitada.message}</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">

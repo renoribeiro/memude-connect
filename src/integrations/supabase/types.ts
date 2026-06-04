@@ -2255,11 +2255,11 @@ export type Database = {
           corretor_designado_id: string | null
           created_at: string | null
           created_by: string | null
-          data_visita_solicitada: string
+          data_visita_solicitada: string | null
           deleted_at: string | null
           email: string | null
           empreendimento_id: string | null
-          horario_visita_solicitada: string
+          horario_visita_solicitada: string | null
           id: string
           nome: string
           observacoes: string | null
@@ -2272,11 +2272,11 @@ export type Database = {
           corretor_designado_id?: string | null
           created_at?: string | null
           created_by?: string | null
-          data_visita_solicitada: string
+          data_visita_solicitada?: string | null
           deleted_at?: string | null
           email?: string | null
           empreendimento_id?: string | null
-          horario_visita_solicitada: string
+          horario_visita_solicitada?: string | null
           id?: string
           nome: string
           observacoes?: string | null
@@ -2289,11 +2289,11 @@ export type Database = {
           corretor_designado_id?: string | null
           created_at?: string | null
           created_by?: string | null
-          data_visita_solicitada?: string
+          data_visita_solicitada?: string | null
           deleted_at?: string | null
           email?: string | null
           empreendimento_id?: string | null
-          horario_visita_solicitada?: string
+          horario_visita_solicitada?: string | null
           id?: string
           nome?: string
           observacoes?: string | null

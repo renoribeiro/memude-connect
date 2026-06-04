@@ -21,8 +21,8 @@ interface Lead {
   email?: string;
   status: string;
   origem: string;
-  data_visita_solicitada: string;
-  horario_visita_solicitada: string;
+  data_visita_solicitada: string | null;
+  horario_visita_solicitada: string | null;
   created_at: string;
   observacoes?: string;
   empreendimentos?: {
@@ -275,9 +275,15 @@ export default function MeusLeads() {
                             {lead.email}
                           </div>
                         )}
-                        <div className="flex items-center gap-1">
+                         <div className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          Visita: {format(new Date(lead.data_visita_solicitada), 'dd/MM/yyyy', { locale: ptBR })} às {lead.horario_visita_solicitada}
+                          {lead.data_visita_solicitada ? (
+                            <span>
+                              Visita: {format(new Date(lead.data_visita_solicitada), 'dd/MM/yyyy', { locale: ptBR })} às {lead.horario_visita_solicitada}
+                            </span>
+                          ) : (
+                            <span className="text-xs italic opacity-75">Sem visita agendada</span>
+                          )}
                         </div>
                         {lead.empreendimentos && (
                           <div className="flex items-center gap-1">

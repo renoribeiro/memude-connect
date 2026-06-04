@@ -35,9 +35,9 @@ export const leadValidationSchema = z.object({
     .max(15, "Telefone muito longo")
     .regex(/^[\d\s\-()+]+$/, "Telefone contém caracteres inválidos"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
-  data_visita_solicitada: z.date().refine(date => date >= new Date(), "Data deve ser futura"),
+  data_visita_solicitada: z.date().refine(date => date >= new Date(), "Data deve ser futura").optional().nullable(),
   horario_visita_solicitada: z.string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Horário inválido (HH:MM)"),
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Horário inválido (HH:MM)").optional().nullable(),
   empreendimento_id: z.string().uuid("Empreendimento inválido")
 });
 

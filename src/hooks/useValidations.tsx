@@ -38,7 +38,7 @@ export const leadValidationSchema = z.object({
   data_visita_solicitada: z.date().refine(date => date >= new Date(), "Data deve ser futura").optional().nullable(),
   horario_visita_solicitada: z.string()
     .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Horário inválido (HH:MM)").optional().nullable(),
-  empreendimento_id: z.string().uuid("Empreendimento inválido")
+  empreendimento_id: z.string().uuid("Empreendimento inválido").optional().nullable()
 });
 
 export const corretorValidationSchema = z.object({

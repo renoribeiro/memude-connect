@@ -24,7 +24,7 @@ const leadSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório"),
   telefone: z.string().min(1, "Telefone é obrigatório"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
-  empreendimento_id: z.string().min(1, "Empreendimento é obrigatório"),
+  empreendimento_id: z.string().optional().nullable(),
   data_visita_solicitada: z.date().optional().nullable(),
   horario_visita_solicitada: z.string().optional().nullable(),
   origem: z.string().min(1, "Origem é obrigatória"),
@@ -33,6 +33,13 @@ const leadSchema = z.object({
   cadastrar_sem_visita: z.boolean().default(false)
 }).superRefine((data, ctx) => {
   if (!data.cadastrar_sem_visita) {
+    if (!data.empreendimento_id || data.empreendimento_id.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Empreendimento é obrigatório",
+        path: ["empreendimento_id"],
+      });
+    }
     if (!data.data_visita_solicitada) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -334,10 +341,13 @@ export default function LeadForm({ initialData, onSuccess, onCancel }: LeadFormP
         </div>
 
         <div className="space-y-2">
-          <Label>Empreendimento *</Label>
-          <Select onValueChange={(value) => setValue("empreendimento_id", value)}>
+          <Label>Empreendimento {watch("cadastrar_sem_visita") ? "" : "*"}</Label>
+          <Select 
+            value={watch("empreendimento_id") || undefined}
+            onValueChange={(value) => setValue("empreendimento_id", value)}
+          >
             <SelectTrigger>
-              <SelectValue placeholder="Selecione o empreendimento" />
+              <SelectValue placeholder={watch("cadastrar_sem_visita") ? "Selecione o empreendimento (opcional)" : "Selecione o empreendimento"} />
             </SelectTrigger>
             <SelectContent>
               {empreendimentos.map((emp) => (

@@ -12,11 +12,102 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Security check: Verify x-cron-secret header OR Authorization service role to prevent unauthorized triggers
+  const cronSecret = req.headers.get('x-cron-secret');
+  const expectedSecret = Deno.env.get('CRON_SECRET') || 'memude-cron-secret-2026-super-secure';
+  
+  const authHeader = req.headers.get('Authorization');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const isServiceRole = authHeader && serviceRoleKey && (authHeader.replace('Bearer ', '') === serviceRoleKey || authHeader === serviceRoleKey);
+
+  if ((!cronSecret || cronSecret !== expectedSecret) && !isServiceRole) {
+    console.warn('🚫 Authentication failed: invalid cron secret and not service role');
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized: Access denied' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Body is optional
+    }
+
+    const forceVisitaId = body?.force_visita_id || body?.force_process_visita;
+
+    if (forceVisitaId) {
+      console.log(`Forçando processamento de timeout para visita: ${forceVisitaId}`);
+      const { data: forceAttempt, error: forceError } = await supabase
+        .from('visit_distribution_attempts')
+        .select(`
+          *,
+          visit_distribution_queue!queue_id (
+            id,
+            status,
+            current_attempt,
+            visita_id
+          ),
+          visita:visitas!visita_id (
+            id,
+            data_visita,
+            horario_visita,
+            lead:leads!lead_id (
+              id,
+              nome,
+              telefone,
+              email
+            ),
+            empreendimento:empreendimentos!empreendimento_id (
+              nome
+            )
+          ),
+          corretor:corretores!corretor_id (
+            id,
+            whatsapp,
+            profiles!profile_id (
+              first_name,
+              last_name
+            )
+          )
+        `)
+        .eq('status', 'pending')
+        .eq('visita_id', forceVisitaId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (forceError) throw forceError;
+
+      if (forceAttempt) {
+        console.log(`Processando tentativa forçada ${forceAttempt.id} para a visita ${forceVisitaId}`);
+        const result = await processExpiredAttempt(supabase, forceAttempt);
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: `Visita ${forceVisitaId} processada com sucesso`,
+            result
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else {
+        console.log(`Nenhuma tentativa pendente encontrada para a visita ${forceVisitaId}`);
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: `Nenhuma tentativa pendente para a visita ${forceVisitaId}`
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     console.log('Verificando timeouts de distribuição de visitas...');
 
@@ -457,10 +548,12 @@ ${visita.lead.email ? `*E-mail:* ${visita.lead.email}` : ''}
       throw whatsappError;
     }
 
+    const messageId = whatsappResult?.result?.key?.id || whatsappResult?.queue_id || whatsappResult?.messageId || whatsappResult?.message_id;
+
     await supabase
       .from('visit_distribution_attempts')
       .update({ 
-        whatsapp_message_id: whatsappResult.messageId 
+        whatsapp_message_id: messageId
       })
       .eq('id', attempt.id);
 

@@ -167,6 +167,98 @@ serve(async (req) => {
               processing_time_ms: Date.now() - startTime
             });
         }
+    } else if (event === 'message.ack') {
+        const messageId = data.id;
+        const ackName = data.ackName;
+        const ack = data.ack;
+
+        console.log(`🔄 WAHA Status Update (Ack): Message ${messageId} -> Ack ${ack} (${ackName})`);
+
+        const isFailed = ack === -1 || ackName === 'ERROR';
+
+        if (isFailed && messageId) {
+            // 1. Atualizar log de comunicação
+            await supabase
+              .from('communication_log')
+              .update({
+                status: 'failed',
+                metadata: {
+                  webhook_timestamp: new Date().toISOString(),
+                  error_details: data
+                }
+              })
+              .eq('message_id', messageId);
+
+            // 2. Tentar redistribuir Lead
+            const { data: leadAttempt } = await supabase
+              .from('distribution_attempts')
+              .select('id, lead_id')
+              .eq('whatsapp_message_id', messageId)
+              .eq('status', 'pending')
+              .maybeSingle();
+
+            if (leadAttempt) {
+              console.log(`🚨 Falha de entrega WAHA na distribuição de LEAD ${leadAttempt.lead_id} (tentativa ${leadAttempt.id})`);
+              
+              await supabase
+                .from('distribution_attempts')
+                .update({
+                  status: 'timeout',
+                  response_message: 'Falha no envio da mensagem de WhatsApp via WAHA (número inválido ou erro)'
+                })
+                .eq('id', leadAttempt.id);
+
+              try {
+                const cronSecret = Deno.env.get('CRON_SECRET') || 'memude-cron-secret-2026-super-secure';
+                await supabase.functions.invoke('distribution-timeout-checker', {
+                  headers: {
+                    'x-cron-secret': cronSecret
+                  },
+                  body: {
+                    force_lead_id: leadAttempt.lead_id
+                  }
+                });
+                console.log(`✅ Timeout checker de leads invocado de imediato para lead: ${leadAttempt.lead_id}`);
+              } catch (invokeErr) {
+                console.error('Erro ao invocar timeout checker de leads:', invokeErr);
+              }
+            }
+
+            // 3. Tentar redistribuir Visita
+            const { data: visitAttempt } = await supabase
+              .from('visit_distribution_attempts')
+              .select('id, visita_id')
+              .eq('whatsapp_message_id', messageId)
+              .eq('status', 'pending')
+              .maybeSingle();
+
+            if (visitAttempt) {
+              console.log(`🚨 Falha de entrega WAHA na distribuição de VISITA ${visitAttempt.visita_id} (tentativa ${visitAttempt.id})`);
+
+              await supabase
+                .from('visit_distribution_attempts')
+                .update({
+                  status: 'timeout',
+                  response_message: 'Falha no envio da mensagem de WhatsApp via WAHA (número inválido ou erro)'
+                })
+                .eq('id', visitAttempt.id);
+
+              try {
+                const cronSecret = Deno.env.get('CRON_SECRET') || 'memude-cron-secret-2026-super-secure';
+                await supabase.functions.invoke('visit-distribution-timeout-checker', {
+                  headers: {
+                    'x-cron-secret': cronSecret
+                  },
+                  body: {
+                    force_visita_id: visitAttempt.visita_id
+                  }
+                });
+                console.log(`✅ Timeout checker de visitas invocado de imediato para visita: ${visitAttempt.visita_id}`);
+              } catch (invokeErr) {
+                console.error('Erro ao invocar timeout checker de visitas:', invokeErr);
+              }
+            }
+        }
     } else {
       console.log(`⏭️ Evento WAHA ignorado: ${event}`);
     }

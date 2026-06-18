@@ -11,13 +11,18 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Security check: Verify x-cron-secret header to prevent unauthorized triggers
+  // Security check: Verify x-cron-secret header OR Authorization service role to prevent unauthorized triggers
   const cronSecret = req.headers.get('x-cron-secret');
   const expectedSecret = Deno.env.get('CRON_SECRET') || 'memude-cron-secret-2026-super-secure';
-  if (!cronSecret || cronSecret !== expectedSecret) {
-    console.warn('🚫 Cron authentication failed: invalid or missing secret');
+  
+  const authHeader = req.headers.get('Authorization');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const isServiceRole = authHeader && serviceRoleKey && (authHeader.replace('Bearer ', '') === serviceRoleKey || authHeader === serviceRoleKey);
+
+  if ((!cronSecret || cronSecret !== expectedSecret) && !isServiceRole) {
+    console.warn('🚫 Authentication failed: invalid cron secret and not service role');
     return new Response(
-      JSON.stringify({ error: 'Unauthorized: Invalid cron secret' }),
+      JSON.stringify({ error: 'Unauthorized: Access denied' }),
       { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -27,6 +32,70 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Body is optional (e.g. cron triggers)
+    }
+
+    const forceLeadId = body?.force_lead_id || body?.force_process_lead;
+
+    if (forceLeadId) {
+      console.log(`Forçando processamento de timeout para lead: ${forceLeadId}`);
+      const { data: forceAttempt, error: forceError } = await supabase
+        .from('distribution_attempts')
+        .select(`
+          *,
+          distribution_queue!queue_id (
+            id,
+            status,
+            current_attempt,
+            lead_id
+          ),
+          lead:leads!lead_id (
+            id,
+            nome,
+            empreendimento:empreendimentos!empreendimento_id (
+              nome
+            )
+          ),
+          corretor:corretores!corretor_id (
+            id,
+            whatsapp
+          )
+        `)
+        .eq('status', 'pending')
+        .eq('lead_id', forceLeadId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (forceError) throw forceError;
+
+      if (forceAttempt) {
+        console.log(`Processando tentativa forçada ${forceAttempt.id} para o lead ${forceLeadId}`);
+        await processExpiredAttempt(supabase, forceAttempt);
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: `Lead ${forceLeadId} processado com sucesso`,
+            attempt_id: forceAttempt.id
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else {
+        console.log(`Nenhuma tentativa pendente encontrada para o lead ${forceLeadId}`);
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: `Nenhuma tentativa pendente para o lead ${forceLeadId}`
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     console.log('Verificando timeouts de distribuição...');
 
@@ -331,10 +400,12 @@ Para recusar, responda: *NÃO*
       throw whatsappError;
     }
 
+    const messageId = whatsappResult?.result?.key?.id || whatsappResult?.queue_id || whatsappResult?.messageId || whatsappResult?.message_id;
+
     await supabase
       .from('distribution_attempts')
       .update({ 
-        whatsapp_message_id: whatsappResult.messageId 
+        whatsapp_message_id: messageId
       })
       .eq('id', attempt.id);
 

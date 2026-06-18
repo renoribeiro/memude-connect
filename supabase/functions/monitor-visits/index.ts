@@ -82,7 +82,7 @@ async function processReminders(supabase: any, dateStr: string, type: 'reminder_
       empreendimento:empreendimentos!inner (nome)
     `)
     .eq('data_visita', dateStr)
-    .eq('status', 'agendada'); // Apenas agendadas
+    .in('status', ['agendada', 'confirmada']); // Agendadas ou confirmadas
 
   if (error) {
     console.error(`Erro ao buscar visitas para ${type}:`, error);

@@ -64,12 +64,13 @@ serve(async (req) => {
 });
 
 async function sendViaEvolution(config: Map<string, string>, phone: string, message: string) {
-    const url = config.get('evolution_api_url');
+    const rawUrl = config.get('evolution_api_url');
     const key = config.get('evolution_api_key');
     const instance = config.get('evolution_instance_name');
 
-    if (!url || !key || !instance) throw new Error("Configuração Evolution incompleta");
+    if (!rawUrl || !key || !instance) throw new Error("Configuração Evolution incompleta");
 
+    const url = rawUrl.trim().replace(/\/$/, '');
     const endpoint = `${url}/message/sendText/${instance}`;
     const body = {
         number: phone, // Evolution V2 usa 'number'
@@ -89,17 +90,19 @@ async function sendViaEvolution(config: Map<string, string>, phone: string, mess
 }
 
 async function sendViaWAHA(config: Map<string, string>, phone: string, message: string) {
-    const url = config.get('waha_api_url');
+    const rawUrl = config.get('waha_api_url');
     const key = config.get('waha_api_key'); // Opcional se usar sessão padrão sem auth
 
-    if (!url) throw new Error("URL do WAHA não configurada");
+    if (!rawUrl) throw new Error("URL do WAHA não configurada");
+
+    const url = rawUrl.trim().replace(/\/$/, '');
 
     // WAHA usa chatId formato 558599999999@c.us
     // Remover + e caracteres especiais
     const cleanPhone = phone.replace(/\D/g, '');
     const chatId = `${cleanPhone}@c.us`;
 
-    const endpoint = `${url}/api/send/text`;
+    const endpoint = `${url}/api/sendText`;
     const body = {
         chatId: chatId,
         text: message,

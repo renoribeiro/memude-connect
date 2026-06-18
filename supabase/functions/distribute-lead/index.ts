@@ -235,10 +235,10 @@ async function getEligibleCorretores(supabase: any, lead: any, settings: any) {
       whatsapp,
       nota_media,
       total_visitas,
-      corretor_bairros!inner (bairro_id),
-      corretor_construtoras!inner (construtora_id)
+      corretor_bairros (bairro_id),
+      corretor_construtoras (construtora_id)
     `)
-    .eq('status', 'aprovado');
+    .eq('status', 'ativo');
 
   if (error) {
     console.error('Erro ao buscar corretores:', error);
@@ -258,13 +258,13 @@ async function getEligibleCorretores(supabase: any, lead: any, settings: any) {
     let score = 0;
 
     // Prioridade 1: Compatibilidade (Bairro ou Construtora) - Peso Absoluto
-    const hasBairroMatch = corretor.corretor_bairros.some(
+    const hasBairroMatch = corretor.corretor_bairros?.some(
       (cb: any) => cb.bairro_id === lead.empreendimento.bairro_id
-    );
+    ) || false;
 
-    const hasConstrutorMatch = corretor.corretor_construtoras.some(
+    const hasConstrutorMatch = corretor.corretor_construtoras?.some(
       (cc: any) => cc.construtora_id === lead.empreendimento.construtora_id
-    );
+    ) || false;
 
     if (hasBairroMatch) {
       matchType = 'bairro';

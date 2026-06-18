@@ -9,8 +9,10 @@ const corsHeaders = {
 };
 
 interface WhatsAppMessage {
-  phone_number: string;
+  phone_number?: string;
+  phone?: string; // Fallback field
   message?: string;
+  text?: string;  // Fallback field
   media?: {
     type: 'image' | 'video' | 'document' | 'audio';
     url: string;
@@ -38,6 +40,7 @@ interface WhatsAppMessage {
   corretor_id?: string;
   instance_id?: string;
   async?: boolean;
+  metadata?: any; // To capture and forward logging metadata
 }
 
 Deno.serve(async (req) => {
@@ -65,10 +68,14 @@ Deno.serve(async (req) => {
       throw new Error('Invalid JSON payload');
     }
 
-    const { phone_number, message, media, buttons, list, lead_id, corretor_id, async } = body;
+    const phone_number = body.phone_number || body.phone;
+    const message = body.message || body.text;
+    const { media, buttons, list, async } = body;
+    const lead_id = body.lead_id || body.metadata?.lead_id;
+    const corretor_id = body.corretor_id || body.metadata?.corretor_id;
 
     if (!phone_number) {
-      throw new Error('Número de telefone é obrigatório');
+      throw new Error('Número de telefone é obrigatório (use phone_number ou phone)');
     }
 
     // Normalizar número
@@ -117,6 +124,7 @@ Deno.serve(async (req) => {
         corretor_id: corretor_id || null,
         lead_id: lead_id || null,
         metadata: {
+          ...(body.metadata || {}),
           queue_id: queueItem.id,
           async: true
         }
@@ -272,6 +280,7 @@ Deno.serve(async (req) => {
             corretor_id: corretor_id || null,
             lead_id: lead_id || null,
             metadata: {
+              ...(body.metadata || {}),
               provider: 'waha',
               error: responseText,
               status_code: response.status,
@@ -299,6 +308,7 @@ Deno.serve(async (req) => {
           corretor_id: corretor_id || null,
           lead_id: lead_id || null,
           metadata: {
+            ...(body.metadata || {}),
             provider: 'waha',
             media_type: media?.type,
             has_list: !!list,
@@ -501,6 +511,7 @@ Deno.serve(async (req) => {
           corretor_id: corretor_id || null,
           lead_id: lead_id || null,
           metadata: {
+            ...(body.metadata || {}),
             error: responseText,
             status_code: response.status,
             endpoint: endpoint,
@@ -553,6 +564,7 @@ Deno.serve(async (req) => {
         corretor_id: corretor_id || null,
         lead_id: lead_id || null,
         metadata: {
+          ...(body.metadata || {}),
           media_type: media?.type,
           has_list: !!list,
           api_version: 'v2',

@@ -1,5 +1,4 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
 import { MapPin, Home, Search, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,10 +7,6 @@ import Logo from '@/components/ui/logo';
 const NotFound = () => {
   const location = useLocation();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
-  }, [location.pathname]);
 
   const handleGoHome = () => {
     navigate('/', { replace: true });

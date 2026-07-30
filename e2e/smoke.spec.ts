@@ -21,8 +21,14 @@ test('rota administrativa exige autenticação', async ({ page }) => {
 });
 
 test('rota inexistente apresenta página 404', async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
+
   await page.goto('/rota-que-nao-existe');
 
   await expect(page.getByText('404')).toBeVisible();
   await expect(page.getByRole('button', { name: /voltar ao início/i })).toBeVisible();
+  expect(consoleErrors).toEqual([]);
 });

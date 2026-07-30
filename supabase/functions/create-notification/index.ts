@@ -1,7 +1,8 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { authorize, readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -22,14 +23,17 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const access = await authorize(req, 'admin-or-internal');
+    if (access instanceof Response) return access;
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const body: NotificationRequest = await req.json();
+    const body: NotificationRequest = await readJson(req, 1024 * 1024);
     
-    console.log('Creating notification:', body);
+    console.log('Creating notification', { type: body.type, target_user_id: body.user_id });
 
     const { data, error } = await supabaseClient
       .rpc('create_notification', {
@@ -48,7 +52,7 @@ Deno.serve(async (req) => {
       throw error;
     }
 
-    console.log('Notification created successfully:', data);
+    console.log('Notification created successfully');
 
     return new Response(
       JSON.stringify({ success: true, notification_id: data }),

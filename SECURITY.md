@@ -4,8 +4,12 @@
 
 Este documento descreve as políticas de segurança implementadas no sistema MeMude Connect, incluindo controle de acesso baseado em roles, políticas RLS, e diretrizes de desenvolvimento seguro.
 
-**Última Atualização:** Outubro 2025  
-**Status:** Auditoria de Segurança Completa - Fases 1-4 Implementadas
+**Última atualização:** 30 de julho de 2026
+**Status:** Controles críticos remediados; validação de produção e hardening contínuo em andamento
+
+Este documento descreve padrões obrigatórios, não constitui certificação de
+ausência de vulnerabilidades. A evidência e as pendências da revisão mais
+recente ficam em `docs/AUDITORIA_PRONTIDAO_PRODUCAO_2026-07-29.md`.
 
 ---
 
@@ -29,7 +33,7 @@ CREATE TABLE public.user_roles (
   user_id UUID REFERENCES auth.users(id),
   role app_role NOT NULL,
   created_by UUID REFERENCES auth.users(id),
-  UNIQUE(user_id, role)
+  UNIQUE(user_id)
 );
 
 -- Função security definer para verificação de roles
@@ -44,7 +48,7 @@ LANGUAGE SQL STABLE SECURITY DEFINER;
 
 **Frontend (React):**
 ```typescript
-// Hook useAuth busca roles de user_roles (com fallback)
+// Hook useAuth busca o papel exclusivamente em user_roles e falha de forma segura.
 const { isAdmin, isCorretor } = useAuth();
 
 // Componentes protegidos
@@ -55,23 +59,8 @@ const { isAdmin, isCorretor } = useAuth();
 
 **Backend (Edge Functions):**
 ```typescript
-// Verificar Authorization header
-const authHeader = req.headers.get('Authorization');
-const { data: { user } } = await supabase.auth.getUser(
-  authHeader.replace('Bearer ', '')
-);
-
-// Verificar role via tabela user_roles
-const { data: userRole } = await supabase
-  .from('user_roles')
-  .select('role')
-  .eq('user_id', user.id)
-  .eq('role', 'admin')
-  .maybeSingle();
-
-if (!userRole) {
-  return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
-}
+const access = await authorize(req, 'admin-or-internal');
+if (access instanceof Response) return access;
 ```
 
 **Database (RLS Policies):**
@@ -149,7 +138,7 @@ USING (auth.role() = 'authenticated' AND ativo = true);
 **Todas** as Edge Functions que modificam dados ou acessam informações sensíveis **DEVEM** verificar autenticação:
 
 ✅ `create-user` - Requer admin  
-✅ `create-admin` - Requer admin  
+✅ `create-admin` - Endpoint legado desativado; requer admin e retorna `410`
 ✅ `distribute-lead` - Requer admin  
 ✅ `distribute-visit` - Requer admin  
 ✅ `google-sheets-sync` - Requer admin (implicitamente via cron)
@@ -157,40 +146,16 @@ USING (auth.role() = 'authenticated' AND ativo = true);
 ### 3.2 Template de Autorização
 
 ```typescript
-// SEMPRE adicionar no início das Edge Functions
-const authHeader = req.headers.get('Authorization');
-if (!authHeader) {
-  return new Response(
-    JSON.stringify({ error: 'Unauthorized' }),
-    { status: 401, headers: corsHeaders }
-  );
-}
+import { authorize, handleOptions, jsonResponse, readJson }
+  from '../_shared/security.ts';
 
-const { data: { user }, error } = await supabase.auth.getUser(
-  authHeader.replace('Bearer ', '')
-);
+const options = handleOptions(req);
+if (options) return options;
 
-if (error || !user) {
-  return new Response(
-    JSON.stringify({ error: 'Invalid token' }),
-    { status: 401, headers: corsHeaders }
-  );
-}
+const access = await authorize(req, 'admin-or-internal');
+if (access instanceof Response) return access;
 
-// Verificar role
-const { data: userRole } = await supabase
-  .from('user_roles')
-  .select('role')
-  .eq('user_id', user.id)
-  .eq('role', 'admin')
-  .maybeSingle();
-
-if (!userRole) {
-  return new Response(
-    JSON.stringify({ error: 'Forbidden: Admin access required' }),
-    { status: 403, headers: corsHeaders }
-  );
-}
+const body = await readJson(req, 32 * 1024);
 ```
 
 ### 3.3 Service Role vs Anon Key

@@ -1,27 +1,4 @@
--- Habilitar a extensão pg_cron se ainda não estiver habilitada
-create extension if not exists pg_cron;
-create extension if not exists pg_net;
-
--- Agendar o monitoramento de visitas para rodar a cada 15 minutos
--- IMPORTANTE: Substitua 'https://oxybasvtphosdmlmrfnb.supabase.co/functions/v1/monitor-visits' pela URL real da sua função
--- e 'YOUR_SERVICE_ROLE_KEY' pela sua chave real de serviço (disponível no dashboard).
-
-select
-  cron.schedule(
-    'monitor-visits-hourly',
-    '*/15 * * * *', 
-    $$
-    select
-      net.http_post(
-          url:='https://oxybasvtphosdmlmrfnb.supabase.co/functions/v1/monitor-visits',
-          headers:='{"Content-Type": "application/json", "Authorization": "Bearer YOUR_SERVICE_ROLE_KEY"}'::jsonb,
-          body:='{}'::jsonb
-      ) as request_id;
-    $$
-  );
-
--- Para verificar os jobs agendados:
--- select * from cron.job;
-
--- Para remover o agendamento se necessário:
--- select cron.unschedule('monitor-visits-hourly');
+-- Intentionally retained as a no-op migration for compatibility with databases
+-- that already recorded this version. Cron jobs are provisioned by
+-- 20260727210436_harden_security_rls_and_database_advisors.sql using a
+-- server-generated credential stored exclusively in Supabase Vault.

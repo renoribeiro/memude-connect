@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { authorize, readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -12,12 +13,15 @@ serve(async (req) => {
   }
 
   try {
+    const access = await authorize(req, 'internal');
+    if (access instanceof Response) return access;
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { phone, message } = await req.json();
+    const { phone, message } = await readJson(req, 1024 * 1024);
 
     if (!phone || !message) {
       throw new Error('Telefone e mensagem são obrigatórios');
@@ -36,7 +40,7 @@ serve(async (req) => {
     const config = new Map(settings?.map(s => [s.key, s.value]) || []);
     const provider = config.get('whatsapp_provider') || 'evolution'; // Default Evolution
 
-    console.log(`📨 Enviando via ${provider.toUpperCase()} para ${phone}`);
+    console.log(`Enviando mensagem via ${provider.toUpperCase()}`);
 
     let result;
 

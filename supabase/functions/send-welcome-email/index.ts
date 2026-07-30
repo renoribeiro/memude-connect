@@ -1,10 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
+import { authorize, readJson } from "../_shared/security.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://core.memudecore.com.br",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -21,9 +22,12 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, name, creci, resetUrl }: WelcomeEmailRequest = await req.json();
+    const access = await authorize(req, "admin-or-internal");
+    if (access instanceof Response) return access;
 
-    console.log("Sending welcome email to:", email);
+    const { email, name, creci, resetUrl }: WelcomeEmailRequest = await readJson(req, 1024 * 1024);
+
+    console.log("Sending welcome email");
 
     const emailResponse = await resend.emails.send({
       from: "MeMude Connect <noreply@memude.com>",
@@ -84,7 +88,7 @@ const handler = async (req: Request): Promise<Response> => {
       `,
     });
 
-    console.log("Welcome email sent successfully:", emailResponse);
+    console.log("Welcome email sent successfully");
 
     return new Response(JSON.stringify({ success: true, emailResponse }), {
       status: 200,

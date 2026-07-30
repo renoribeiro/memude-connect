@@ -101,113 +101,17 @@ export function GeneratedReportDialog({ open, onOpenChange, config, data }: Gene
   const handlePrint = () => {
     const printContent = document.getElementById('report-printable-area');
     if (!printContent) return;
+    const previousTitle = document.title;
+    const cleanup = () => {
+      document.body.classList.remove('printing-report');
+      document.title = previousTitle;
+    };
 
-    const originalContent = document.body.innerHTML;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    // Inject styles and content
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>${config.name || 'Relatório'}</title>
-          <style>
-            body { font-family: sans-serif; padding: 20px; color: #333; }
-            h1 { font-size: 24px; margin-bottom: 5px; }
-            p { margin: 5px 0; color: #666; }
-            .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0; }
-            .card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
-            .card-title { font-size: 12px; text-transform: uppercase; color: #777; margin-bottom: 5px; }
-            .card-val { font-size: 20px; font-weight: bold; }
-            .section { margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; }
-            .section-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; }
-            .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            .data-table th, .data-table td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
-            .data-table th { background-color: #f5f5f5; }
-            @media print {
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div>
-            <h1>${config.name || 'Relatório de Atividades'}</h1>
-            <p>${config.description || 'Relatório analítico gerado pelo MeMude Connect.'}</p>
-            <p><strong>Período:</strong> ${getPeriodLabel(config.period)} | <strong>Gerado em:</strong> ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
-          </div>
-          
-          <div class="grid">
-            ${config.metrics.includes('total_leads') ? `
-              <div class="card">
-                <div class="card-title">Total de Leads</div>
-                <div class="card-val">${data.metrics.totalLeads}</div>
-              </div>
-            ` : ''}
-            ${config.metrics.includes('conversion_rate') ? `
-              <div class="card">
-                <div class="card-title">Taxa de Conversão</div>
-                <div class="card-val">${data.metrics.conversionRate.toFixed(1)}%</div>
-              </div>
-            ` : ''}
-            ${config.metrics.includes('total_visits') ? `
-              <div class="card">
-                <div class="card-title">Total de Visitas</div>
-                <div class="card-val">${data.metrics.totalVisits}</div>
-              </div>
-            ` : ''}
-            ${config.metrics.includes('avg_rating') ? `
-              <div class="card">
-                <div class="card-title">Avaliação Corretores</div>
-                <div class="card-val">${data.metrics.avgRating.toFixed(1)} / 5.0</div>
-              </div>
-            ` : ''}
-            ${config.metrics.includes('total_revenue') ? `
-              <div class="card">
-                <div class="card-title">Vendas Fechadas</div>
-                <div class="card-val">R$ ${data.metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-              </div>
-            ` : ''}
-          </div>
-
-          <div class="section">
-            <div class="section-title">Resumo dos Gráficos Selecionados</div>
-            <ul>
-              ${config.charts.map(c => `<li>Gráfico incluído: ${c.replace(/_/g, ' ')}</li>`).join('')}
-            </ul>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Últimos Leads Registrados no Período</div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Status</th>
-                  <th>Data Criação</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${data.rawLeads.slice(0, 10).map(l => `
-                  <tr>
-                    <td>${l.nome || 'Sem Nome'}</td>
-                    <td>${l.status?.replace(/_/g, ' ') || 'Novo'}</td>
-                    <td>${new Date(l.created_at).toLocaleDateString('pt-BR')}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-          
-          <script>
-            window.onload = function() {
-              window.print();
-              window.close();
-            }
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    document.title = config.name?.trim() || 'Relatório MeMude Connect';
+    document.body.classList.add('printing-report');
+    window.addEventListener('afterprint', cleanup, { once: true });
+    window.print();
+    window.setTimeout(cleanup, 1500);
   };
 
   const handleExport = async (format: 'csv' | 'json') => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import StatsCard from './StatsCard';
@@ -51,11 +51,7 @@ const AdminDashboard = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       // Fetch leads stats
       const today = new Date().toISOString().split('T')[0];
@@ -68,23 +64,20 @@ const AdminDashboard = () => {
         corretoresAtivosResult,
         visitasHojeResult,
         visitasSemanaResult,
+        vendasConcluidasResult,
       ] = await Promise.all([
-        supabase.from('leads').select('*', { count: 'exact' }),
-        supabase.from('leads').select('*', { count: 'exact' }).gte('created_at', today),
-        supabase.from('corretores').select('*', { count: 'exact' }),
-        supabase.from('corretores').select('*', { count: 'exact' }).eq('status', 'ativo'),
-        supabase.from('visitas').select('*', { count: 'exact' }).eq('data_visita', today),
-        supabase.from('visitas').select('*', { count: 'exact' }).gte('data_visita', weekAgo),
+        supabase.from('leads').select('id', { count: 'exact', head: true }),
+        supabase.from('leads').select('id', { count: 'exact', head: true }).gte('created_at', today),
+        supabase.from('corretores').select('id', { count: 'exact', head: true }),
+        supabase.from('corretores').select('id', { count: 'exact', head: true }).eq('status', 'ativo'),
+        supabase.from('visitas').select('id', { count: 'exact', head: true }).eq('data_visita', today),
+        supabase.from('visitas').select('id', { count: 'exact', head: true }).gte('data_visita', weekAgo),
+        supabase.from('vendas').select('id', { count: 'exact', head: true }).neq('status', 'cancelada'),
       ]);
 
-      // Calculate conversion rate
-      const visitasRealizadas = await supabase
-        .from('visitas')
-        .select('*', { count: 'exact' })
-        .eq('status', 'realizada');
-
-      const taxaConversao = totalLeadsResult.count && visitasRealizadas.count
-        ? Math.round((visitasRealizadas.count / totalLeadsResult.count) * 100)
+      // Conversão de negócio: leads que efetivamente viraram venda.
+      const taxaConversao = totalLeadsResult.count && vendasConcluidasResult.count
+        ? Math.round((vendasConcluidasResult.count / totalLeadsResult.count) * 1000) / 10
         : 0;
 
       setStats({
@@ -107,7 +100,11 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    void fetchDashboardData();
+  }, [fetchDashboardData]);
 
 
 

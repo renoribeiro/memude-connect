@@ -144,6 +144,19 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             </div>
 
             <div className="flex items-center space-x-4">
+              {isAdmin && (
+                <Button asChild variant="outline" size="sm">
+                  <a
+                    href="https://financas.memudecore.com.br"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Abrir MeMude Financeiro"
+                  >
+                    <DollarSign className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Financeiro</span>
+                  </a>
+                </Button>
+              )}
               <NotificationSystem />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

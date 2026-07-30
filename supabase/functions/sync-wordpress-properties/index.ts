@@ -1,9 +1,10 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { authorize, readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -59,6 +60,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const access = await authorize(req, 'admin-or-internal');
+  if (access instanceof Response) return access;
+
   // Initialize Supabase client with proper credentials for security verification
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -104,12 +108,13 @@ serve(async (req) => {
   }
 
   // Verify role admin before proceeding
-  const { data: isAdmin, error: roleError } = await supabase.rpc('has_role', {
-    _user_id: callerUser.id,
-    _role: 'admin'
-  });
+  const { data: roleRecord, error: roleError } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', callerUser.id)
+    .maybeSingle();
 
-  if (roleError || !isAdmin) {
+  if (roleError || roleRecord?.role !== 'admin') {
     return new Response(
       JSON.stringify({ error: 'Forbidden: Caller is not an administrator' }),
       {
@@ -123,7 +128,7 @@ serve(async (req) => {
   const syncId = crypto.randomUUID();
 
   // Parse request body to get parameters
-  const { manual = false, test_mode = false, limit = null } = await req.json().catch(() => ({}));
+  const { manual = false, test_mode = false, limit = null } = await readJson(req, 1024 * 1024).catch(() => ({}));
 
   console.log(`🚀 Iniciando sincronização WordPress [${syncId}] - Manual: ${manual}, Teste: ${test_mode} às:`, new Date().toISOString());
 
@@ -948,7 +953,7 @@ async function fetchAddressFromPage(postLink: string): Promise<string | null> {
         .trim();
 
       if (address.length > 5) {
-        console.log(`📍 [Strategy 1] Address from text-44: "${address}"`);
+        console.log('Endereço obtido pela estratégia 1');
         return address;
       }
     }
@@ -977,7 +982,7 @@ async function fetchAddressFromPage(postLink: string): Promise<string | null> {
       candidate = candidate.replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
       // Check if it looks like an address (contains street type or number)
       if (candidate.length > 10 && /(?:rua|r\.|avenida|av\.|alameda|travessa|rodovia|estrada|loteamento|\d+)/i.test(candidate)) {
-        console.log(`📍 [Strategy 3] Address from text-44 fallback: "${candidate}"`);
+        console.log('Endereço obtido pela estratégia 3');
         return candidate;
       }
     }

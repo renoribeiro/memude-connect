@@ -1,15 +1,16 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { logIntegration } from '../_shared/integration-logger.ts';
 import { DbEvolutionInstance } from '../_shared/types/evolution.ts';
+import { readJson, validateExternalHttpUrl } from '../_shared/security.ts';
 
 
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 interface ManagerRequest {
-    action: 'create' | 'connect' | 'items' | 'restart' | 'logout' | 'delete' | 'fetch' | 'connectionState';
+    action: 'create' | 'update' | 'connect' | 'items' | 'restart' | 'logout' | 'delete' | 'fetch' | 'connectionState';
     instance_id?: string;
     payload?: any;
 }
@@ -52,12 +53,13 @@ Deno.serve(async (req) => {
         }
 
         // Verify role admin before proceeding
-        const { data: isAdmin, error: roleError } = await supabase.rpc('has_role', {
-            _user_id: callerUser.id,
-            _role: 'admin'
-        });
+        const { data: roleRecord, error: roleError } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', callerUser.id)
+            .maybeSingle();
 
-        if (roleError || !isAdmin) {
+        if (roleError || roleRecord?.role !== 'admin') {
             return new Response(
                 JSON.stringify({ error: 'Forbidden: Caller is not an administrator' }),
                 { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
@@ -66,7 +68,7 @@ Deno.serve(async (req) => {
 
         let body;
         try {
-            body = await req.json();
+            body = await readJson(req, 1024 * 1024);
         } catch (e) {
             throw new Error('Invalid JSON payload');
         }
@@ -87,9 +89,15 @@ Deno.serve(async (req) => {
             return data;
         };
 
+        const toPublicInstance = (instance: DbEvolutionInstance) => {
+            const { api_token: _apiToken, ...safeInstance } = instance;
+            return safeInstance;
+        };
+
         // Helper to make Evolution API calls
 
         const evoCall = async (instance: DbEvolutionInstance, endpoint: string, method: string = 'GET', body?: any) => {
+            validateExternalHttpUrl(instance.api_url);
             const url = `${instance.api_url.replace(/\/$/, '')}${endpoint}`;
             console.log(`📡 Evo Call: ${method} ${url}`);
 
@@ -156,14 +164,77 @@ Deno.serve(async (req) => {
         };
 
         let result;
+        let responseMeta: Record<string, unknown> | undefined;
 
         switch (action) {
+            case 'items': {
+                const [
+                    { data: instances, error: listError },
+                    { data: recentAuthFailure },
+                    { data: recentSuccess },
+                    { data: legacySettings },
+                ] = await Promise.all([
+                    supabase
+                        .from('evolution_instances')
+                        .select('*')
+                        .order('created_at', { ascending: false }),
+                    supabase
+                        .from('integration_logs')
+                        .select('created_at')
+                        .eq('service', 'evolution-api')
+                        .eq('status_code', 401)
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle(),
+                    supabase
+                        .from('integration_logs')
+                        .select('created_at')
+                        .eq('service', 'evolution-api')
+                        .gte('status_code', 200)
+                        .lt('status_code', 300)
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle(),
+                    supabase
+                        .from('system_settings')
+                        .select('key, value')
+                        .in('key', [
+                            'evolution_api_url',
+                            'evolution_api_key',
+                            'evolution_instance_name',
+                        ]),
+                ]);
+                if (listError) throw listError;
+                result = (instances ?? []).map(toPublicInstance);
+                const configuredLegacyKeys = new Set(
+                    (legacySettings ?? [])
+                        .filter((setting) => Boolean(setting.value?.trim()))
+                        .map((setting) => setting.key),
+                );
+                responseMeta = {
+                    health: {
+                        credentials_rejected: Boolean(
+                            recentAuthFailure
+                            && (
+                                !recentSuccess
+                                || new Date(recentAuthFailure.created_at) > new Date(recentSuccess.created_at)
+                            )
+                        ),
+                        last_auth_failure_at: recentAuthFailure?.created_at ?? null,
+                        last_success_at: recentSuccess?.created_at ?? null,
+                        legacy_configured: configuredLegacyKeys.size === 3,
+                        configured_instances: instances?.length ?? 0,
+                    },
+                };
+                break;
+            }
+
             case 'create': {
                 const { instanceName, raw_url, raw_apikey } = payload;
                 if (!instanceName || !raw_url || !raw_apikey) {
                     throw new Error("Missing required fields: instanceName, raw_url, raw_apikey");
                 }
-                const apiUrl = raw_url.replace(/\/$/, '');
+                const apiUrl = validateExternalHttpUrl(raw_url).toString().replace(/\/$/, '');
 
                 // 1. Try to create in Evolution API
                 try {
@@ -247,7 +318,30 @@ Deno.serve(async (req) => {
                     .single();
 
                 if (dbError) throw dbError;
-                result = newInstance;
+                result = toPublicInstance(newInstance);
+                break;
+            }
+
+            case 'update': {
+                if (!instance_id || !payload) throw new Error('instance_id e payload são obrigatórios');
+                const existing = await getInstance(instance_id);
+                const updatePayload: Record<string, unknown> = {
+                    name: String(payload.name ?? existing.name).trim(),
+                    instance_name: String(payload.instance_name ?? existing.instance_name).trim(),
+                    api_url: validateExternalHttpUrl(String(payload.api_url ?? existing.api_url)).toString().replace(/\/$/, ''),
+                    is_active: Boolean(payload.is_active),
+                };
+                if (typeof payload.api_token === 'string' && payload.api_token.trim()) {
+                    updatePayload.api_token = payload.api_token.trim();
+                }
+                const { data: updated, error: updateError } = await supabase
+                    .from('evolution_instances')
+                    .update(updatePayload)
+                    .eq('id', instance_id)
+                    .select()
+                    .single();
+                if (updateError) throw updateError;
+                result = toPublicInstance(updated);
                 break;
             }
 
@@ -334,7 +428,7 @@ Deno.serve(async (req) => {
         }
 
         return new Response(
-            JSON.stringify({ success: true, data: result }),
+            JSON.stringify({ success: true, data: result, meta: responseMeta }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
 
@@ -344,7 +438,7 @@ Deno.serve(async (req) => {
             JSON.stringify({ success: false, error: error.message }),
             {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 200
+                status: 400
             }
         );
     }

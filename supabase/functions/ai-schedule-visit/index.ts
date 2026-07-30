@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { authorize, readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -25,12 +26,15 @@ serve(async (req) => {
     const startTime = Date.now();
 
     try {
+        const access = await authorize(req, 'internal');
+        if (access instanceof Response) return access;
+
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         );
 
-        const { conversation_id, phone_number, action_data }: ScheduleVisitRequest = await req.json();
+        const { conversation_id, phone_number, action_data }: ScheduleVisitRequest = await readJson(req, 1024 * 1024);
 
         if (!conversation_id || !phone_number) {
             throw new Error('conversation_id e phone_number são obrigatórios');

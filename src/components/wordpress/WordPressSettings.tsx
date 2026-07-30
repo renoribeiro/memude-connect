@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,11 +42,7 @@ export function WordPressSettings() {
   const [connectionStatus, setConnectionStatus] = useState<'testing' | 'success' | 'error' | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadConfiguration();
-  }, []);
-
-  const loadConfiguration = async () => {
+  const loadConfiguration = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -93,7 +89,11 @@ export function WordPressSettings() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    void loadConfiguration();
+  }, [loadConfiguration]);
 
   const saveConfiguration = async () => {
     try {

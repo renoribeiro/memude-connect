@@ -4,7 +4,7 @@
  * Part of Phase 1: Core Enhancement
  */
 
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import OpenAI from 'https://esm.sh/openai@4.28.0';
 import { getQualificationProgress } from './bant-scorer.ts';
 

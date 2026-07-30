@@ -241,18 +241,16 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
         let profileId = '';
 
         if (userMode === 'novo') {
-          // Create new corretor - first create user via edge function
-          const tempEmail = email || `${creci}@temp.memude.com`;
-          const tempPassword = `Memude@${creci}`;
+          if (!email) {
+            throw new Error('Informe um email válido para enviar o convite de acesso');
+          }
 
           const [firstName, ...lastNameParts] = nome.split(' ');
           const lastName = lastNameParts.join(' ') || 'Corretor';
 
-          // Create auth user using edge function (has service_role permissions)
           const { data: userData, error: userError } = await supabase.functions.invoke('create-user', {
             body: {
-              email: tempEmail,
-              password: tempPassword,
+              email,
               first_name: firstName,
               last_name: lastName,
               role: 'corretor',
@@ -268,7 +266,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
           // Fetch the profile created by the edge function
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('*')
+            .select('id')
             .eq('user_id', userId)
             .single();
 
@@ -389,22 +387,6 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
           if (construtorasError) throw construtorasError;
         }
 
-        if (userMode === 'novo') {
-          const tempEmail = email || `${creci}@temp.memude.com`;
-          const resetUrl = `${window.location.origin}/auth?mode=reset`;
-
-          try {
-            await supabase.functions.invoke('send-welcome-email', {
-              body: { email: tempEmail, name: nome, creci, resetUrl }
-            });
-            await supabase.functions.invoke('send-whatsapp-invitation', {
-              body: { phone_number: telefone, name: nome, creci, email: tempEmail, resetUrl, corretor_id: corretor.id }
-            });
-          } catch (notificationError) {
-            console.error('Error sending notifications:', notificationError);
-          }
-        }
-
         return corretor;
       } catch (error) {
         console.error('Error creating corretor:', error);
@@ -414,12 +396,9 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['corretores'] });
       if (userMode === 'novo') {
-        const tempEmail = variables.email || `${variables.creci}@temp.memude.com`;
-        const tempPassword = `Memude@${variables.creci}`;
         toast({
           title: "Corretor cadastrado com sucesso!",
-          description: `Credenciais de acesso criadas:\nEmail: ${tempEmail}\nSenha: ${tempPassword}\n\nRepasse essas credenciais ao corretor.`,
-          duration: 20000,
+          description: `Um convite seguro para definir a senha foi enviado para ${variables.email}.`,
         });
       } else {
         toast({
@@ -780,7 +759,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email *</Label>
                   <Input
                     id="email"
                     type="email"

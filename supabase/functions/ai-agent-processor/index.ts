@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import OpenAI from 'https://esm.sh/openai@4.28.0';
 import { GoogleGenerativeAI } from 'https://esm.sh/@google/generative-ai@0.2.1';
 import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.17.1';
@@ -9,9 +8,10 @@ import { calculateBANTScore, getNextBANTQuestion, updateBANTFromEntities, getQua
 import { detectObjection, buildObjectionContext, shouldEscalateToHuman, formatObjectionForLog } from '../_shared/objection-handler.ts';
 import { buildHandoffContext, formatHandoffMessage, formatHandoffForStorage } from '../_shared/human-handoff.ts';
 import { getCachedResponse, setCachedResponse, isCacheable, getCachedEmbedding, setCachedEmbedding } from '../_shared/cache-manager.ts';
+import { authorize, handleOptions, readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -279,19 +279,17 @@ ${agent.system_prompt ? `\n## Instruções Adicionais do Admin\n${agent.system_p
 // ============================================================
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
 
   const startTime = Date.now();
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const access = await authorize(req, 'internal');
+    if (access instanceof Response) return access;
+    const { supabase } = access;
 
-    const body = await req.json();
+    const body = await readJson<ProcessMessageRequest & { test_mode?: boolean }>(req, 32 * 1024);
 
     // Test mode
     if (body.test_mode) {
@@ -334,7 +332,10 @@ serve(async (req) => {
       throw new Error('phone_number e message_text são obrigatórios');
     }
 
-    console.log(`🤖 AI Agent: Processando mensagem de ${phone_number}: "${message_text.substring(0, 50)}..."`);
+    console.log('AI Agent: processando mensagem recebida', {
+      phone_length: phone_number.replace(/\D/g, '').length,
+      message_length: message_text.length,
+    });
 
     // 1. Find active agent
     const { data: activeAgent, error: agentError } = await supabase

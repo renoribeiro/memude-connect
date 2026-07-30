@@ -172,11 +172,12 @@ export async function authorize(
   }
 
   if (mode === 'admin' || mode === 'admin-or-internal') {
-    const { data: isAdmin, error: roleError } = await supabase.rpc('has_role', {
-      _user_id: user.id,
-      _role: 'admin',
-    });
-    if (roleError || !isAdmin) {
+    const { data: roleRecord, error: roleError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (roleError || roleRecord?.role !== 'admin') {
       return jsonResponse(req, { error: 'Acesso restrito a administradores' }, 403);
     }
   }
@@ -214,7 +215,12 @@ export async function verifyWebhook(
 
   const urlSecret = new URL(req.url).searchParams.get('secret');
   const headerSecret = req.headers.get('x-webhook-secret');
-  if (timingSafeEqual(urlSecret, secret) || timingSafeEqual(headerSecret, secret)) {
+  const apiKeySecret = req.headers.get('x-api-key');
+  if (
+    timingSafeEqual(urlSecret, secret)
+    || timingSafeEqual(headerSecret, secret)
+    || timingSafeEqual(apiKeySecret, secret)
+  ) {
     return true;
   }
 

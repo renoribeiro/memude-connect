@@ -225,7 +225,7 @@ Deno.serve(async (req) => {
   if (options) return options;
 
   try {
-    const access = await authorize(req, 'admin');
+    const access = await authorize(req, 'admin-or-internal');
     if (access instanceof Response) return access;
 
     const payload = await readJson<ConfigureRequest>(req, 16 * 1024);

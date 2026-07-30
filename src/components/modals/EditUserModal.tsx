@@ -15,6 +15,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { User, Phone, UserCircle, Award } from 'lucide-react';
+import type { Database } from '@/integrations/supabase/types';
+
+type CorretorEstado = NonNullable<Database['public']['Tables']['corretores']['Row']['estado']>;
+type TipoImovel = NonNullable<Database['public']['Tables']['corretores']['Row']['tipo_imovel']>;
+interface CorretorFormData {
+  creci: string;
+  cpf: string;
+  whatsapp: string;
+  cidade: string;
+  estado: CorretorEstado;
+  tipo_imovel: TipoImovel;
+  observacoes: string;
+}
 
 interface ManagedUser {
   id: string;
@@ -41,7 +54,7 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
     phone: '',
   });
 
-  const [corretorData, setCorretorData] = useState({
+  const [corretorData, setCorretorData] = useState<CorretorFormData>({
     creci: '',
     cpf: '',
     whatsapp: '',
@@ -68,11 +81,13 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
 
   useEffect(() => {
     if (user && formData.role === 'corretor') {
+      const controller = new AbortController();
       const fetchCorretor = async () => {
         const { data, error } = await supabase
           .from('corretores')
-          .select('*')
+          .select('creci, cpf, whatsapp, telefone, cidade, estado, tipo_imovel, observacoes')
           .eq('profile_id', user.id)
+          .abortSignal(controller.signal)
           .maybeSingle();
         
         if (data) {
@@ -97,7 +112,8 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
           });
         }
       };
-      fetchCorretor();
+      void fetchCorretor();
+      return () => controller.abort();
     }
   }, [formData.role, user]);
 
@@ -339,7 +355,7 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="estado">Estado</Label>
-                    <Select value={corretorData.estado} onValueChange={(value) => setCorretorData(prev => ({ ...prev, estado: value }))}>
+                    <Select value={corretorData.estado} onValueChange={(value: CorretorEstado) => setCorretorData(prev => ({ ...prev, estado: value }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Estado" />
                       </SelectTrigger>
@@ -376,7 +392,7 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="tipo_imovel">Tipo de Imóvel</Label>
-                    <Select value={corretorData.tipo_imovel} onValueChange={(value: any) => setCorretorData(prev => ({ ...prev, tipo_imovel: value }))}>
+                    <Select value={corretorData.tipo_imovel} onValueChange={(value: TipoImovel) => setCorretorData(prev => ({ ...prev, tipo_imovel: value }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Tipo" />
                       </SelectTrigger>

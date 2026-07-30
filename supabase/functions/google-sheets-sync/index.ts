@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://core.memudecore.com.br",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -69,7 +70,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const { action, spreadsheetId, range = 'Sheet1!A:Z' }: GoogleSheetsRequest = await req.json();
+    const { action, spreadsheetId, range = 'Sheet1!A:Z' }: GoogleSheetsRequest = await readJson(req, 1024 * 1024);
 
     const googleApiKey = Deno.env.get('GOOGLE_SHEETS_API_KEY')!;
 
@@ -119,7 +120,7 @@ const handler = async (req: Request): Promise<Response> => {
 
           // Skip empty rows or rows without required fields
           if (!nome || !creci || !telefone || !cidade) {
-            console.log(`Skipping row - missing required fields: nome=${nome}, creci=${creci}, telefone=${telefone}, cidade=${cidade}`);
+            console.log('Linha ignorada por ausência de campos obrigatórios');
             continue;
           }
 

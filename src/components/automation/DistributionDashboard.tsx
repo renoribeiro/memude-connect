@@ -20,7 +20,6 @@ export function DistributionDashboard() {
 
   // Realtime Subscription para atualizações instantâneas
   useEffect(() => {
-    console.log('🔌 Iniciando subscription Realtime para DistributionDashboard...');
     const channel = supabase
       .channel('distribution-dashboard-updates')
       .on(
@@ -30,8 +29,7 @@ export function DistributionDashboard() {
           schema: 'public',
           table: 'visit_distribution_attempts'
         },
-        (payload) => {
-          console.log('🔄 Mudança detectada em visit_distribution_attempts:', payload);
+        () => {
           // Invalidar todas as queries relacionadas para forçar recarregamento imediato
           queryClient.invalidateQueries({ queryKey: ['active-distribution-attempts'] });
           queryClient.invalidateQueries({ queryKey: ['distribution-stats-24h'] });
@@ -39,7 +37,9 @@ export function DistributionDashboard() {
         }
       )
       .subscribe((status) => {
-        console.log('📡 Status da conexão Realtime:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Falha na conexão Realtime de distribuição');
+        }
       });
 
     return () => {
@@ -50,11 +50,11 @@ export function DistributionDashboard() {
   // Buscar tentativas ativas em tempo real
   const { data: activeAttempts, isLoading: loadingAttempts } = useQuery({
     queryKey: ['active-distribution-attempts'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('visit_distribution_attempts')
         .select(`
-          *,
+          id, attempt_order, status, response_type, message_sent_at, response_received_at, timeout_at,
           corretor:corretor_id (
             id,
             profiles:profile_id (
@@ -70,7 +70,9 @@ export function DistributionDashboard() {
         `)
         .eq('status', 'pending')
         .gte('timeout_at', new Date().toISOString())
-        .order('timeout_at', { ascending: true });
+        .order('timeout_at', { ascending: true })
+        .limit(100)
+        .abortSignal(signal);
 
       if (error) throw error;
       return data || [];
@@ -81,13 +83,15 @@ export function DistributionDashboard() {
   // Buscar estatísticas das últimas 24h
   const { data: stats } = useQuery({
     queryKey: ['distribution-stats-24h'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
       const { data: attempts, error } = await supabase
         .from('visit_distribution_attempts')
-        .select('*')
-        .gte('created_at', yesterday);
+        .select('status, response_type, message_sent_at, response_received_at')
+        .gte('created_at', yesterday)
+        .limit(1000)
+        .abortSignal(signal);
 
       if (error) throw error;
 

@@ -47,11 +47,13 @@ export function ReportTemplateManager({ onSelectTemplate, onNewTemplate }: Repor
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ['report-templates'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('report_templates')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id, name, description, template_config, category, is_public, created_at, created_by')
+        .order('created_at', { ascending: false })
+        .limit(200)
+        .abortSignal(signal);
       
       if (error) throw error;
       return data as ReportTemplate[];

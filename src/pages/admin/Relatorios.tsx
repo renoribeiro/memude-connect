@@ -49,10 +49,13 @@ export default function Relatorios() {
   // Dados de vendas para faturamento
   const { data: vendasData = [], isLoading: isLoadingVendas } = useQuery({
     queryKey: ['reports-vendas'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('vendas')
-        .select('valor_imovel, valor_comissao_bruta, status, created_at');
+        .select('lead_id, valor_imovel, valor_comissao_bruta, status, created_at')
+        .neq('status', 'cancelada')
+        .limit(5000)
+        .abortSignal(signal);
       
       if (error) throw error;
       return data;
@@ -62,11 +65,13 @@ export default function Relatorios() {
   // Relatórios agendados
   const { data: scheduledReports = [], isLoading: isLoadingScheduled } = useQuery({
     queryKey: ['scheduled-reports'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('scheduled_reports')
-        .select('*, report_templates(name)')
-        .order('created_at', { ascending: false });
+        .select('id, report_template_id, schedule_type, recipients, email_subject, email_message, is_active, last_run, next_run, created_at, report_templates(name)')
+        .order('created_at', { ascending: false })
+        .limit(200)
+        .abortSignal(signal);
 
       if (error) throw error;
       return data;
@@ -146,7 +151,7 @@ export default function Relatorios() {
       const startDate = subDays(new Date(), 365); // Busca 365 dias para habilitar relatórios históricos
       const { data, error } = await supabase
         .from('leads')
-        .select('created_at, status, nome')
+        .select('id, created_at, status, nome')
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: true });
 
@@ -220,9 +225,9 @@ export default function Relatorios() {
     leadsByStatus: processStatusData(),
     conversionFunnel: [
       { name: 'Leads Recebidos', value: leadsData.length, fill: 'hsl(var(--primary))' },
-      { name: 'Visitas Agendadas', value: leadsData.filter(l => l.status === 'visita_agendada').length, fill: 'hsl(var(--secondary))' },
-      { name: 'Visitas Realizadas', value: leadsData.filter(l => l.status === 'visita_realizada').length, fill: 'hsl(var(--accent))' },
-      { name: 'Convertidos', value: leadsData.filter(l => l.status === 'visita_realizada').length, fill: 'hsl(var(--primary))' },
+      { name: 'Visitas Agendadas', value: visitasData.length, fill: 'hsl(var(--secondary))' },
+      { name: 'Visitas Realizadas', value: visitasData.filter(v => v.status === 'realizada').length, fill: 'hsl(var(--accent))' },
+      { name: 'Vendas', value: vendasData.length, fill: 'hsl(var(--primary))' },
     ],
     corretorPerformance: corretoresData.slice(0, 5).map(c => ({
       name: `${c.profiles.first_name} ${c.profiles.last_name}`,
@@ -261,7 +266,12 @@ export default function Relatorios() {
       return leadDate >= startOfMonth(new Date()) && leadDate <= endOfMonth(new Date());
     });
 
-    const converted = thisMonth.filter(lead => lead.status === 'visita_realizada').length;
+    const monthlyLeadIds = new Set(thisMonth.map(lead => lead.id));
+    const converted = new Set(
+      vendasData
+        .filter(venda => venda.lead_id && monthlyLeadIds.has(venda.lead_id))
+        .map(venda => venda.lead_id)
+    ).size;
     const total = thisMonth.length;
     const rate = total > 0 ? (converted / total) * 100 : 0;
 
@@ -306,16 +316,21 @@ export default function Relatorios() {
     filteredLeads = filteredLeads.filter(l => new Date(l.created_at) >= startDate);
 
     // 2. Filtrar visitas
-    let filteredVisitas = visitasData.filter(v => new Date(v.data_visita) >= startDate);
+    const filteredVisitas = visitasData.filter(v => new Date(v.data_visita) >= startDate);
 
     // 3. Filtrar vendas
-    let filteredVendas = vendasData.filter(v => new Date(v.created_at) >= startDate);
+    const filteredVendas = vendasData.filter(v => new Date(v.created_at) >= startDate);
 
     // 4. Calcular métricas
     const totalLeads = filteredLeads.length;
     const totalVisits = filteredVisitas.length;
     
-    const convertedLeads = filteredLeads.filter(l => l.status === 'visita_realizada').length;
+    const filteredLeadIds = new Set(filteredLeads.map(lead => lead.id));
+    const convertedLeads = new Set(
+      filteredVendas
+        .filter(venda => venda.lead_id && filteredLeadIds.has(venda.lead_id))
+        .map(venda => venda.lead_id)
+    ).size;
     const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
 
     const computedAvgRating = corretoresData.length > 0

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import StatsCard from './StatsCard';
@@ -12,7 +12,8 @@ import {
   TrendingUp, 
   Clock,
   MapPin,
-  Phone
+  Phone,
+  User
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { parseLocalDate } from '@/utils/dateHelpers';
@@ -55,19 +56,14 @@ const CorretorDashboard = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (profile) {
-      fetchCorretorData();
-    }
-  }, [profile]);
-
-  const fetchCorretorData = async () => {
+  const fetchCorretorData = useCallback(async () => {
+    if (!profile) return;
     try {
       // First get corretor info
       const { data: corretor, error: corretorError } = await supabase
         .from('corretores')
-        .select('*')
-        .eq('profile_id', profile!.id)
+        .select('id, nota_media, total_visitas')
+        .eq('profile_id', profile.id)
         .maybeSingle();
 
       if (corretorError) throw corretorError;
@@ -81,14 +77,14 @@ const CorretorDashboard = () => {
       // Get leads assigned to this corretor
       const { data: leads } = await supabase
         .from('leads')
-        .select('*')
+        .select('id, status')
         .eq('corretor_designado_id', corretor.id);
 
       // Get visitas for this corretor
       const { data: visitas } = await supabase
         .from('visitas')
         .select(`
-          *,
+          id, data_visita, horario_visita, status,
           leads (nome, telefone),
           empreendimentos (nome, endereco)
         `)
@@ -134,7 +130,13 @@ const CorretorDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile, toast]);
+
+  useEffect(() => {
+    if (profile) {
+      void fetchCorretorData();
+    }
+  }, [fetchCorretorData, profile]);
 
   if (loading) {
     return (

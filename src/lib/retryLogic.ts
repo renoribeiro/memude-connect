@@ -95,7 +95,7 @@ export async function withRetry<T>(
       
       totalDelay += delay;
       
-      console.log(`Retry attempt ${attempt} failed, waiting ${Math.round(delay)}ms:`, error.message);
+      console.warn(`Tentativa ${attempt} falhou; nova tentativa em ${Math.round(delay)}ms`);
       
       await new Promise(resolve => setTimeout(resolve, delay));
     }

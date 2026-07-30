@@ -1,18 +1,32 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import {
+  authorize,
+  corsHeaders as buildCorsHeaders,
+  handleOptions,
+  readJson,
+} from '../_shared/security.ts';
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Método não permitido' }), {
+      status: 405,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json; charset=utf-8',
+        Allow: 'POST, OPTIONS',
+      },
+    });
   }
 
   try {
+    const access = await authorize(req, 'admin-or-internal');
+    if (access instanceof Response) return access;
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
@@ -31,9 +45,14 @@ serve(async (req) => {
       return acc;
     }, {});
 
-    const { phone_number, message, lead_id, corretor_id } = await req.json();
+    const { phone_number, message, lead_id, corretor_id } = await readJson<{
+      phone_number?: string;
+      message?: string;
+      lead_id?: string;
+      corretor_id?: string;
+    }>(req, 16 * 1024);
 
-    console.log('Sending WhatsApp message to:', phone_number);
+    console.log('Iniciando envio WhatsApp pelo adaptador legado');
 
     if (!settingsMap.evolution_api_url || !settingsMap.evolution_api_key || !settingsMap.evolution_instance_name) {
       throw new Error('Evolution API não configurada');

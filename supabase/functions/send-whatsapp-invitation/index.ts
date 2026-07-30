@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { authorize, readJson } from "../_shared/security.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://core.memudecore.com.br",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -21,13 +22,16 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { phone_number, name, creci, email, resetUrl, corretor_id }: WhatsAppInvitationRequest = await req.json();
+    const access = await authorize(req, "admin-or-internal");
+    if (access instanceof Response) return access;
+
+    const { phone_number, name, creci, email, resetUrl, corretor_id }: WhatsAppInvitationRequest = await readJson(req, 1024 * 1024);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log("Sending WhatsApp invitation to:", phone_number);
+    console.log("Sending WhatsApp invitation");
 
     // Get Evolution API settings
     const { data: settings, error: settingsError } = await supabase
@@ -62,7 +66,7 @@ Sua conta foi criada com sucesso no nosso sistema de gestão imobiliária. Você
 • CRECI: ${creci}
 
 🔐 *Para começar a usar o sistema:*
-1. Acesse: ${window.location?.origin || 'https://memude.com'}
+1. Acesse: ${Deno.env.get('APP_URL') || 'https://core.memudecore.com.br'}
 2. Clique no link que enviamos por email para definir sua senha
 3. Ou use este link direto: ${resetUrl}
 

@@ -14,7 +14,7 @@ import { Save, Loader2, Bell } from "lucide-react";
 import { FollowupEditor } from "./FollowupEditor";
 import { EvolutionInstance } from "@/components/configuracoes/EvolutionInstances";
 
-interface AIAgent {
+export interface AIAgent {
     id?: string;
     name: string;
     description: string | null;

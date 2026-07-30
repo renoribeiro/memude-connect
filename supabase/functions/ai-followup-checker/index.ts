@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { authorize, handleOptions, readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -23,24 +23,23 @@ function getCurrentHourInTimezone(timezoneOffset: number = -3): number {
 }
 
 serve(async (req) => {
-    if (req.method === 'OPTIONS') {
-        return new Response(null, { headers: corsHeaders });
-    }
+    const optionsResponse = handleOptions(req);
+    if (optionsResponse) return optionsResponse;
 
     const startTime = Date.now();
+    const access = await authorize(req, 'internal');
+    if (access instanceof Response) return access;
 
     // ============================================================
     // CRON AUTHENTICATION
     // Permite autenticação via CRON_SECRET, SERVICE_ROLE, ou INTERNAL_DB_SECRET
     // ============================================================
-    const authHeader = req.headers.get('Authorization');
-    const cronSecret = Deno.env.get('CRON_SECRET');
+    const internalHeader = req.headers.get('x-internal-secret');
+    const authHeader = req.headers.get('Authorization') || (internalHeader ? `Bearer ${internalHeader}` : null);
+    const cronSecret = internalHeader;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        serviceRoleKey ?? ''
-    );
+    const { supabase } = access;
 
     const token = authHeader?.replace('Bearer ', '');
     const isValidCronAuth = token === cronSecret;
@@ -76,6 +75,36 @@ serve(async (req) => {
 
     try {
         const now = new Date();
+
+        // Circuit breaker: uma credencial Evolution rejeitada não deve gerar
+        // novas tentativas a cada cinco minutos. O job permanece saudável e
+        // retoma automaticamente após a janela, permitindo validar uma chave
+        // atualizada sem intervenção no código.
+        const credentialBackoffSince = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+        const { data: recentCredentialFailure, error: credentialCheckError } = await supabase
+            .from('integration_logs')
+            .select('created_at')
+            .eq('service', 'evolution-api')
+            .eq('status_code', 401)
+            .gte('created_at', credentialBackoffSince)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (credentialCheckError) {
+            console.warn('Não foi possível consultar o estado da integração Evolution:', credentialCheckError.message);
+        } else if (recentCredentialFailure) {
+            console.warn('Follow-ups pausados temporariamente: a Evolution API rejeitou a credencial configurada.');
+            return new Response(
+                JSON.stringify({
+                    success: true,
+                    paused: true,
+                    reason: 'evolution_credentials_rejected',
+                    retry_after_minutes: 30,
+                }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
 
         console.log(`🔄 Follow-up Checker executando às ${now.toISOString()}`);
 
@@ -147,7 +176,7 @@ serve(async (req) => {
 
                 // Pausar se o lead está em estágio avançado
                 if (pauseStages.includes(conv.current_stage)) {
-                    console.log(`  ⏸️ ${conv.phone_number}: Pausado (estágio ${conv.current_stage})`);
+                    console.log(`Follow-up pausado no estágio ${conv.current_stage}`);
                     results.skipped++;
                     continue;
                 }
@@ -168,7 +197,7 @@ serve(async (req) => {
 
                 // Verificar limite máximo de tentativas
                 if ((totalSent.count || 0) >= maxAttempts) {
-                    console.log(`  🚫 ${conv.phone_number}: Limite de ${maxAttempts} follow-ups atingido`);
+                    console.log(`Limite de ${maxAttempts} follow-ups atingido`);
                     results.skipped++;
                     continue;
                 }
@@ -183,7 +212,7 @@ serve(async (req) => {
                     .single();
 
                 if (!nextFollowup) {
-                    console.log(`  ⏭️ ${conv.phone_number}: Sem mais follow-ups configurados`);
+                    console.log('Conversa sem mais follow-ups configurados');
                     results.skipped++;
                     continue;
                 }
@@ -193,7 +222,7 @@ serve(async (req) => {
                 const hoursSinceLastMessage = (Date.now() - lastMessageTime) / (1000 * 60 * 60);
 
                 if (hoursSinceLastMessage < nextFollowup.delay_hours) {
-                    console.log(`  ⏰ ${conv.phone_number}: Aguardando (${hoursSinceLastMessage.toFixed(1)}h < ${nextFollowup.delay_hours}h)`);
+                    console.log(`Follow-up aguardando janela (${hoursSinceLastMessage.toFixed(1)}h < ${nextFollowup.delay_hours}h)`);
                     results.skipped++;
                     continue;
                 }
@@ -203,21 +232,21 @@ serve(async (req) => {
                 const sendBeforeHour = nextFollowup.send_before_hour ?? 20;
 
                 if (currentHour < sendAfterHour || currentHour >= sendBeforeHour) {
-                    console.log(`  🌙 ${conv.phone_number}: Fora do horário (${currentHour}h BRT, permitido: ${sendAfterHour}h-${sendBeforeHour}h)`);
+                    console.log(`Follow-up fora do horário (${currentHour}h BRT, permitido: ${sendAfterHour}h-${sendBeforeHour}h)`);
                     results.skipped++;
                     continue;
                 }
 
                 // 6. Verificar condições especiais
                 if (nextFollowup.skip_if_qualified && conv.lead_score && conv.lead_score >= 70) {
-                    console.log(`  ✅ ${conv.phone_number}: Lead já qualificado, pulando`);
+                    console.log('Follow-up ignorado: lead já qualificado');
                     results.skipped++;
                     continue;
                 }
 
                 if (nextFollowup.only_if_stages && nextFollowup.only_if_stages.length > 0) {
                     if (!nextFollowup.only_if_stages.includes(conv.current_stage)) {
-                        console.log(`  📍 ${conv.phone_number}: Estágio ${conv.current_stage} não elegível`);
+                        console.log(`Estágio ${conv.current_stage} não elegível para follow-up`);
                         results.skipped++;
                         continue;
                     }
@@ -229,7 +258,7 @@ serve(async (req) => {
 
                 if (nextFollowup.use_for_temperature && nextFollowup.use_for_temperature.length > 0) {
                     if (!nextFollowup.use_for_temperature.includes(leadTemperature)) {
-                        console.log(`  🌡️ ${conv.phone_number}: Temperatura ${leadTemperature} não elegível para este followup`);
+                        console.log(`Temperatura ${leadTemperature} não elegível para este follow-up`);
                         results.skipped++;
                         continue;
                     }
@@ -239,7 +268,7 @@ serve(async (req) => {
                 const lastObjection = conv.qualification_data?.last_objection;
                 if (nextFollowup.use_after_objection && lastObjection) {
                     if (nextFollowup.use_after_objection !== lastObjection) {
-                        console.log(`  ⚠️ ${conv.phone_number}: Objeção ${lastObjection} não match`);
+                        console.log('Objeção não corresponde ao follow-up');
                         results.skipped++;
                         continue;
                     }
@@ -247,7 +276,7 @@ serve(async (req) => {
 
                 // Determinar tipo de mídia do follow-up
                 const mediaType = nextFollowup.media_type || 'text';
-                console.log(`  📤 ${conv.phone_number}: Enviando follow-up #${nextFollowup.sequence_order} (tipo: ${mediaType})`);
+                console.log(`Enviando follow-up #${nextFollowup.sequence_order} (tipo: ${mediaType})`);
 
                 let sendError: any = null;
                 let audioWasSent = false;
@@ -256,13 +285,15 @@ serve(async (req) => {
                     // =====================================================
                     // NOVA FEATURE: Envio de áudio pré-gravado
                     // =====================================================
-                    console.log(`  🎵 ${conv.phone_number}: Enviando áudio pré-gravado: ${nextFollowup.audio_url}`);
+                    console.log('Enviando áudio pré-gravado');
 
                     const audioResult = await supabase.functions.invoke('evolution-send-whatsapp-v2', {
                         body: {
                             phone_number: conv.phone_number,
-                            audio_url: nextFollowup.audio_url,
-                            media_type: 'audio',
+                            media: {
+                                type: 'audio',
+                                url: nextFollowup.audio_url
+                            },
                             instance_id: agentConfig?.evolution_instance_id
                         }
                     });
@@ -302,9 +333,11 @@ serve(async (req) => {
                     const imageResult = await supabase.functions.invoke('evolution-send-whatsapp-v2', {
                         body: {
                             phone_number: conv.phone_number,
-                            image_url: nextFollowup.image_url,
-                            caption: personalizedCaption,
-                            media_type: 'image',
+                            media: {
+                                type: 'image',
+                                url: nextFollowup.image_url,
+                                caption: personalizedCaption
+                            },
                             typing_delay_ms: 2000 + Math.random() * 2000,
                             instance_id: agentConfig?.evolution_instance_id
                         }
@@ -379,10 +412,10 @@ serve(async (req) => {
 
                 results.followupsSent++;
                 if (audioWasSent) results.audiosSent++;
-                console.log(`  ✅ Follow-up #${nextFollowup.sequence_order} enviado para ${conv.phone_number} (${mediaType})`);
+                console.log(`Follow-up #${nextFollowup.sequence_order} enviado (${mediaType})`);
 
             } catch (convError: any) {
-                console.error(`  ❌ Erro ao processar ${conv.phone_number}: ${convError.message}`);
+                console.error(`Erro ao processar follow-up: ${convError.message}`);
                 results.errors++;
             }
         }

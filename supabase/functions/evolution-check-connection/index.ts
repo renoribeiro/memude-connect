@@ -1,8 +1,9 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { authorize, readJson, validateExternalHttpUrl } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -13,6 +14,9 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const access = await authorize(req, 'admin');
+    if (access instanceof Response) return access;
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -27,7 +31,7 @@ Deno.serve(async (req) => {
     let instance_id;
     let body: any = null;
     try {
-      body = await req.json();
+      body = await readJson(req, 1024 * 1024);
       instance_id = body?.instance_id;
     } catch (e) {
       // Body might be empty or invalid, ignore
@@ -115,7 +119,7 @@ Deno.serve(async (req) => {
 
     // Validar formato da URL
     try {
-      new URL(settingsMap.evolution_api_url);
+      validateExternalHttpUrl(settingsMap.evolution_api_url);
     } catch {
       throw new Error('URL da Evolution API inválida. Use formato: https://sua-api.com');
     }

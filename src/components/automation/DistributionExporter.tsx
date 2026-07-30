@@ -18,7 +18,7 @@ import {
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import * as XLSX from 'xlsx';
+import { downloadXlsx, type WorkbookSheet } from '@/utils/xlsxExport';
 
 interface ExportOptions {
   startDate: Date;
@@ -56,7 +56,8 @@ export const DistributionExporter = () => {
       const { data: attempts, error: attemptsError } = await supabase
         .from('distribution_attempts')
         .select(`
-          *,
+          id, lead_id, corretor_id, status, response_type, response_message,
+          message_sent_at, response_received_at, timeout_at, created_at,
           leads!inner(nome, telefone, email),
           corretores!inner(
             profiles!inner(first_name, last_name),
@@ -66,7 +67,8 @@ export const DistributionExporter = () => {
         `)
         .gte('created_at', start)
         .lte('created_at', end)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(5000);
 
       if (attemptsError) throw attemptsError;
       data.attempts = attempts;
@@ -77,12 +79,14 @@ export const DistributionExporter = () => {
       const { data: queue, error: queueError } = await supabase
         .from('distribution_queue')
         .select(`
-          *,
+          id, lead_id, assigned_corretor_id, status, current_attempt,
+          failure_reason, started_at, completed_at, created_at,
           leads!inner(nome, telefone, email, empreendimento_id)
         `)
         .gte('created_at', start)
         .lte('created_at', end)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(5000);
 
       if (queueError) throw queueError;
       data.queue = queue;
@@ -92,10 +96,11 @@ export const DistributionExporter = () => {
     if (options.includeCommunications) {
       const { data: communications, error: commError } = await supabase
         .from('communication_log')
-        .select('*')
+        .select('id, lead_id, corretor_id, direction, type, status, created_at')
         .gte('created_at', start)
         .lte('created_at', end)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(5000);
 
       if (commError) throw commError;
       data.communications = communications;
@@ -170,7 +175,10 @@ export const DistributionExporter = () => {
   };
 
   const exportToExcel = (data: any) => {
-    const workbook = XLSX.utils.book_new();
+    const sheets: WorkbookSheet[] = [];
+    const appendSheet = (name: string, rows: Record<string, unknown>[]) => {
+      sheets.push({ name, rows });
+    };
 
     // Aba de tentativas de distribuição
     if (data.attempts) {
@@ -189,8 +197,7 @@ export const DistributionExporter = () => {
         'Timeout em': format(new Date(attempt.timeout_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })
       }));
 
-      const attemptsSheet = XLSX.utils.json_to_sheet(attemptsData);
-      XLSX.utils.book_append_sheet(workbook, attemptsSheet, 'Tentativas de Distribuição');
+      appendSheet('Tentativas de Distribuição', attemptsData);
     }
 
     // Aba da fila de distribuição
@@ -206,8 +213,7 @@ export const DistributionExporter = () => {
         'Motivo Falha': item.failure_reason || ''
       }));
 
-      const queueSheet = XLSX.utils.json_to_sheet(queueData);
-      XLSX.utils.book_append_sheet(workbook, queueSheet, 'Fila de Distribuição');
+      appendSheet('Fila de Distribuição', queueData);
     }
 
     // Aba de comunicações
@@ -222,8 +228,7 @@ export const DistributionExporter = () => {
         'Message ID': comm.message_id || ''
       }));
 
-      const commSheet = XLSX.utils.json_to_sheet(commData);
-      XLSX.utils.book_append_sheet(workbook, commSheet, 'Comunicações');
+      appendSheet('Comunicações', commData);
     }
 
     // Aba de estatísticas dos corretores
@@ -242,13 +247,12 @@ export const DistributionExporter = () => {
         'Nota Média': stats.nota_media
       }));
 
-      const statsSheet = XLSX.utils.json_to_sheet(statsData);
-      XLSX.utils.book_append_sheet(workbook, statsSheet, 'Estatísticas Corretores');
+      appendSheet('Estatísticas Corretores', statsData);
     }
 
     // Salvar arquivo
     const fileName = `relatorio_distribuicao_${format(options.startDate, 'yyyy-MM-dd')}_${format(options.endDate, 'yyyy-MM-dd')}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+    downloadXlsx(sheets, fileName);
   };
 
   const exportToCSV = (data: any) => {
@@ -262,8 +266,17 @@ export const DistributionExporter = () => {
         ordem_tentativa: attempt.attempt_order
       }));
 
-      const csv = XLSX.utils.json_to_sheet(attemptsData);
-      const csvOutput = XLSX.utils.sheet_to_csv(csv);
+      const headers = Object.keys(attemptsData[0] ?? {});
+      const escapeCsv = (value: unknown) => {
+        const text = String(value ?? '');
+        return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+      };
+      const csvOutput = [
+        headers.map(escapeCsv).join(','),
+        ...attemptsData.map((row: Record<string, unknown>) =>
+          headers.map(header => escapeCsv(row[header])).join(',')
+        ),
+      ].join('\r\n');
       
       const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');

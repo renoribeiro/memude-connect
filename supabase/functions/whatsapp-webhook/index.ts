@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { handleOptions, jsonResponse, verifyWebhook } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -19,10 +20,8 @@ interface WhatsAppWebhookPayload {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
 
   try {
     const supabase = createClient(
@@ -30,26 +29,17 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // SECURITY: Validate webhook secret against evolution_webhook_secret in system_settings
-    const webhookSecret = req.headers.get('x-webhook-secret');
-    const { data: secretSetting } = await supabase
-      .from('system_settings')
-      .select('value')
-      .eq('key', 'evolution_webhook_secret')
-      .maybeSingle();
-
-    if (secretSetting?.value) {
-      if (!webhookSecret || webhookSecret !== secretSetting.value) {
-        console.warn('🚫 WhatsApp Webhook authentication failed: invalid or missing secret');
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized: missing or invalid secret' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    const rawBody = await req.text();
+    if (!await verifyWebhook(req, rawBody)) {
+      console.warn('Webhook de status do WhatsApp rejeitado: assinatura inválida');
+      return jsonResponse(req, { error: 'Não autorizado' }, 401);
     }
 
-    const payload: WhatsAppWebhookPayload = await req.json();
-    console.log('WhatsApp webhook received:', payload);
+    const payload: WhatsAppWebhookPayload = JSON.parse(rawBody);
+    console.log('Webhook de status do WhatsApp recebido', {
+      message_id_present: Boolean(payload.messageId),
+      status: payload.status,
+    });
 
     const { messageId, status, timestamp, error, phone, metadata } = payload;
 

@@ -9,7 +9,7 @@ export const signInSchema = z.object({
   password: z
     .string()
     .min(1, 'Senha é obrigatória')
-    .min(6, 'Senha deve ter no mínimo 6 caracteres'),
+    .max(100, 'Senha deve ter no máximo 100 caracteres'),
 });
 
 export const signUpSchema = z.object({
@@ -30,7 +30,7 @@ export const signUpSchema = z.object({
   password: z
     .string()
     .min(1, 'Senha é obrigatória')
-    .min(6, 'Senha deve ter no mínimo 6 caracteres')
+    .min(12, 'Senha deve ter no mínimo 12 caracteres')
     .max(100, 'Senha deve ter no máximo 100 caracteres'),
 });
 

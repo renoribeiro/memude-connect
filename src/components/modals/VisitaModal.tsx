@@ -32,13 +32,14 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId, isC
   // Fetch visita data if editing
   const { data: visita, isLoading: isLoadingVisita } = useQuery({
     queryKey: ['visita', visitaId],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (!visitaId) return null;
 
       const { data, error } = await supabase
         .from('visitas')
-        .select('*')
+        .select('id, lead_id, corretor_id, empreendimento_id, status, data_visita, horario_visita, avaliacao_lead, comentarios_lead, feedback_corretor, interesse')
         .eq('id', visitaId)
+        .abortSignal(signal)
         .single();
 
       if (error) throw error;
@@ -46,16 +47,6 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId, isC
     },
     enabled: !!visitaId
   });
-
-  // Debug log for data flow
-  useEffect(() => {
-    console.log('🔍 [VisitaModal] Estado atual:', {
-      visitaId,
-      visitaData: visita,
-      isLoadingVisita,
-      isOpen
-    });
-  }, [visitaId, visita, isLoadingVisita, isOpen]);
 
   // Fetch leads for dropdown
   const { data: leads = [] } = useQuery({
@@ -184,7 +175,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId, isC
         (visita.status === 'agendada' || visita.status === 'reagendada');
 
       if (shouldDistribute) {
-        console.log('Iniciando distribuição automática para visita:', visita.id);
+        console.log('Iniciando distribuição automática da visita');
 
         toast({
           title: visitaId ? "Visita reagendada!" : "Visita criada!",
@@ -221,7 +212,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId, isC
               variant: "destructive",
             });
           } else {
-            console.log('Distribuição iniciada com sucesso:', distributionResult);
+            console.log('Distribuição iniciada com sucesso');
             toast({
               title: "Distribuição iniciada!",
               description: `Consultando ${distributionResult.total_eligible || 'vários'} corretores disponíveis...`,

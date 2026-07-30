@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { authorize, handleOptions, readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -42,20 +42,19 @@ async function sendWhatsAppWithRetry(supabase: any, phone: string, message: stri
 // ============================================================
 
 serve(async (req) => {
-    if (req.method === 'OPTIONS') {
-        return new Response(null, { headers: corsHeaders });
-    }
+    const optionsResponse = handleOptions(req);
+    if (optionsResponse) return optionsResponse;
 
     const startTime = Date.now();
+    const access = await authorize(req, 'internal');
+    if (access instanceof Response) return access;
 
-    const authHeader = req.headers.get('Authorization');
-    const cronSecret = Deno.env.get('CRON_SECRET');
+    const internalHeader = req.headers.get('x-internal-secret');
+    const authHeader = req.headers.get('Authorization') || (internalHeader ? `Bearer ${internalHeader}` : null);
+    const cronSecret = internalHeader;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        serviceRoleKey ?? ''
-    );
+    const { supabase } = access;
 
     const token = authHeader?.replace('Bearer ', '');
     const isValidCronAuth = token === cronSecret;

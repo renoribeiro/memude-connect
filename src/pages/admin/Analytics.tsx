@@ -22,9 +22,10 @@ export default function Analytics() {
 
       const { data, error } = await supabase
         .from('distribution_metrics')
-        .select('*')
+        .select('id, date, total_distributions, successful_distributions, failed_distributions, total_attempts, total_accepts, total_rejects, total_timeouts, avg_response_time_minutes')
         .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
-        .order('date', { ascending: true });
+        .order('date', { ascending: true })
+        .limit(31);
 
       if (error) throw error;
       return data || [];

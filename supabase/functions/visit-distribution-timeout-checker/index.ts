@@ -1,26 +1,28 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { normalizePhoneNumber } from '../_shared/phoneHelpers.ts';
+import { authorize, handleOptions, readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
+
+  const access = await authorize(req, 'internal');
+  if (access instanceof Response) return access;
 
   // Security check: Verify x-cron-secret header OR Authorization service role to prevent unauthorized triggers
   const cronSecret = req.headers.get('x-cron-secret');
-  const expectedSecret = Deno.env.get('CRON_SECRET') || 'memude-cron-secret-2026-super-secure';
+  const expectedSecret = cronSecret;
   
   const authHeader = req.headers.get('Authorization');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const isServiceRole = authHeader && serviceRoleKey && (authHeader.replace('Bearer ', '') === serviceRoleKey || authHeader === serviceRoleKey);
 
-  if ((!cronSecret || cronSecret !== expectedSecret) && !isServiceRole) {
+  if ((!cronSecret || !expectedSecret || cronSecret !== expectedSecret) && !isServiceRole) {
     console.warn('🚫 Authentication failed: invalid cron secret and not service role');
     return new Response(
       JSON.stringify({ error: 'Unauthorized: Access denied' }),
@@ -29,14 +31,11 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const { supabase } = access;
 
     let body: any = {};
     try {
-      body = await req.json();
+      body = await readJson(req, 1024 * 1024);
     } catch {
       // Body is optional
     }
@@ -467,7 +466,7 @@ async function getNextEligibleCorretor(
   const bestCorretor = corretoresWithScore.sort((a, b) => b.score - a.score)[0];
   
   if (bestCorretor) {
-    console.log(`Próximo corretor selecionado: ${bestCorretor.profiles.first_name} ${bestCorretor.profiles.last_name} (Score: ${bestCorretor.score})`);
+    console.log(`Próximo corretor selecionado (score: ${bestCorretor.score})`);
   }
 
   return bestCorretor || null;
@@ -524,7 +523,7 @@ ${visita.lead.email ? `*E-mail:* ${visita.lead.email}` : ''}
   const rawPhoneNumber = corretor.whatsapp || corretor.telefone;
   const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
   
-  console.log(`Enviando retry WhatsApp para: ${phoneNumber} (original: ${rawPhoneNumber}) (tentativa ${attemptOrder})`);
+  console.log(`Enviando nova tentativa de distribuição por WhatsApp (${attemptOrder})`);
 
   try {
     // SPRINT 5 - FASE 4a: Migrado para evolution-send-whatsapp-v2

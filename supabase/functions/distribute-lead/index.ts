@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { logStructured, createTimedLogger } from '../_shared/structuredLogger.ts';
+import { readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -113,7 +114,7 @@ serve(async (req) => {
       );
     }
 
-    const { lead_id }: LeadDistributionRequest = await req.json();
+    const { lead_id }: LeadDistributionRequest = await readJson(req, 1024 * 1024);
 
     console.log('Iniciando distribuição para lead:', lead_id);
 
@@ -344,7 +345,7 @@ async function sendDistributionMessage(
   }
 
   // Fase 3: Verificar se o número existe no WhatsApp antes de enviar
-  console.log(`🔍 Verificando número WhatsApp: ${corretor.whatsapp}`);
+  console.log('Verificando disponibilidade do corretor no WhatsApp');
 
   try {
     const { data: checkResult, error: checkError } = await supabase.functions.invoke(
@@ -355,7 +356,7 @@ async function sendDistributionMessage(
     );
 
     if (checkError || !checkResult?.success || !checkResult?.exists) {
-      console.error(`❌ Número não existe no WhatsApp: ${corretor.whatsapp}`, checkError);
+      console.error('Número do corretor não está disponível no WhatsApp');
 
       // Registrar erro no communication_log
       await supabase.from('communication_log').insert({
@@ -455,7 +456,7 @@ async function sendDistributionMessage(
       }
     });
 
-    console.log('Mensagem enviada com sucesso para:', corretor.whatsapp);
+    console.log('Mensagem de distribuição enviada com sucesso');
 
     // Criar notificação para o corretor
     if (corretor.profile_id) {

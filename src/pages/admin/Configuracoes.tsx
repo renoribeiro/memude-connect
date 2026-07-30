@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,28 +86,18 @@ export default function Configuracoes() {
 
   const { data: settings = [], isLoading } = useQuery({
     queryKey: ['system-settings'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('system_settings')
-        .select('*')
-        .order('key');
+        .select('key, value, description')
+        .order('key')
+        .limit(200)
+        .abortSignal(signal);
 
       if (error) throw error;
       return data as SystemSetting[];
     }
   });
-
-  // Efeito para testar conexão automaticamente quando entrar na aba comunicação
-  useEffect(() => {
-    if (activeTab === 'comunicacao') {
-      if (wahaStatus === 'idle') {
-        const hasWahaConfig = getSetting('waha_api_url');
-        if (hasWahaConfig) {
-          setTimeout(() => testWahaConnection(), 1000);
-        }
-      }
-    }
-  }, [activeTab, settings]);
 
   const getSetting = (key: string) => {
     const setting = settings.find(s => s.key === key);
@@ -161,14 +151,14 @@ export default function Configuracoes() {
   });
 
 
-  const handleSaveSetting = async (key: string, value: string) => {
+  const handleSaveSetting = useCallback(async (key: string, value: string) => {
     setIsSaving(key);
     try {
       await updateSettingMutation.mutateAsync({ key, value });
     } finally {
       setIsSaving(null);
     }
-  };
+  }, [updateSettingMutation]);
 
   // Debounce function para evitar muitas chamadas
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -221,8 +211,6 @@ export default function Configuracoes() {
       });
       return;
     }
-
-    console.log('Testing WAHA connection with:', { url: apiUrl });
 
     try {
       const { data, error } = await supabase.functions.invoke('waha-check-connection');

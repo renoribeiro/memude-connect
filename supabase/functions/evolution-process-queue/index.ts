@@ -1,10 +1,11 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { logIntegration } from '../_shared/integration-logger.ts';
 import { DbEvolutionInstance } from '../_shared/types/evolution.ts';
+import { authorize, readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -15,6 +16,9 @@ Deno.serve(async (req) => {
     }
 
     try {
+        const access = await authorize(req, 'internal');
+        if (access instanceof Response) return access;
+
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseKey);

@@ -18,11 +18,12 @@ export function EvolutionStatusDashboard({ instanceId }: EvolutionStatusDashboar
     // 1. Fetch Instance Details (Status, Last Check)
     const { data: instance, isLoading: isLoadingInstance } = useQuery({
         queryKey: ['evolution-instance-details', instanceId],
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             const { data, error } = await supabase
                 .from('evolution_instances')
-                .select('*')
+                .select('id, name, instance_name, api_url, is_active, connection_status, last_health_check, created_at, updated_at')
                 .eq('id', instanceId)
+                .abortSignal(signal)
                 .single();
             if (error) throw error;
             return data;
@@ -33,14 +34,15 @@ export function EvolutionStatusDashboard({ instanceId }: EvolutionStatusDashboar
     // 2. Fetch Recent Logs (Health Checks & Errors)
     const { data: logs, isLoading: isLoadingLogs } = useQuery({
         queryKey: ['evolution-instance-logs', instanceId],
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             // Fetch last 20 logs for this instance
             const { data, error } = await supabase
                 .from('integration_logs')
-                .select('*')
+                .select('id, service, endpoint, method, status_code, response_body, duration_ms, created_at')
                 .eq('metadata->>instance_name', instance?.instance_name) // Filter by instance name in metadata
                 .order('created_at', { ascending: false })
-                .limit(20);
+                .limit(20)
+                .abortSignal(signal);
 
             if (error) throw error;
             return data;
@@ -137,7 +139,7 @@ export function EvolutionStatusDashboard({ instanceId }: EvolutionStatusDashboar
                                             <span>Duração: {log.duration_ms}ms</span>
                                             <span>{log.service}</span>
                                         </div>
-                                        {log.response_body?.error && (
+                                        {typeof log.response_body === 'object' && log.response_body !== null && 'error' in log.response_body && (
                                             <div className="mt-1 text-xs text-red-500 bg-red-50 p-1 rounded">
                                                 Erro: {JSON.stringify(log.response_body.error)}
                                             </div>

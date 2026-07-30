@@ -1,14 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import { logStructured } from "../_shared/structuredLogger.ts";
+import { handleOptions, readJson, verifyBearerSecret } from "../_shared/security.ts";
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://core.memudecore.com.br",
     "Access-Control-Allow-Headers":
         "authorization, x-client-info, apikey, content-type",
 };
 
-const WEBHOOK_TOKEN = Deno.env.get("LEADS_WEBHOOK_TOKEN") || "memude-api-token2026";
+const WEBHOOK_TOKEN = Deno.env.get("LEADS_WEBHOOK_TOKEN");
 
 interface LeadPayload {
     nome: string;
@@ -31,9 +32,8 @@ interface WebhookRequest {
 }
 
 serve(async (req) => {
-    if (req.method === "OPTIONS") {
-        return new Response(null, { headers: corsHeaders });
-    }
+    const optionsResponse = handleOptions(req);
+    if (optionsResponse) return optionsResponse;
 
     const startTime = Date.now();
     const requestId = crypto.randomUUID();
@@ -45,10 +45,7 @@ serve(async (req) => {
 
     try {
         // ── Auth: validate static token ──
-        const authHeader = req.headers.get("Authorization");
-        const token = authHeader?.replace("Bearer ", "");
-
-        if (!token || token !== WEBHOOK_TOKEN) {
+        if (!verifyBearerSecret(req, WEBHOOK_TOKEN)) {
             await logStructured(supabase, {
                 level: "warn",
                 function_name: "webhook-leads-visitas",
@@ -88,7 +85,7 @@ serve(async (req) => {
         }
 
         // ── Parse and validate body ──
-        const body: WebhookRequest = await req.json();
+        const body = await readJson<WebhookRequest>(req, 32 * 1024);
 
         if (!body.lead?.nome || !body.lead?.telefone) {
             return new Response(

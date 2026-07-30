@@ -95,7 +95,6 @@ export function VisitaForm({
   // Reset form when initialData changes (for edit mode)
   useEffect(() => {
     if (initialData) {
-      console.log('📝 [VisitaForm] Recebendo initialData:', initialData);
       const formData = {
         lead_id: initialData.lead_id || '',
         corretor_id: initialData.corretor_id || '',
@@ -109,7 +108,6 @@ export function VisitaForm({
         feedback_corretor: initialData.feedback_corretor || '',
       };
       
-      console.log('📝 [VisitaForm] Resetando form com:', formData);
       reset(formData);
       
       // Update local states

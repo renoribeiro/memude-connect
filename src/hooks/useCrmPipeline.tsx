@@ -68,12 +68,14 @@ export function useCrmPipeline(pipelineId?: string) {
 
     const pipelines = useQuery({
         queryKey: ['crm-pipelines'],
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             const { data, error } = await db
                 .from('crm_pipelines')
-                .select('*')
+                .select('id, nome, descricao, is_default, auto_add_visits, created_at')
                 .order('is_default', { ascending: false })
-                .order('created_at', { ascending: true });
+                .order('created_at', { ascending: true })
+                .limit(100)
+                .abortSignal(signal);
             if (error) throw error;
             return data as CrmPipeline[];
         },
@@ -81,13 +83,15 @@ export function useCrmPipeline(pipelineId?: string) {
 
     const stages = useQuery({
         queryKey: ['crm-stages', pipelineId],
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             if (!pipelineId) return [];
             const { data, error } = await db
                 .from('crm_stages')
-                .select('*')
+                .select('id, pipeline_id, nome, cor, posicao, is_final')
                 .eq('pipeline_id', pipelineId)
-                .order('posicao', { ascending: true });
+                .order('posicao', { ascending: true })
+                .limit(200)
+                .abortSignal(signal);
             if (error) throw error;
             return data as CrmStage[];
         },
@@ -96,12 +100,13 @@ export function useCrmPipeline(pipelineId?: string) {
 
     const crmLeads = useQuery({
         queryKey: ['crm-leads', pipelineId],
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             if (!pipelineId) return [];
             const { data, error } = await db
                 .from('crm_leads')
                 .select(`
-          *,
+          id, lead_id, pipeline_id, stage_id, posicao, valor_estimado,
+          notas, google_drive_url, moved_at, created_at,
           leads (
             id, nome, telefone, email, status, origem, observacoes,
             empreendimento_id, corretor_designado_id,
@@ -110,7 +115,9 @@ export function useCrmPipeline(pipelineId?: string) {
           )
         `)
                 .eq('pipeline_id', pipelineId)
-                .order('posicao', { ascending: true });
+                .order('posicao', { ascending: true })
+                .limit(500)
+                .abortSignal(signal);
             if (error) throw error;
             return data as CrmLead[];
         },
@@ -119,13 +126,15 @@ export function useCrmPipeline(pipelineId?: string) {
 
     const automations = useQuery({
         queryKey: ['crm-automations', pipelineId],
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             if (!pipelineId) return [];
             const { data, error } = await db
                 .from('crm_automations')
-                .select('*, crm_stages(nome)')
+                .select('id, pipeline_id, nome, trigger_type, trigger_value, action_type, target_stage_id, is_active, crm_stages(nome)')
                 .eq('pipeline_id', pipelineId)
-                .order('created_at', { ascending: true });
+                .order('created_at', { ascending: true })
+                .limit(200)
+                .abortSignal(signal);
             if (error) throw error;
             return data as CrmAutomation[];
         },

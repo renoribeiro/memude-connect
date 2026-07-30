@@ -1,0 +1,46 @@
+name: Qualidade e segurança
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run scan:secrets
+      - run: npm test
+      - run: npm run test:build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+      - run: npm run audit:security
+      - name: Gerar SBOM CycloneDX
+        run: npm sbom --sbom-format cyclonedx > sbom.cdx.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          retention-days: 30

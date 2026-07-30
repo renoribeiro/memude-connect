@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { normalizePhoneNumber } from './phoneHelpers.ts';
 
 // Definição de tipos para clareza
@@ -22,7 +22,7 @@ export async function processIncomingMessage(
   senderName: string = '',
   remoteJid: string = ''
 ): Promise<DistributionResult> {
-  console.log(`🧠 CORE LOGIC: Processando mensagem de ${phoneNumber}: "${messageText}" (remoteJid: ${remoteJid})`);
+  console.log('CORE LOGIC: processando mensagem recebida');
 
   // 1. Normalizar resposta
   const response = analyzeResponse(messageText);
@@ -153,8 +153,7 @@ async function findCorretorByPhone(supabase: SupabaseClient, phoneNumber: string
   const normalizedPhone = normalizePhoneNumber(phoneNumber);
   const phoneVariants = generatePhoneVariants(phoneNumber);
 
-  console.log(`🔍 Buscando corretor para ${phoneNumber}`);
-  console.log(`📞 Variantes geradas: ${phoneVariants.join(', ')}`);
+  console.log('Buscando corretor por telefone normalizado');
 
   // Tentar buscar pelo telefone normalizado primeiro
   let { data: corretor } = await supabase
@@ -164,7 +163,7 @@ async function findCorretorByPhone(supabase: SupabaseClient, phoneNumber: string
     .maybeSingle();
 
   if (corretor) {
-    console.log(`✅ Corretor encontrado pelo telefone normalizado: ${normalizedPhone}`);
+    console.log('Corretor encontrado pelo telefone normalizado');
     return corretor;
   }
 
@@ -196,7 +195,7 @@ async function findCorretorByPhone(supabase: SupabaseClient, phoneNumber: string
       for (const inputVariant of phoneVariants) {
         for (const dbVariant of dbPhoneVariants) {
           if (inputVariant === dbVariant) {
-            console.log(`✅ Corretor encontrado por matching flexível: ${c.whatsapp} <-> ${phoneNumber}`);
+            console.log('Corretor encontrado por correspondência flexível');
             return c;
           }
         }
@@ -204,7 +203,7 @@ async function findCorretorByPhone(supabase: SupabaseClient, phoneNumber: string
     }
   }
 
-  console.log(`❌ Corretor não encontrado para telefone: ${phoneNumber} (variantes: ${phoneVariants.join(', ')})`);
+  console.log('Corretor não encontrado para a mensagem recebida');
   return null;
 }
 
@@ -219,7 +218,7 @@ async function handleVisitAttempt(
   // Buscar corretor com busca flexível por telefone
   const corretor = await findCorretorByPhone(supabase, phoneNumber);
   if (!corretor) {
-    console.log(`❌ handleVisitAttempt: Corretor não encontrado para ${phoneNumber}`);
+    console.log('Tentativa de visita sem corretor correspondente');
     return { processed: false, action: 'none', type: 'visit' };
   }
 
@@ -310,7 +309,7 @@ async function handleLeadAttempt(
   // Usar busca flexível por telefone (mesmo helper de visitas)
   const corretor = await findCorretorByPhone(supabase, phoneNumber);
   if (!corretor) {
-    console.log(`❌ handleLeadAttempt: Corretor não encontrado para ${phoneNumber}`);
+    console.log('Tentativa de lead sem corretor correspondente');
     return { processed: false, action: 'none', type: 'lead' };
   }
 
@@ -592,12 +591,12 @@ async function notifyVisitConfirmation(supabase: SupabaseClient, attempt: any, c
 // Função de Envio Unificado (Abstração)
 // Função de Envio Unificado (Abstração)
 async function sendWhatsappMessage(supabase: SupabaseClient, phone: string, message: string) {
-  console.log(`📤 Enviando mensagem para ${phone} via evolution-send-whatsapp-v2`);
+  console.log('Enviando resposta pelo provedor WhatsApp');
 
   // TRACE START
   await supabase.from('webhook_logs').insert({
     event_type: 'DEBUG_SEND_START',
-    payload: { phone, message_preview: message?.substring(0, 50) || 'empty' }
+    payload: { message_length: message?.length || 0 }
   });
 
   const { error } = await supabase.functions.invoke('evolution-send-whatsapp-v2', {
@@ -608,17 +607,17 @@ async function sendWhatsappMessage(supabase: SupabaseClient, phone: string, mess
   });
 
   if (error) {
-    console.error(`❌ Erro ao enviar mensagem para ${phone} via v2:`, error);
+    console.error('Falha ao enviar mensagem pelo provedor WhatsApp');
     // TRACE ERROR
     await supabase.from('webhook_logs').insert({
       event_type: 'DEBUG_SEND_ERROR',
-      payload: { phone, error }
+      payload: { error_code: 'provider_send_failed' }
     });
   } else {
     // TRACE SUCCESS (INVOKE)
     await supabase.from('webhook_logs').insert({
       event_type: 'DEBUG_SEND_INVOKE_OK',
-      payload: { phone }
+      payload: { invoked: true }
     });
   }
 }
@@ -639,7 +638,7 @@ async function saveLidMapping(supabase: SupabaseClient, remoteJid: string, realP
       instance_name: 'avisosmemude',
       updated_at: new Date().toISOString()
     }, { onConflict: 'lid' });
-    console.log(`🗺️ LID mapping saved: ${lid} → ${realPhone}`);
+    console.log('Mapeamento LID salvo');
   } catch (e) {
     console.warn('⚠️ Failed to save LID mapping:', e);
   }
@@ -677,7 +676,7 @@ async function handleVisitAttemptByLidFallback(
     return { processed: false, action: 'none', type: 'visit' };
   }
 
-  console.log(`✅ LID FALLBACK: Encontrada tentativa ${attempt.id} para corretor ${attempt.corretor.whatsapp}`);
+  console.log('LID fallback encontrou uma tentativa de visita');
 
   // Save the LID mapping for future use
   await saveLidMapping(supabase, remoteJid, attempt.corretor.whatsapp);
@@ -744,7 +743,7 @@ async function handleLeadAttemptByLidFallback(
     return { processed: false, action: 'none', type: 'lead' };
   }
 
-  console.log(`✅ LID FALLBACK (LEAD): Encontrada tentativa ${attempt.id} para corretor ${attempt.corretor.whatsapp}`);
+  console.log('LID fallback encontrou uma tentativa de lead');
 
   // Save LID mapping
   await saveLidMapping(supabase, remoteJid, attempt.corretor.whatsapp);
@@ -772,4 +771,3 @@ async function handleLeadAttemptByLidFallback(
     return { processed: true, action: 'rejected', type: 'lead', id: attempt.lead.id };
   }
 }
-

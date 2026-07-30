@@ -1,223 +1,312 @@
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { getEvolutionWebhookSecret } from '../_shared/evolution-webhook.ts';
+import {
+  buildEvolutionWebhookPayload,
+  EVOLUTION_WEBHOOK_EVENTS,
+} from '../_shared/evolution-webhook-payload.ts';
+import {
+  authorize,
+  handleOptions,
+  jsonResponse,
+  readJson,
+  safeError,
+  validateExternalHttpUrl,
+} from '../_shared/security.ts';
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+interface ConfigureRequest {
+  action?: 'configure' | 'prepare_manual';
+  instance_id?: string;
+}
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+interface EvolutionConfig {
+  id: string | null;
+  displayName: string;
+  instanceName: string;
+  apiUrl: string;
+  apiKey: string;
+}
 
-Deno.serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+interface UpstreamResult {
+  instance: string;
+  verified: boolean;
+  status: number;
+}
+
+class ConfigurationError extends Error {
+  constructor(
+    message: string,
+    readonly status = 400,
+  ) {
+    super(message);
+  }
+}
+
+function redact(value: string, secrets: string[]): string {
+  return secrets.reduce(
+    (sanitized, secret) => secret
+      ? sanitized.replaceAll(secret, '[REDACTED]')
+      : sanitized,
+    value,
+  ).slice(0, 600);
+}
+
+async function loadEvolutionConfigs(
+  supabase: SupabaseClient,
+  instanceId?: string,
+): Promise<EvolutionConfig[]> {
+  let query = supabase
+    .from('evolution_instances')
+    .select('id, name, instance_name, api_url, api_token, is_active')
+    .order('updated_at', { ascending: false });
+
+  query = instanceId
+    ? query.eq('id', instanceId)
+    : query.eq('is_active', true);
+
+  const { data: instances, error: instancesError } = await query;
+  if (instancesError) {
+    throw new ConfigurationError(
+      `Não foi possível carregar as instâncias Evolution: ${instancesError.message}`,
+      500,
+    );
   }
 
+  const configs = (instances ?? [])
+    .filter((instance) =>
+      Boolean(instance.api_url?.trim())
+      && Boolean(instance.api_token?.trim())
+      && Boolean(instance.instance_name?.trim())
+    )
+    .map((instance) => ({
+      id: instance.id,
+      displayName: instance.name,
+      instanceName: instance.instance_name.trim(),
+      apiUrl: instance.api_url.trim().replace(/\/+$/, ''),
+      apiKey: instance.api_token.trim(),
+    }));
+
+  if (configs.length > 0) return configs;
+
+  if (instanceId) {
+    throw new ConfigurationError(
+      'A instância selecionada não existe ou está sem URL, chave ou nome de instância.',
+    );
+  }
+
+  const { data: settings, error: settingsError } = await supabase
+    .from('system_settings')
+    .select('key, value')
+    .in('key', [
+      'evolution_api_url',
+      'evolution_api_key',
+      'evolution_instance_name',
+    ]);
+
+  if (settingsError) {
+    throw new ConfigurationError(
+      `Não foi possível carregar a configuração legada: ${settingsError.message}`,
+      500,
+    );
+  }
+
+  const settingsMap = new Map(
+    (settings ?? []).map((setting) => [setting.key, setting.value?.trim() ?? '']),
+  );
+  const apiUrl = settingsMap.get('evolution_api_url')?.replace(/\/+$/, '');
+  const apiKey = settingsMap.get('evolution_api_key');
+  const instanceName = settingsMap.get('evolution_instance_name');
+
+  if (!apiUrl || !apiKey || !instanceName) {
+    throw new ConfigurationError(
+      'Nenhuma instância Evolution ativa e completa foi encontrada.',
+    );
+  }
+
+  return [{
+    id: null,
+    displayName: 'Evolution (configuração legada)',
+    instanceName,
+    apiUrl,
+    apiKey,
+  }];
+}
+
+async function callEvolution(
+  config: EvolutionConfig,
+  webhookUrl: string,
+  webhookSecret: string,
+): Promise<UpstreamResult> {
+  validateExternalHttpUrl(config.apiUrl);
+
+  const instancePath = encodeURIComponent(config.instanceName);
+  const setUrl = `${config.apiUrl}/webhook/set/${instancePath}`;
+  const webhookPayload = buildEvolutionWebhookPayload(
+    webhookUrl,
+    webhookSecret,
+  );
+
+  const response = await fetch(setUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: config.apiKey,
+    },
+    body: JSON.stringify(webhookPayload),
+    signal: AbortSignal.timeout(20_000),
+  });
+  const responseText = await response.text();
+
+  console.log('Evolution webhook set completed', {
+    instance: config.instanceName,
+    status: response.status,
+  });
+
+  if (!response.ok) {
+    const detail = redact(responseText, [config.apiKey, webhookSecret]);
+    throw new ConfigurationError(
+      `A Evolution recusou a configuração da instância ${config.instanceName} `
+        + `(HTTP ${response.status})${detail ? `: ${detail}` : ''}`,
+      502,
+    );
+  }
+
+  const verifyResponse = await fetch(
+    `${config.apiUrl}/webhook/find/${instancePath}`,
+    {
+      method: 'GET',
+      headers: { apikey: config.apiKey },
+      signal: AbortSignal.timeout(15_000),
+    },
+  );
+  const verifyText = await verifyResponse.text();
+  if (!verifyResponse.ok) {
+    const detail = redact(verifyText, [config.apiKey, webhookSecret]);
+    throw new ConfigurationError(
+      `A Evolution aceitou, mas não foi possível confirmar o webhook da instância `
+        + `${config.instanceName} (HTTP ${verifyResponse.status})`
+        + `${detail ? `: ${detail}` : ''}`,
+      502,
+    );
+  }
+
+  let verifiedConfig: Record<string, unknown>;
   try {
-    console.log('=== CONFIGURANDO WEBHOOK EVOLUTION API V2 ===');
+    verifiedConfig = JSON.parse(verifyText) as Record<string, unknown>;
+  } catch {
+    throw new ConfigurationError(
+      `A Evolution retornou uma confirmação inválida para ${config.instanceName}.`,
+      502,
+    );
+  }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const returnedWebhook = (
+    verifiedConfig.webhook && typeof verifiedConfig.webhook === 'object'
+      ? verifiedConfig.webhook
+      : verifiedConfig
+  ) as Record<string, unknown>;
+  const enabled = returnedWebhook.enabled !== false;
+  const returnedUrl = String(returnedWebhook.url ?? '');
+  if (!enabled || returnedUrl !== webhookUrl) {
+    throw new ConfigurationError(
+      `A Evolution não persistiu corretamente o webhook da instância ${config.instanceName}.`,
+      502,
+    );
+  }
 
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing Supabase environment variables');
+  return {
+    instance: config.instanceName,
+    verified: true,
+    status: response.status,
+  };
+}
+
+Deno.serve(async (req) => {
+  const options = handleOptions(req);
+  if (options) return options;
+
+  try {
+    const access = await authorize(req, 'admin');
+    if (access instanceof Response) return access;
+
+    const payload = await readJson<ConfigureRequest>(req, 16 * 1024);
+    const webhookSecret = await getEvolutionWebhookSecret(
+      access.supabase,
+      { createIfMissing: true },
+    );
+    if (!webhookSecret) {
+      throw new ConfigurationError(
+        'Não foi possível provisionar a credencial do webhook.',
+        500,
+      );
+    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')?.replace(/\/+$/, '');
+    if (!supabaseUrl) {
+      throw new ConfigurationError('SUPABASE_URL não configurada', 500);
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    let body;
-    try {
-      body = await req.json();
-    } catch {
-      // Body is optional
-    }
-
-    let apiUrl: string | undefined;
-    let apiKey: string | undefined;
-    let instanceName: string | undefined;
-
-    // 1. Try to get from body (frontend passing explicit config)
-    if (body?.instance_config) {
-      apiUrl = body.instance_config.api_url;
-      apiKey = body.instance_config.api_key || body.instance_config.api_token;
-      instanceName = body.instance_config.instance_name;
-      console.log('Using config from request body');
-    }
-
-    // 2. If missing, try to find an ACTIVE instance in DB (best practice)
-    if (!apiUrl || !apiKey || !instanceName) {
-      const { data: activeInstance } = await supabase
-        .from('evolution_instances')
-        .select('*')
-        .eq('is_active', true)
-        .limit(1)
-        .maybeSingle();
-
-      if (activeInstance) {
-        apiUrl = activeInstance.api_url;
-        apiKey = activeInstance.api_token;
-        instanceName = activeInstance.instance_name;
-        console.log(`Using ACTIVE Evolution Instance: ${activeInstance.name} (${instanceName})`);
-      }
-    }
-
-    // 3. Fallback to system_settings (Legacy)
-    if (!apiUrl || !apiKey || !instanceName) {
-      console.log('Fallback to system_settings');
-      const { data: settings } = await supabase
-        .from('system_settings')
-        .select('key, value')
-        .in('key', ['evolution_api_url', 'evolution_api_key', 'evolution_instance_name']);
-
-      const settingsMap = new Map(settings?.map((s: any) => [s.key, s.value]) || []);
-      apiUrl = apiUrl || settingsMap.get('evolution_api_url');
-      apiKey = apiKey || settingsMap.get('evolution_api_key');
-      instanceName = instanceName || settingsMap.get('evolution_instance_name');
-    }
-
-    // Trim whitespace and trailing slashes
-    apiUrl = apiUrl?.trim()?.replace(/\/$/, '');
-    apiKey = apiKey?.trim();
-    instanceName = instanceName?.trim();
-
-    console.log('Configurações Evolution API:', {
-      apiUrl: apiUrl ? '✓' : '✗',
-      apiKey: apiKey ? '✓' : '✗',
-      instanceName: instanceName || 'não encontrado'
-    });
-
-    if (!apiUrl || !apiKey || !instanceName) {
-      throw new Error('Configurações da Evolution API não encontradas. Configure primeiro a API URL, Key e Instance Name.');
-    }
-
-    const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook-handler`;
-
-    console.log('Configurando webhook:', webhookUrl);
-    console.log('Instance:', instanceName);
-
-    // Evolution API V2 webhook endpoint
-    // Standard V2: /webhook/set/{instance}
-    // Also try /webhook/set if the first one 404s? No, let's stick to standard behavior first.
-    let evolutionUrl = `${apiUrl}/webhook/set/${instanceName}`;
-
-    console.log('Chamando Evolution API:', evolutionUrl);
-
-
-    // Payload conforme docs V2
-    const webhookPayload = {
-      url: webhookUrl,
-      webhook_by_events: false,
-      webhook_base64: false,
-      events: [
-        'MESSAGES_UPSERT',
-        'MESSAGES_UPDATE',
-        'CONNECTION_UPDATE'
-      ]
-    };
-
-    console.log('Payload:', JSON.stringify(webhookPayload));
-
-    let response = await fetch(evolutionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': apiKey,
-      },
-      body: JSON.stringify(webhookPayload),
-      signal: AbortSignal.timeout(15000)
-    });
-
-    // Handle 404 - Retry with /webhook/set (global/legacy depending on version)
-    if (response.status === 404) {
-      console.warn('Got 404 on /webhook/set/{instance}. Retrying with /webhook/set (Global/Legacy)...');
-      evolutionUrl = `${apiUrl}/webhook/set`;
-      response = await fetch(evolutionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': apiKey,
-        },
-        body: JSON.stringify({
-          ...webhookPayload,
-          // Some versions require instance name in body for global set? Unlikely for "set", usually "find".
-          // But let's try standard payload first.
-        }),
-        signal: AbortSignal.timeout(15000)
+    const webhookUrl = `${supabaseUrl}/functions/v1/evolution-webhook-handler`;
+    if (payload.action === 'prepare_manual') {
+      return jsonResponse(req, {
+        success: true,
+        webhook_url: `${webhookUrl}?secret=${encodeURIComponent(webhookSecret)}`,
+        message: 'URL manual segura gerada com sucesso.',
       });
     }
 
-    const responseText = await response.text();
-    console.log('Resposta Evolution API:', {
-      status: response.status,
-      statusText: response.statusText,
-      body: responseText
-    });
-
-    if (!response.ok) {
-      let errorDetail = responseText;
-      try {
-        const parsed = JSON.parse(responseText);
-        errorDetail = parsed.message || parsed.error || responseText;
-      } catch { /* keep raw text */ }
-
-      throw new Error(`Evolution API retornou erro (${response.status}): ${errorDetail}`);
+    const configs = await loadEvolutionConfigs(
+      access.supabase,
+      payload.instance_id,
+    );
+    const results: UpstreamResult[] = [];
+    for (const config of configs) {
+      results.push(
+        await callEvolution(config, webhookUrl, webhookSecret),
+      );
     }
 
-    let result;
-    try {
-      result = JSON.parse(responseText);
-    } catch {
-      result = { raw: responseText };
-    }
-
-    console.log('Webhook configurado com sucesso:', result);
-
-    // Save webhook config to system_settings
-    const { error: updateError } = await supabase
+    const { error: settingsError } = await access.supabase
       .from('system_settings')
       .upsert([
         {
           key: 'evolution_webhook_url',
           value: webhookUrl,
-          description: 'URL do webhook configurado na Evolution API'
+          description: 'URL do webhook configurado na Evolution API',
+          updated_at: new Date().toISOString(),
         },
         {
           key: 'evolution_webhook_enabled',
           value: 'true',
-          description: 'Indica se o webhook está ativo e configurado'
-        }
+          description: 'Indica se o webhook está ativo e verificado',
+          updated_at: new Date().toISOString(),
+        },
       ], { onConflict: 'key' });
 
-    if (updateError) {
-      console.error('Erro ao atualizar system_settings:', updateError);
+    if (settingsError) {
+      throw new ConfigurationError(
+        `Webhook configurado, mas o status local não pôde ser salvo: ${settingsError.message}`,
+        500,
+      );
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        webhook_url: webhookUrl,
-        instance: instanceName,
-        events: webhookPayload.events,
-        evolution_response: result,
-        message: 'Webhook configurado com sucesso na Evolution API V2!'
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
-    );
-
-  } catch (error: any) {
-    console.error('❌ Erro ao configurar webhook:', error);
-
-    return new Response(
-      JSON.stringify({
-        error: error.message,
-        success: false
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
-    );
+    return jsonResponse(req, {
+      success: true,
+      webhook_url: webhookUrl,
+      instance: results[0]?.instance,
+      instances: results,
+      events: EVOLUTION_WEBHOOK_EVENTS,
+      message: results.length === 1
+        ? `Webhook configurado e verificado na instância ${results[0].instance}.`
+        : `Webhook configurado e verificado em ${results.length} instâncias.`,
+    });
+  } catch (error) {
+    const status = error instanceof ConfigurationError ? error.status : 500;
+    console.error('Evolution webhook configuration failed', {
+      status,
+      error: safeError(error),
+    });
+    return jsonResponse(req, {
+      success: false,
+      error: safeError(error),
+    }, status);
   }
 });

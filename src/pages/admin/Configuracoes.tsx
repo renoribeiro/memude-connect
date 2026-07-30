@@ -31,6 +31,30 @@ interface SystemSetting {
 
 type ConnectionStatus = 'idle' | 'testing' | 'connected' | 'error';
 
+async function getFunctionErrorMessage(
+  error: unknown,
+  fallback: string,
+): Promise<string> {
+  const functionError = error as {
+    message?: string;
+    context?: Response;
+  };
+
+  if (functionError.context instanceof Response) {
+    try {
+      const payload = await functionError.context.clone().json() as {
+        error?: string;
+        message?: string;
+      };
+      return payload.error || payload.message || functionError.message || fallback;
+    } catch {
+      // A resposta pode não ser JSON; nesse caso usamos a mensagem do cliente.
+    }
+  }
+
+  return functionError.message || fallback;
+}
+
 const DEFAULT_SETTINGS = {
   'company_name': 'MEMUDE Imóveis',
   'company_email': 'contato@memude.com',
@@ -58,6 +82,7 @@ export default function Configuracoes() {
   const [activeTab, setActiveTab] = useState("geral");
   const [wahaStatus, setWahaStatus] = useState<ConnectionStatus>('idle');
   const [isSaving, setIsSaving] = useState<string | null>(null);
+  const [manualWebhookUrl, setManualWebhookUrl] = useState('');
 
   const { data: settings = [], isLoading } = useQuery({
     queryKey: ['system-settings'],
@@ -148,9 +173,9 @@ export default function Configuracoes() {
   // Debounce function para evitar muitas chamadas
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debouncedSave = useCallback(
-    (...args: any[]) => {
+    (key: string, value: string) => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = setTimeout(() => handleSaveSetting(...args), 500);
+      debounceTimerRef.current = setTimeout(() => handleSaveSetting(key, value), 500);
     },
     [handleSaveSetting]
   );
@@ -541,32 +566,88 @@ export default function Configuracoes() {
                   🔗 URL do Webhook Evolution API
                 </CardTitle>
                 <CardDescription>
-                  Copie esta URL e configure manualmente no painel da Evolution API
+                  Use a configuração automática ou gere uma URL autenticada para o procedimento manual
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* URL do Webhook com botão Copiar */}
+                {/* URL manual protegida por credencial */}
                 <div className="space-y-2">
-                  <Label>URL do Webhook</Label>
-                  <div className="flex gap-2">
+                  <Label>URL segura para configuração manual</Label>
+                  <div className="flex flex-wrap gap-2">
                     <Input
                       readOnly
-                      value="https://oxybasvtphosdmlmrfnb.supabase.co/functions/v1/evolution-webhook-handler"
-                      className="font-mono text-sm"
+                      value={manualWebhookUrl}
+                      placeholder="Clique em “Gerar URL manual segura”"
+                      className="min-w-72 flex-1 font-mono text-sm"
                     />
+                    {manualWebhookUrl && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(manualWebhookUrl);
+                          toast({
+                            title: "URL segura copiada!",
+                            description: "Cole esta URL no painel da Evolution API",
+                          });
+                        }}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        navigator.clipboard.writeText('https://oxybasvtphosdmlmrfnb.supabase.co/functions/v1/evolution-webhook-handler');
-                        toast({
-                          title: "URL copiada!",
-                          description: "Cole esta URL no painel da Evolution API",
-                        });
+                      onClick={async () => {
+                        setIsSaving('prepare_webhook');
+                        try {
+                          const { data, error } = await supabase.functions.invoke(
+                            'evolution-configure-webhook',
+                            { body: { action: 'prepare_manual' } },
+                          );
+
+                          if (error) {
+                            throw new Error(
+                              await getFunctionErrorMessage(
+                                error,
+                                'Não foi possível gerar a URL segura.',
+                              ),
+                            );
+                          }
+                          if (!data?.success || !data?.webhook_url) {
+                            throw new Error(
+                              data?.error || 'A função não retornou uma URL segura.',
+                            );
+                          }
+
+                          setManualWebhookUrl(data.webhook_url);
+                          toast({
+                            title: "URL manual segura gerada",
+                            description: "A URL contém uma credencial; compartilhe-a apenas com a Evolution API.",
+                          });
+                        } catch (error: unknown) {
+                          toast({
+                            title: "Erro ao gerar URL manual",
+                            description: error instanceof Error
+                              ? error.message
+                              : "Não foi possível gerar a URL segura.",
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setIsSaving(null);
+                        }
                       }}
+                      disabled={isSaving === 'prepare_webhook'}
                     >
-                      <Copy className="w-4 h-4" />
+                      {isSaving === 'prepare_webhook' ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Zap className="w-4 h-4 mr-2" />
+                      )}
+                      Gerar URL manual segura
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    A URL pública sem credencial não recebe eventos. A geração segura cria a autenticação automaticamente.
+                  </p>
                 </div>
 
                 {/* FASE 4: Botão de Teste */}
@@ -578,7 +659,14 @@ export default function Configuracoes() {
                       try {
                         const { data, error } = await supabase.functions.invoke('test-webhook');
 
-                        if (error) throw error;
+                        if (error) {
+                          throw new Error(
+                            await getFunctionErrorMessage(
+                              error,
+                              'Erro ao testar o webhook.',
+                            ),
+                          );
+                        }
 
                         if (data.success) {
                           toast({
@@ -592,10 +680,12 @@ export default function Configuracoes() {
                             variant: "destructive",
                           });
                         }
-                      } catch (error: any) {
+                      } catch (error: unknown) {
                         toast({
                           title: "Erro ao testar webhook",
-                          description: error.message,
+                          description: error instanceof Error
+                            ? error.message
+                            : "Não foi possível testar o webhook.",
                           variant: "destructive",
                         });
                       } finally {
@@ -622,9 +712,19 @@ export default function Configuracoes() {
                           description: "Aguarde enquanto configuramos a Evolution API",
                         });
 
-                        const { data, error } = await supabase.functions.invoke('evolution-configure-webhook');
+                        const { data, error } = await supabase.functions.invoke(
+                          'evolution-configure-webhook',
+                          { body: { action: 'configure' } },
+                        );
 
-                        if (error) throw error;
+                        if (error) {
+                          throw new Error(
+                            await getFunctionErrorMessage(
+                              error,
+                              'Erro ao configurar o webhook.',
+                            ),
+                          );
+                        }
 
                         if (data?.success) {
                           toast({
@@ -636,11 +736,13 @@ export default function Configuracoes() {
                         } else {
                           throw new Error(data?.error || 'Erro desconhecido ao configurar webhook. Verifique as configurações da Evolution API.');
                         }
-                      } catch (error: any) {
+                      } catch (error: unknown) {
                         console.error('Erro ao configurar webhook:', error);
                         toast({
                           title: "❌ Erro ao configurar webhook",
-                          description: error.message || "Verifique se a Evolution API está configurada corretamente",
+                          description: error instanceof Error
+                            ? error.message
+                            : "Verifique se a Evolution API está configurada corretamente",
                           variant: "destructive",
                         });
                       } finally {
@@ -664,7 +766,8 @@ export default function Configuracoes() {
                   <AlertDescription>
                     <strong>📝 Como configurar manualmente:</strong>
                     <ol className="list-decimal ml-4 mt-2 space-y-1 text-sm">
-                      <li>Copie a URL acima clicando no botão de copiar</li>
+                      <li>Clique em “Gerar URL manual segura”</li>
+                      <li>Copie a URL gerada; ela contém a credencial de autenticação</li>
                       <li>Acesse o painel da Evolution API</li>
                       <li>Vá em "Webhook" nas configurações da sua instância</li>
                       <li>Ative o webhook (toggle "Ativo")</li>
@@ -674,6 +777,9 @@ export default function Configuracoes() {
                       <li>Salve as configurações</li>
                       <li>Volte aqui e clique em "Testar Webhook"</li>
                     </ol>
+                    <p className="mt-2 text-xs">
+                      Não compartilhe a URL segura: ela autoriza o envio de eventos para o sistema.
+                    </p>
                   </AlertDescription>
                 </Alert>
 

@@ -2,6 +2,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { processIncomingMessage } from '../_shared/distribution-logic.ts';
 import { logIntegration } from '../_shared/integration-logger.ts';
+import { jsonResponse, verifyWebhook } from '../_shared/security.ts';
+import { getEvolutionWebhookSecret } from '../_shared/evolution-webhook.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,30 +37,36 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // EVO-07: Webhook authentication
-    const webhookSecret = req.headers.get('x-webhook-secret');
-    const { data: secretSetting } = await supabase
-      .from('system_settings')
-      .select('value')
-      .eq('key', 'evolution_webhook_secret')
-      .maybeSingle();
+    const declaredLength = Number(req.headers.get('content-length') ?? '0');
+    if (declaredLength > 1024 * 1024) {
+      return jsonResponse(req, { error: 'Payload excede o limite permitido' }, 413);
+    }
 
-    if (secretSetting?.value) {
-      if (!webhookSecret || webhookSecret !== secretSetting.value) {
-        console.warn('🚫 Webhook authentication failed: invalid or missing secret');
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized: missing or invalid secret' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    const rawBody = await req.text();
+    if (new TextEncoder().encode(rawBody).length > 1024 * 1024) {
+      return jsonResponse(req, { error: 'Payload excede o limite permitido' }, 413);
+    }
+
+    const expectedSecret = await getEvolutionWebhookSecret(supabase);
+    if (!expectedSecret) {
+      console.error('Evolution webhook rejected: no webhook secret configured');
+      return jsonResponse(req, { error: 'Webhook ainda não configurado' }, 503);
+    }
+
+    if (!(await verifyWebhook(req, rawBody, expectedSecret))) {
+      console.warn('Evolution webhook rejected: invalid signature');
+      return jsonResponse(req, { error: 'Não autorizado' }, 401);
     }
 
     const startTime = Date.now();
-    const webhookData = await req.json();
+    const webhookData = JSON.parse(rawBody);
     const { event, data } = webhookData;
+    const safeWebhookData = {
+      ...webhookData,
+      ...(webhookData?.apikey ? { apikey: '[REDACTED]' } : {}),
+    };
 
-    // Log completo do payload para debug
-    console.log('📨 Webhook FULL payload:', JSON.stringify(webhookData).substring(0, 2000));
+    console.log('Evolution webhook received', { event, message_id: data?.key?.id ?? null });
 
     // EVO-02: Extract messageId for deduplication
     const messageId = data?.key?.id || data?.message?.key?.id || null;
@@ -183,7 +191,10 @@ Deno.serve(async (req) => {
       }));
 
       if (phone && text && !fromMe) {
-        console.log(`Webhook Evolution: Recebido de ${phone}: ${text}`);
+        console.log('Webhook Evolution: mensagem recebida', {
+          has_phone: Boolean(phone),
+          text_length: text.length,
+        });
 
         // Extract sender name (pushName) from webhook payload (BUG-03 fix)
         const senderName = messageData?.pushName || data?.pushName || null;
@@ -214,7 +225,7 @@ Deno.serve(async (req) => {
             endpoint: 'webhook',
             method: 'POST',
             status_code: 200,
-            request_payload: webhookData,
+            request_payload: safeWebhookData,
             response_body: respBody,
             duration_ms: Date.now() - startTime,
             metadata: { event: webhookData.event, instance: webhookData.instance, handled_by: 'distribution_logic' }
@@ -239,7 +250,7 @@ Deno.serve(async (req) => {
             endpoint: 'webhook',
             method: 'POST',
             status_code: 200,
-            request_payload: webhookData,
+            request_payload: safeWebhookData,
             response_body: respBody,
             duration_ms: Date.now() - startTime,
             metadata: { event: webhookData.event, instance: webhookData.instance, handled_by: 'ai_agent' }
@@ -325,11 +336,7 @@ Deno.serve(async (req) => {
             .eq('id', leadAttempt.id);
 
           try {
-            const cronSecret = Deno.env.get('CRON_SECRET') || 'memude-cron-secret-2026-super-secure';
             await supabase.functions.invoke('distribution-timeout-checker', {
-              headers: {
-                'x-cron-secret': cronSecret
-              },
               body: {
                 force_lead_id: leadAttempt.lead_id
               }
@@ -360,11 +367,7 @@ Deno.serve(async (req) => {
             .eq('id', visitAttempt.id);
 
           try {
-            const cronSecret = Deno.env.get('CRON_SECRET') || 'memude-cron-secret-2026-super-secure';
             await supabase.functions.invoke('visit-distribution-timeout-checker', {
-              headers: {
-                'x-cron-secret': cronSecret
-              },
               body: {
                 force_visita_id: visitAttempt.visita_id
               }
@@ -394,7 +397,7 @@ Deno.serve(async (req) => {
       endpoint: 'webhook',
       method: 'POST',
       status_code: 200,
-      request_payload: webhookData,
+      request_payload: safeWebhookData,
       response_body: finalRespBody,
       duration_ms: Date.now() - startTime,
       metadata: { event: webhookData?.event, instance: webhookData?.instance }

@@ -1,80 +1,79 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getEvolutionWebhookSecret } from '../_shared/evolution-webhook.ts';
+import {
+  authorize,
+  handleOptions,
+  jsonResponse,
+  safeError,
+} from '../_shared/security.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const options = handleOptions(req);
+  if (options) return options;
 
   try {
-    console.log('Testing webhook connection...');
+    const access = await authorize(req, 'admin');
+    if (access instanceof Response) return access;
 
-    // Criar payload de teste simulando um webhook da Evolution API
+    const webhookSecret = await getEvolutionWebhookSecret(
+      access.supabase,
+      { createIfMissing: true },
+    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')?.replace(/\/+$/, '');
+    if (!webhookSecret || !supabaseUrl) {
+      throw new Error('Configuração interna do webhook incompleta');
+    }
+
     const testPayload = {
       event: 'TEST_CONNECTION',
-      instance: 'test-instance',
+      instance: 'memude-diagnostic',
       data: {
         test: true,
+        request_id: crypto.randomUUID(),
         timestamp: new Date().toISOString(),
-        message: 'Webhook test initiated from admin panel'
-      }
+      },
     };
 
-    console.log('Sending test payload:', testPayload);
-
-    // Enviar requisição para o webhook handler
-    const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook-handler`;
-    
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/evolution-webhook-handler`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-webhook-secret': webhookSecret,
+        },
+        body: JSON.stringify(testPayload),
+        signal: AbortSignal.timeout(15_000),
       },
-      body: JSON.stringify(testPayload)
-    });
+    );
 
-    const responseData = await response.json();
+    let details: unknown = null;
+    try {
+      details = await response.json();
+    } catch {
+      details = { status: response.status };
+    }
 
-    console.log('Webhook response:', {
+    console.log('Evolution webhook diagnostic completed', {
       status: response.status,
-      ok: response.ok,
-      data: responseData
+      success: response.ok,
     });
 
-    return new Response(
-      JSON.stringify({
-        success: response.ok,
-        status: response.status,
-        message: response.ok 
-          ? 'Webhook está funcionando corretamente!' 
-          : 'Webhook retornou erro',
-        details: responseData
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
-
+    return jsonResponse(req, {
+      success: response.ok,
+      status: response.status,
+      message: response.ok
+        ? 'Webhook autenticado e processado corretamente.'
+        : 'O receptor do webhook retornou erro.',
+      details,
+    }, response.ok ? 200 : 502);
   } catch (error) {
-    console.error('Error testing webhook:', error);
-    
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-        message: 'Erro ao testar webhook'
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
+    console.error('Evolution webhook diagnostic failed', {
+      error: safeError(error),
+    });
+    return jsonResponse(req, {
+      success: false,
+      error: safeError(error),
+      message: 'Erro ao testar webhook',
+    }, 500);
   }
 });

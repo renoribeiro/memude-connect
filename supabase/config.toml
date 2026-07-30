@@ -125,3 +125,6 @@ verify_jwt = false
 
 [functions.webhook-leads-visitas]
 verify_jwt = false
+
+[functions.finance-export]
+verify_jwt = false

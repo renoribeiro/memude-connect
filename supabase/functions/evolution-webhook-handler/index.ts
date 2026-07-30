@@ -1,12 +1,12 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { processIncomingMessage } from '../_shared/distribution-logic.ts';
 import { logIntegration } from '../_shared/integration-logger.ts';
 import { jsonResponse, verifyWebhook } from '../_shared/security.ts';
 import { getEvolutionWebhookSecret } from '../_shared/evolution-webhook.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
 };
 
@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
 
       // 3. Se for LID (número não-telefônico), descartar e buscar alternativas
       if (phone && !/^\d{10,15}$/.test(phone)) {
-        console.log(`⚠️ Phone "${phone}" parece ser LID, buscando alternativa...`);
+        console.log('Identificador LID detectado; buscando alternativa');
         phone = stripJidSuffix(messageData?.key?.participant) ||
           stripJidSuffix(messageData?.key?.participantAlt) ||
           stripJidSuffix(data?.key?.participant) ||
@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
       const isLidMessage = rawRemoteJid.includes('@lid');
 
       if (isLidMessage && phone) {
-        console.log(`🔄 LID detectado no remoteJid: ${rawRemoteJid}. Phone atual: ${phone}. Tentando resolver...`);
+        console.log('Resolvendo identificador LID');
 
         const lid = stripJidSuffix(rawRemoteJid);
 
@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (lidMapping?.phone) {
-          console.log(`✅ LID resolvido via lid_phone_map: ${lid} → ${lidMapping.phone}`);
+          console.log('Identificador LID resolvido');
           phone = lidMapping.phone;
         } else {
           // Fallback: tentar pelo phone extraído do sender (pode ser a instância)
@@ -147,8 +147,7 @@ Deno.serve(async (req) => {
             .limit(1)
             .maybeSingle();
 
-          console.log(`⚠️ LID ${lid} não encontrado em lid_phone_map. Phone permanece: ${phone}`);
-          console.log(`   Para resolver, é necessário enviar uma mensagem ao destinatário primeiro para popular lid_phone_map.`);
+          console.log('Identificador LID ainda não possui mapeamento');
         }
       }
 
@@ -178,17 +177,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Log detalhado
       const fromMe = messageData?.key?.fromMe || data?.key?.fromMe;
-      console.log(`📱 Dados extraídos: phone=${phone}, text="${text}", fromMe=${fromMe}`);
-
-      // Log estrutura para garantir
-      console.log('📋 Estrutura analisada:', JSON.stringify({
-        hasDataMessage: !!data?.message,
-        hasDataMessageMessage: !!data?.message?.message,
-        hasConversationDirect: !!data?.message?.conversation,
-        hasConversationNested: !!data?.message?.message?.conversation
-      }));
 
       if (phone && text && !fromMe) {
         console.log('Webhook Evolution: mensagem recebida', {
@@ -205,7 +194,7 @@ Deno.serve(async (req) => {
         // ============================================
         console.log('📋 Verificando lógica de distribuição (prioridade sobre AI)...');
         const distributionResult = await processIncomingMessage(supabase, phone, text, senderName || '', rawRemoteJid);
-        console.log('Resultado distribuição:', distributionResult);
+        console.log('Resultado de distribuição calculado');
 
         if (distributionResult.processed) {
           console.log(`✅ Mensagem processada pela distribuição: action=${distributionResult.action}`);
@@ -214,7 +203,11 @@ Deno.serve(async (req) => {
           await supabase.from('webhook_logs').insert({
             event_type: 'DISTRIBUTION_RESPONSE',
             instance_name: webhookData?.instance || 'unknown',
-            payload: { phone, text, result: distributionResult },
+            payload: {
+              action: distributionResult.action,
+              message_length: text.length,
+              processed: true,
+            },
             processed_successfully: true,
             processing_time_ms: Date.now() - startTime
           });
@@ -271,25 +264,27 @@ Deno.serve(async (req) => {
         await supabase.from('webhook_logs').insert({
           event_type: 'UNHANDLED_MESSAGE',
           instance_name: webhookData?.instance || 'unknown',
-          payload: { phone, text, distributionResult, aiHandled },
+          payload: {
+            message_length: text.length,
+            distribution_processed: distributionResult.processed,
+            ai_handled: aiHandled,
+          },
           processed_successfully: false,
           processing_time_ms: Date.now() - startTime
         });
       } else {
-        console.log(`⚠️ Mensagem ignorada: phone=${phone}, text="${text}", fromMe=${messageData?.key?.fromMe}`);
+        console.log('Mensagem ignorada por ausência de dados ou origem própria');
 
         // Log no banco para debug - incluir estrutura completa para análise
         await supabase.from('webhook_logs').insert({
           event_type: 'MESSAGE_IGNORED',
           instance_name: webhookData?.instance || 'unknown',
           payload: {
-            phone,
-            text,
             fromMe: messageData?.key?.fromMe,
             reason: !phone ? 'no_phone' : !text ? 'no_text' : 'from_me',
             messageKeys: Object.keys(messageData?.message || {}),
             dataKeys: Object.keys(data || {}),
-            fullData: JSON.stringify(data).substring(0, 1000)
+            message_length: text.length,
           },
           processed_successfully: false,
           processing_time_ms: 0
@@ -311,7 +306,7 @@ Deno.serve(async (req) => {
             status: 'failed',
             metadata: {
               webhook_timestamp: new Date().toISOString(),
-              error_details: data
+              provider_status: status,
             }
           })
           .eq('message_id', messageId);
@@ -378,6 +373,15 @@ Deno.serve(async (req) => {
           }
         }
       }
+    } else if (eventLower === 'test_connection') {
+      await supabase.from('webhook_logs').insert({
+        event_type: 'TEST_CONNECTION',
+        instance_name: webhookData?.instance || 'unknown',
+        payload: { connectivity_test: true },
+        processed_successfully: true,
+        processing_time_ms: Date.now() - startTime,
+      });
+      return jsonResponse(req, { success: true, connectivity_test: true });
     } else {
       console.log(`⏭️ Evento ignorado: ${event}`);
 
@@ -406,10 +410,13 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify(finalRespBody), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
-    console.error('Webhook error:', error);
+    console.error(
+      'Falha no webhook Evolution:',
+      error instanceof Error ? error.message : 'erro desconhecido',
+    );
     // EVO-01: Return proper HTTP error code so Evolution API can retry delivery
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'Falha interna ao processar webhook' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

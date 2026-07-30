@@ -14,7 +14,20 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, Lock, UserCircle, Award } from 'lucide-react';
+import { User, Mail, UserCircle, Award } from 'lucide-react';
+import type { Database } from '@/integrations/supabase/types';
+
+type CorretorEstado = NonNullable<Database['public']['Tables']['corretores']['Row']['estado']>;
+type TipoImovel = NonNullable<Database['public']['Tables']['corretores']['Row']['tipo_imovel']>;
+interface CorretorFormData {
+  creci: string;
+  cpf: string;
+  whatsapp: string;
+  cidade: string;
+  estado: CorretorEstado;
+  tipo_imovel: TipoImovel;
+  observacoes: string;
+}
 
 interface CreateUserModalProps {
   open: boolean;
@@ -24,14 +37,13 @@ interface CreateUserModalProps {
 export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
     first_name: '',
     last_name: '',
     role: 'cliente' as 'admin' | 'corretor' | 'cliente',
     phone: '',
   });
 
-  const [corretorData, setCorretorData] = useState({
+  const [corretorData, setCorretorData] = useState<CorretorFormData>({
     creci: '',
     cpf: '',
     whatsapp: '',
@@ -132,7 +144,6 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
       onOpenChange(false);
       setFormData({
         email: '',
-        password: '',
         first_name: '',
         last_name: '',
         role: 'cliente',
@@ -150,7 +161,7 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.email || !formData.password || !formData.first_name || !formData.last_name) {
+    if (!formData.email || !formData.first_name || !formData.last_name) {
       toast({
         title: 'Campos obrigatórios',
         description: 'Preencha todos os campos obrigatórios.',
@@ -170,7 +181,7 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
             Criar Novo Usuário
           </DialogTitle>
           <DialogDescription>
-            Crie um novo usuário no sistema. Um email de confirmação será enviado.
+            Crie um novo usuário no sistema. Um convite seguro para definir a senha será enviado por email.
           </DialogDescription>
         </DialogHeader>
 
@@ -214,23 +225,6 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 required
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Senha *</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                id="password"
-                type="password"
-                placeholder="Senha mínima 6 caracteres"
-                className="pl-10"
-                value={formData.password}
-                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                required
-                minLength={6}
               />
             </div>
           </div>
@@ -310,7 +304,7 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="estado">Estado</Label>
-                  <Select value={corretorData.estado} onValueChange={(value) => setCorretorData(prev => ({ ...prev, estado: value }))}>
+                  <Select value={corretorData.estado} onValueChange={(value: CorretorEstado) => setCorretorData(prev => ({ ...prev, estado: value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Estado" />
                     </SelectTrigger>
@@ -347,7 +341,7 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="tipo_imovel">Tipo de Imóvel</Label>
-                  <Select value={corretorData.tipo_imovel} onValueChange={(value: any) => setCorretorData(prev => ({ ...prev, tipo_imovel: value }))}>
+                  <Select value={corretorData.tipo_imovel} onValueChange={(value: TipoImovel) => setCorretorData(prev => ({ ...prev, tipo_imovel: value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Tipo" />
                     </SelectTrigger>

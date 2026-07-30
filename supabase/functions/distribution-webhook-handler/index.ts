@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { handleOptions, jsonResponse, verifyWebhook } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
 };
 
@@ -26,9 +27,8 @@ interface WebhookData {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
 
   try {
     const supabase = createClient(
@@ -36,26 +36,17 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // SEC-01: Webhook authentication verification
-    const webhookSecret = req.headers.get('x-webhook-secret');
-    const { data: secretSetting } = await supabase
-      .from('system_settings')
-      .select('value')
-      .eq('key', 'evolution_webhook_secret')
-      .maybeSingle();
-
-    if (secretSetting?.value) {
-      if (!webhookSecret || webhookSecret !== secretSetting.value) {
-        console.warn('🚫 Webhook authentication failed: invalid or missing secret');
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized: missing or invalid secret' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    const rawBody = await req.text();
+    if (!await verifyWebhook(req, rawBody)) {
+      console.warn('Webhook de distribuição rejeitado: assinatura inválida');
+      return jsonResponse(req, { error: 'Não autorizado' }, 401);
     }
 
-    const webhookData: WebhookData = await req.json();
-    console.log('Webhook recebido:', JSON.stringify(webhookData, null, 2));
+    const webhookData: WebhookData = JSON.parse(rawBody);
+    console.log('Webhook de distribuição recebido', {
+      event_id: webhookData.data?.key?.id,
+      from_me: webhookData.data?.key?.fromMe,
+    });
 
     // Ignorar mensagens enviadas pela própria aplicação
     if (webhookData.data.key.fromMe) {
@@ -83,8 +74,11 @@ serve(async (req) => {
       messageText = message.templateButtonReplyMessage.selectedId;
     }
 
-    console.log(`Mensagem extraída de ${phoneNumber}: "${messageText}"`);
-    console.log('Tipo de mensagem detectado:', Object.keys(message || {}).join(', '));
+    console.log('Mensagem de distribuição analisada', {
+      phone_length: phoneNumber.length,
+      message_length: messageText.length,
+      message_types: Object.keys(message || {}),
+    });
 
     // Verificar se é uma resposta a uma distribuição pendente (Lead ou Visita)
     const response = await processDistributionResponse(supabase, phoneNumber, messageText);
@@ -209,7 +203,7 @@ async function processDistributionResponse(supabase: any, phoneNumber: string, m
     return await handleVisitResponse(supabase, pendingVisitAttempt, messageText, phoneNumber);
   }
 
-  console.log('Nenhuma tentativa pendente (Lead ou Visita) encontrada para:', phoneNumber);
+  console.log('Nenhuma tentativa pendente encontrada para a mensagem recebida');
   return null;
 }
 
@@ -626,4 +620,3 @@ function generateGoogleCalendarLink(visita: any) {
 
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startStr}/${endStr}&details=${details}&location=${location}`;
 }
-

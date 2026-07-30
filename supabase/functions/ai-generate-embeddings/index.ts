@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import OpenAI from 'https://esm.sh/openai@4.28.0';
+import { authorize, readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -20,12 +21,15 @@ serve(async (req) => {
     const startTime = Date.now();
 
     try {
+        const access = await authorize(req, 'admin-or-internal');
+        if (access instanceof Response) return access;
+
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         );
 
-        const { empreendimento_id, regenerate_all }: GenerateEmbeddingsRequest = await req.json().catch(() => ({}));
+        const { empreendimento_id, regenerate_all }: GenerateEmbeddingsRequest = await readJson(req, 1024 * 1024).catch(() => ({}));
 
         console.log('🧮 Gerando embeddings...', { empreendimento_id, regenerate_all });
 

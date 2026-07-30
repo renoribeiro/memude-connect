@@ -1,12 +1,14 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { normalizePhoneNumber, isValidBrazilianPhone } from '../_shared/phoneHelpers.ts';
 import { logIntegration } from '../_shared/integration-logger.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  authorize,
+  corsHeaders as buildCorsHeaders,
+  handleOptions,
+  readJson,
+  validateExternalHttpUrl,
+} from '../_shared/security.ts';
 
 interface WhatsAppMessage {
   phone_number?: string;
@@ -44,12 +46,25 @@ interface WhatsAppMessage {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Método não permitido' }), {
+      status: 405,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json; charset=utf-8',
+        Allow: 'POST, OPTIONS',
+      },
+    });
   }
 
   try {
+    const access = await authorize(req, 'admin-or-internal');
+    if (access instanceof Response) return access;
+
     console.log('=== EVOLUTION API V2 - SEND WHATSAPP MESSAGE ===');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -63,7 +78,7 @@ Deno.serve(async (req) => {
 
     let body: WhatsAppMessage;
     try {
-      body = await req.json();
+      body = await readJson<WhatsAppMessage>(req, 32 * 1024);
     } catch (e) {
       throw new Error('Invalid JSON payload');
     }
@@ -74,14 +89,55 @@ Deno.serve(async (req) => {
     const lead_id = body.lead_id || body.metadata?.lead_id;
     const corretor_id = body.corretor_id || body.metadata?.corretor_id;
 
-    if (!phone_number) {
+    if (typeof phone_number !== 'string' || !phone_number.trim()) {
       throw new Error('Número de telefone é obrigatório (use phone_number ou phone)');
+    }
+    if (message !== undefined && (typeof message !== 'string' || message.length > 4096)) {
+      throw new Error('Mensagem inválida ou superior a 4096 caracteres');
+    }
+    if (!message?.trim() && !media && !list && !buttons?.length) {
+      throw new Error('O conteúdo da mensagem é obrigatório');
+    }
+    if (media) {
+      validateExternalHttpUrl(media.url);
+      if (media.caption && media.caption.length > 1024) {
+        throw new Error('Legenda da mídia superior a 1024 caracteres');
+      }
+    }
+    if (buttons && (
+      buttons.length > 3
+      || buttons.some((button) =>
+        !button.id?.trim()
+        || button.id.length > 100
+        || !button.text?.trim()
+        || button.text.length > 80
+      )
+    )) {
+      throw new Error('Configuração de botões inválida');
+    }
+    if (list) {
+      const rows = list.sections?.flatMap((section) => section.rows || []) || [];
+      if (
+        !list.title?.trim()
+        || list.title.length > 200
+        || !list.buttonText?.trim()
+        || list.buttonText.length > 80
+        || list.sections.length > 10
+        || rows.length > 100
+      ) {
+        throw new Error('Configuração de lista inválida');
+      }
+    }
+    for (const id of [lead_id, corretor_id, body.instance_id].filter(Boolean)) {
+      if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) {
+        throw new Error('Identificador relacionado inválido');
+      }
     }
 
     // Normalizar número
     const normalizedPhone = normalizePhoneNumber(phone_number);
 
-    console.log('Sending to:', normalizedPhone);
+    console.log('Iniciando envio WhatsApp');
 
     if (!isValidBrazilianPhone(normalizedPhone)) {
       throw new Error('Número de telefone inválido');
@@ -89,7 +145,7 @@ Deno.serve(async (req) => {
 
     // 0. Async Queue Handling
     if (async) {
-      console.log('🔄 Async mode: Enqueuing message for', normalizedPhone);
+      console.log('Enfileirando mensagem WhatsApp');
 
       // Determine message body for queue
       const queuePayload = {
@@ -158,7 +214,7 @@ Deno.serve(async (req) => {
         throw new Error('Configuração URL da API WAHA não encontrada');
       }
 
-      console.log('🤖 Roteamento WAHA ativo para:', normalizedPhone);
+      console.log('Roteamento WAHA ativo');
 
       const wahaChatId = `${normalizedPhone.replace(/\D/g, '')}@c.us`;
       let wahaEndpoint = '';
@@ -228,7 +284,7 @@ Deno.serve(async (req) => {
       let responseBody: any = null;
 
       try {
-        console.log(`📤 Enviando via WAHA (${wahaEndpoint}):`, JSON.stringify(wahaPayload));
+        console.log(`Enviando mensagem via WAHA (${wahaEndpoint})`);
         let response = await fetch(`${wahaUrl}${wahaEndpoint}`, {
           method: 'POST',
           headers: wahaHeaders,
@@ -261,7 +317,7 @@ Deno.serve(async (req) => {
         }
 
         const responseText = await response.text();
-        console.log('📥 WAHA Response:', responseText);
+        console.log('Resposta WAHA recebida com status:', response.status);
 
         try {
           responseBody = responseText ? JSON.parse(responseText) : { raw: responseText };
@@ -282,13 +338,12 @@ Deno.serve(async (req) => {
             metadata: {
               ...(body.metadata || {}),
               provider: 'waha',
-              error: responseText,
               status_code: response.status,
               endpoint: wahaEndpoint
             }
           });
 
-          throw new Error(`Erro ao enviar mensagem via WAHA (status ${response.status}): ${responseText}`);
+          throw new Error(`WAHA recusou a mensagem com status ${response.status}`);
         }
 
         // Registrar sucesso no communication_log
@@ -333,8 +388,7 @@ Deno.serve(async (req) => {
           JSON.stringify({
             success: true,
             message_id: responseBody?.id || responseBody?.messageId,
-            phone_number: normalizedPhone,
-            result: responseBody
+            provider: 'waha'
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -464,13 +518,7 @@ Deno.serve(async (req) => {
       };
     }
 
-    // Log detalhado do request
-    console.log('📤 Request para Evolution API v2:', {
-      url: `${apiUrl}${endpoint}`,
-      method: 'POST',
-      payload: payload,
-      headers: { 'Content-Type': 'application/json', 'apikey': '***' }
-    });
+    console.log('Enviando mensagem via Evolution API v2');
 
     const startTime = Date.now();
     let responseStatus = 0;
@@ -490,7 +538,7 @@ Deno.serve(async (req) => {
       responseStatus = response.status;
       console.log('📥 Response status:', response.status);
       const responseText = await response.text();
-      console.log('📥 Response body:', responseText);
+      console.log('Resposta Evolution recebida');
 
       try {
         responseBody = responseText ? JSON.parse(responseText) : { raw: responseText };
@@ -499,7 +547,7 @@ Deno.serve(async (req) => {
       }
 
       if (!response.ok) {
-        console.error('❌ Evolution API error:', responseText);
+        console.error('Evolution API recusou a mensagem com status:', response.status);
 
         // Log failure in communication_log for debugging
         await supabase.from('communication_log').insert({
@@ -512,17 +560,16 @@ Deno.serve(async (req) => {
           lead_id: lead_id || null,
           metadata: {
             ...(body.metadata || {}),
-            error: responseText,
             status_code: response.status,
             endpoint: endpoint,
             api_version: 'v2'
           }
         });
 
-        throw new Error(`Erro ao enviar mensagem (status ${response.status}): ${responseText}`);
+        throw new Error(`Evolution API recusou a mensagem com status ${response.status}`);
       }
 
-      console.log('✅ Message sent successfully:', responseBody);
+      console.log('Mensagem enviada com sucesso');
 
       // === LID-to-Phone Mapping ===
       // Evolution API V2 returns remoteJid in the response.
@@ -540,7 +587,7 @@ Deno.serve(async (req) => {
               instance_name: instanceName,
               updated_at: new Date().toISOString()
             }, { onConflict: 'lid' });
-            console.log(`🗺️ LID mapping saved: ${jidPhone} → ${normalizedPhone}`);
+            console.log('Mapeamento LID atualizado');
           }
         } catch (mapErr) {
           console.warn('⚠️ Failed to save LID mapping (non-critical):', mapErr);
@@ -577,8 +624,7 @@ Deno.serve(async (req) => {
         JSON.stringify({
           success: true,
           message_id: responseBody?.key?.id || responseBody?.messageId,
-          phone_number: normalizedPhone,
-          result: responseBody
+          provider: 'evolution'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -611,7 +657,7 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 504 }
       );
     }
-    console.error('❌ Erro ao enviar mensagem:', error);
+    console.error('Falha ao enviar mensagem:', error?.message || 'erro desconhecido');
 
     return new Response(
       JSON.stringify({

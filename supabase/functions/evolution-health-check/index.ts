@@ -1,22 +1,21 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { logIntegration } from '../_shared/integration-logger.ts';
 import { DbEvolutionInstance } from '../_shared/types/evolution.ts';
+import { authorize, handleOptions, validateExternalHttpUrl } from '../_shared/security.ts';
 
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 Deno.serve(async (req) => {
-    if (req.method === 'OPTIONS') {
-        return new Response(null, { headers: corsHeaders });
-    }
+    const optionsResponse = handleOptions(req);
+    if (optionsResponse) return optionsResponse;
 
     try {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const supabase = createClient(supabaseUrl, supabaseKey);
+        const access = await authorize(req, 'admin-or-internal');
+        if (access instanceof Response) return access;
+        const { supabase } = access;
 
         // 1. Get all active instances
         const { data: instances, error } = await supabase
@@ -35,7 +34,8 @@ Deno.serve(async (req) => {
             let statusCode = 0;
 
             try {
-                const url = `${instance.api_url.replace(/\/$/, '')}/instance/connectionState/${instance.instance_name}`;
+                const baseUrl = validateExternalHttpUrl(instance.api_url).toString().replace(/\/$/, '');
+                const url = `${baseUrl}/instance/connectionState/${encodeURIComponent(instance.instance_name)}`;
                 console.log(`Checking health for ${instance.instance_name} at ${url}`);
 
                 const response = await fetch(url, {
@@ -73,7 +73,8 @@ Deno.serve(async (req) => {
                     console.log(`⚠️ Instance ${instance.instance_name} is ${status}. Attempting auto-restart...`);
 
                     try {
-                        const restartUrl = `${instance.api_url.replace(/\/$/, '')}/instance/restart/${instance.instance_name}`;
+                        const baseUrl = validateExternalHttpUrl(instance.api_url).toString().replace(/\/$/, '');
+                        const restartUrl = `${baseUrl}/instance/restart/${encodeURIComponent(instance.instance_name)}`;
                         // EVO-04: Capture actual response status code
                         const restartResponse = await fetch(restartUrl, {
                             method: 'PUT',

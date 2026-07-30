@@ -1,8 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { authorize, readJson } from '../_shared/security.ts';
+import { Resend } from 'npm:resend@4.6.0';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -13,10 +15,10 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    );
+    const access = await authorize(req, 'internal');
+    if (access instanceof Response) return access;
+
+    const supabase = access.supabase;
 
     console.log('Processing scheduled reports...');
 
@@ -39,7 +41,7 @@ serve(async (req) => {
       throw reportsError;
     }
 
-    console.log(`Found ${scheduledReports.length} reports to process`);
+    console.log(`Found ${scheduledReports?.length ?? 0} reports to process`);
 
     for (const scheduledReport of scheduledReports) {
       try {
@@ -53,8 +55,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        processed: scheduledReports.length,
-        message: `Processed ${scheduledReports.length} scheduled reports`
+        processed: scheduledReports?.length ?? 0,
+        message: `Processed ${scheduledReports?.length ?? 0} scheduled reports`
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -103,34 +105,44 @@ async function processScheduledReport(supabase: any, scheduledReport: any) {
 }
 
 async function generateReportData(supabase: any, templateConfig: any) {
-  // This is a simplified version - in production you'd generate actual report data
-  // based on the template configuration
-  
   try {
-    // Fetch basic metrics that are commonly needed
-    const { data: leads } = await supabase
+    const [leadsResult, visitasResult, vendasResult] = await Promise.all([
+      supabase
       .from('leads')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    const { data: visitas } = await supabase
+      .select('id', { count: 'exact', head: true }),
+      supabase
       .from('visitas')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100);
+      .select('id', { count: 'exact', head: true })
+      .is('deleted_at', null),
+      supabase
+      .from('vendas')
+      .select('id, valor_imovel, status')
+      .neq('status', 'cancelada'),
+    ]);
+
+    if (leadsResult.error) throw leadsResult.error;
+    if (visitasResult.error) throw visitasResult.error;
+    if (vendasResult.error) throw vendasResult.error;
+
+    const vendas = vendasResult.data ?? [];
+    const totalVendas = vendas.length;
+    const valorVendido = vendas.reduce(
+      (total: number, venda: { valor_imovel?: number | null }) =>
+        total + Number(venda.valor_imovel ?? 0),
+      0,
+    );
 
     return {
       summary: {
-        total_leads: leads?.length || 0,
-        total_visitas: visitas?.length || 0,
+        total_leads: leadsResult.count ?? 0,
+        total_visitas: visitasResult.count ?? 0,
+        total_vendas: totalVendas,
+        valor_vendido: valorVendido,
+        conversao_lead_venda:
+          leadsResult.count ? (totalVendas / leadsResult.count) * 100 : 0,
         period: templateConfig.period || 'monthly',
         generated_at: new Date().toISOString()
       },
-      detailed: {
-        leads: leads || [],
-        visitas: visitas || []
-      }
     };
   } catch (error) {
     console.error('Error generating report data:', error);
@@ -142,18 +154,50 @@ async function generateReportData(supabase: any, templateConfig: any) {
 }
 
 async function sendReportEmail(scheduledReport: any, reportData: any) {
-  console.log(`Sending email to: ${scheduledReport.recipients.join(', ')}`);
-  
-  // In a real implementation, you would integrate with an email service like Resend
-  // For now, we'll just log the email details
-  console.log('Email would contain:', {
+  const apiKey = Deno.env.get('RESEND_API_KEY');
+  if (!apiKey) throw new Error('RESEND_API_KEY não configurada');
+
+  const recipients = Array.isArray(scheduledReport.recipients)
+    ? scheduledReport.recipients.filter(
+      (recipient: unknown): recipient is string =>
+        typeof recipient === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient),
+    )
+    : [];
+  if (recipients.length === 0) throw new Error('Relatório sem destinatários válidos');
+
+  const escapeHtml = (value: unknown) => String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+  const currency = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(reportData.summary.valor_vendido ?? 0);
+
+  const resend = new Resend(apiKey);
+  const { error } = await resend.emails.send({
+    from: Deno.env.get('REPORT_FROM_EMAIL') || 'MeMude Connect <relatorios@memude.com>',
+    to: recipients,
     subject: scheduledReport.email_subject,
-    message: scheduledReport.email_message,
-    recipients: scheduledReport.recipients,
-    reportSummary: reportData.summary
+    html: `
+      <main style="font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#172033">
+        <h1>${escapeHtml(scheduledReport.report_templates?.name || 'Relatório MeMude')}</h1>
+        <p>${escapeHtml(scheduledReport.email_message || 'Segue o resumo programado.')}</p>
+        <table style="border-collapse:collapse;width:100%">
+          <tr><td style="padding:8px;border-bottom:1px solid #ddd">Leads</td><td>${reportData.summary.total_leads}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #ddd">Visitas</td><td>${reportData.summary.total_visitas}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #ddd">Vendas</td><td>${reportData.summary.total_vendas}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #ddd">Valor vendido</td><td>${currency}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #ddd">Conversão lead → venda</td><td>${reportData.summary.conversao_lead_venda.toFixed(2)}%</td></tr>
+        </table>
+        <p style="color:#667085;font-size:12px">Gerado automaticamente em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}.</p>
+      </main>
+    `,
   });
-  
-  // TODO: Integrate with actual email service
+  if (error) throw new Error(`Falha ao enviar relatório: ${error.message}`);
+  console.log('Scheduled report sent', { report_id: scheduledReport.id, recipient_count: recipients.length });
 }
 
 function calculateNextRun(scheduleType: string): Date {

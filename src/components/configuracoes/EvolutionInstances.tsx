@@ -18,9 +18,22 @@ export interface EvolutionInstance {
     name: string;
     instance_name: string;
     api_url: string;
-    api_token: string;
+    api_token?: string;
     is_active: boolean;
     created_at: string;
+}
+
+interface EvolutionHealth {
+    credentials_rejected: boolean;
+    last_auth_failure_at: string | null;
+    last_success_at: string | null;
+    legacy_configured: boolean;
+    configured_instances: number;
+}
+
+interface EvolutionInstancesResult {
+    instances: EvolutionInstance[];
+    health?: EvolutionHealth;
 }
 
 export function EvolutionInstances() {
@@ -35,18 +48,22 @@ export function EvolutionInstances() {
     const [showQrModal, setShowQrModal] = useState(false);
 
     // Fetch instances
-    const { data: instances = [], isLoading } = useQuery({
+    const { data: evolutionData, isLoading } = useQuery<EvolutionInstancesResult>({
         queryKey: ['evolution-instances'],
         queryFn: async () => {
-            const { data, error } = await supabase
-                .from('evolution_instances')
-                .select('*')
-                .order('created_at', { ascending: false });
-
+            const { data, error } = await supabase.functions.invoke('evolution-manager', {
+                body: { action: 'items' }
+            });
             if (error) throw error;
-            return data as EvolutionInstance[];
+            if (!data?.success) throw new Error(data?.error || 'Erro ao carregar instâncias');
+            return {
+                instances: data.data as EvolutionInstance[],
+                health: data.meta?.health as EvolutionHealth | undefined,
+            };
         }
     });
+    const instances = evolutionData?.instances ?? [];
+    const evolutionHealth = evolutionData?.health;
 
     // Generic Manager Mutation
     const managerMutation = useMutation({
@@ -157,18 +174,15 @@ export function EvolutionInstances() {
     const saveMutation = useMutation({
         mutationFn: async (formData: any) => {
             if (editingInstance) {
-                // Update DB only
-                const { error } = await supabase
-                    .from('evolution_instances')
-                    .update({
-                        name: formData.name,
-                        instance_name: formData.instance_name,
-                        api_url: formData.api_url,
-                        api_token: formData.api_token,
-                        is_active: formData.is_active
-                    })
-                    .eq('id', editingInstance.id);
+                const { data, error } = await supabase.functions.invoke('evolution-manager', {
+                    body: {
+                        action: 'update',
+                        instance_id: editingInstance.id,
+                        payload: formData
+                    }
+                });
                 if (error) throw error;
+                if (!data?.success) throw new Error(data?.error || 'Erro ao atualizar instância');
                 return { action: 'update' };
             } else {
                 // Create via Manager
@@ -244,6 +258,35 @@ export function EvolutionInstances() {
                 </div>
             </CardHeader>
             <CardContent>
+                {evolutionHealth?.credentials_rejected && (
+                    <div
+                        className="mb-4 flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm"
+                        role="alert"
+                    >
+                        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+                        <div className="space-y-2">
+                            <p className="font-semibold text-destructive">
+                                A Evolution API recusou a chave configurada
+                            </p>
+                            <p className="text-muted-foreground">
+                                Os envios automáticos estão pausados para evitar tentativas repetidas.
+                                Cadastre uma nova instância com uma API Key válida; a verificação será
+                                retomada automaticamente.
+                            </p>
+                            <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => {
+                                    setEditingInstance(null);
+                                    setIsDialogOpen(true);
+                                }}
+                            >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Cadastrar chave válida
+                            </Button>
+                        </div>
+                    </div>
+                )}
                 {isLoading ? (
                     <div className="flex justify-center p-4">
                         <Loader2 className="w-6 h-6 animate-spin" />
@@ -395,7 +438,14 @@ export function EvolutionInstances() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="api_token">API Key (Global ou da Instância)</Label>
-                                    <Input id="api_token" name="api_token" type="password" defaultValue={editingInstance?.api_token} required />
+                                    <Input
+                                        id="api_token"
+                                        name="api_token"
+                                        type="password"
+                                        autoComplete="new-password"
+                                        placeholder={editingInstance ? 'Deixe em branco para manter a chave atual' : 'Informe a chave da API'}
+                                        required={!editingInstance}
+                                    />
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <Switch id="is_active" name="is_active" defaultChecked={editingInstance ? editingInstance.is_active : true} />

@@ -29,6 +29,14 @@ import { CalendarIcon, Loader2, DollarSign, TrendingDown, ArrowRight, Paperclip 
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/utils/formatters';
+import {
+    comprovanteFileName,
+    createComprovanteSignedUrls,
+    normalizeComprovantePath,
+} from '@/lib/comprovantes';
+import type { Database } from '@/integrations/supabase/types';
+
+type VendaStatus = NonNullable<Database['public']['Tables']['vendas']['Row']['status']>;
 
 interface VendaModalProps {
     isOpen: boolean;
@@ -52,17 +60,18 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
     const [valorImovel, setValorImovel] = useState('');
     const [comissaoPercentual, setComissaoPercentual] = useState('6');
     const [impostoPercentual, setImpostoPercentual] = useState('20');
-    const [status, setStatus] = useState('pendente');
+    const [status, setStatus] = useState<VendaStatus>('pendente');
     const [dataVenda, setDataVenda] = useState<Date>(new Date());
     const [dataPagamento, setDataPagamento] = useState<Date | undefined>();
     const [observacoes, setObservacoes] = useState('');
     const [comprovantes, setComprovantes] = useState<string[]>([]);
+    const [comprovanteUrls, setComprovanteUrls] = useState<Record<string, string>>({});
     const [isUploading, setIsUploading] = useState(false);
 
     // Fetch system settings for defaults
     const { data: settings } = useQuery({
         queryKey: ['system-settings-financeiro'],
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             const { data } = await supabase
                 .from('system_settings')
                 .select('key, value')
@@ -74,7 +83,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
     // Fetch leads
     const { data: leads = [] } = useQuery({
         queryKey: ['leads-for-venda'],
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             const { data } = await supabase
                 .from('leads')
                 .select('id, nome, telefone, empreendimento_id, corretor_designado_id')
@@ -123,12 +132,13 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
     // Fetch existing venda for editing
     const { data: vendaData } = useQuery({
         queryKey: ['venda-detail', vendaId],
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             if (!vendaId) return null;
             const { data, error } = await supabase
                 .from('vendas')
-                .select('*')
+                .select('id, lead_id, corretor_id, empreendimento_id, data_venda, valor_imovel, comissao_percentual, imposto_percentual, is_venda_direta, status, observacoes, data_pagamento, comprovantes')
                 .eq('id', vendaId)
+                .abortSignal(signal)
                 .single();
             if (error) throw error;
             return data;
@@ -160,9 +170,35 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
             setDataVenda(vendaData.data_venda ? new Date(vendaData.data_venda + 'T12:00:00') : new Date());
             setDataPagamento(vendaData.data_pagamento ? new Date(vendaData.data_pagamento + 'T12:00:00') : undefined);
             setObservacoes(vendaData.observacoes || '');
-            setComprovantes(vendaData.comprovantes || []);
+            setComprovantes(
+                (vendaData.comprovantes || [])
+                    .map(normalizeComprovantePath)
+                    .filter((path): path is string => Boolean(path)),
+            );
         }
     }, [vendaData]);
+
+    useEffect(() => {
+        let active = true;
+        if (!isOpen || comprovantes.length === 0) {
+            setComprovanteUrls({});
+            return () => {
+                active = false;
+            };
+        }
+
+        void createComprovanteSignedUrls(
+            comprovantes.map((path) => ({ vendaId, path })),
+        ).then((urls) => {
+            if (active) setComprovanteUrls(urls);
+        }).catch(() => {
+            if (active) setComprovanteUrls({});
+        });
+
+        return () => {
+            active = false;
+        };
+    }, [comprovantes, isOpen, vendaId]);
 
     // Reset form on close
     useEffect(() => {
@@ -179,6 +215,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
             setDataPagamento(undefined);
             setObservacoes('');
             setComprovantes([]);
+            setComprovanteUrls({});
         }
     }, [isOpen]);
 
@@ -273,16 +310,16 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
         if (!files || files.length === 0) return;
 
         const file = files[0];
-        if (file.size > 5 * 1024 * 1024) {
+        if (file.size > 10 * 1024 * 1024) {
             toast({
                 title: 'Arquivo muito grande',
-                description: 'O tamanho máximo do comprovante é de 5MB.',
+                description: 'O tamanho máximo do comprovante é de 10MB.',
                 variant: 'destructive',
             });
             return;
         }
 
-        const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+        const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg'];
         if (!allowedTypes.includes(file.type)) {
             toast({
                 title: 'Formato não suportado',
@@ -294,21 +331,24 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
 
         try {
             setIsUploading(true);
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
-            const filePath = `${fileName}`;
+            const extensionByMime: Record<string, string> = {
+                'application/pdf': 'pdf',
+                'image/png': 'png',
+                'image/jpeg': 'jpg',
+            };
+            const ownerFolder = profile?.user_id || 'admin';
+            const filePath = `${ownerFolder}/${crypto.randomUUID()}.${extensionByMime[file.type]}`;
 
             const { data, error } = await supabase.storage
                 .from('comprovantes')
-                .upload(filePath, file);
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    contentType: file.type,
+                    upsert: false,
+                });
 
             if (error) throw error;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('comprovantes')
-                .getPublicUrl(filePath);
-
-            setComprovantes(prev => [...prev, publicUrl]);
+            setComprovantes(prev => [...prev, data.path]);
             toast({
                 title: 'Upload concluído',
                 description: 'O comprovante foi anexado com sucesso.',
@@ -552,7 +592,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                         </div>
                         <div className="space-y-2">
                             <Label>Status</Label>
-                            <Select value={status} onValueChange={setStatus}>
+                            <Select value={status} onValueChange={(value: VendaStatus) => setStatus(value)}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
@@ -584,27 +624,34 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                             
                             {comprovantes.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto mb-1 w-full">
-                                    {comprovantes.map((url, idx) => {
-                                        const decodedUrl = decodeURIComponent(url);
-                                        const fileName = decodedUrl.split('/').pop() || `Comprovante ${idx + 1}`;
+                                    {comprovantes.map((path, idx) => {
+                                        const fileName = comprovanteFileName(path, `Comprovante ${idx + 1}`);
                                         const displayName = fileName.length > 25 
                                             ? fileName.substring(0, 22) + '...'
                                             : fileName;
+                                        const signedUrl = comprovanteUrls[path];
                                         return (
-                                            <Badge key={url} variant="secondary" className="flex items-center gap-1 text-xs py-0.5 px-2 bg-slate-100 hover:bg-slate-200">
-                                                <a 
-                                                    href={url} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    className="underline hover:text-primary truncate max-w-[150px]"
-                                                    title={fileName}
-                                                >
-                                                    {displayName}
-                                                </a>
+                                            <Badge key={path} variant="secondary" className="flex items-center gap-1 text-xs py-0.5 px-2 bg-slate-100 hover:bg-slate-200">
+                                                {signedUrl ? (
+                                                    <a
+                                                        href={signedUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="underline hover:text-primary truncate max-w-[150px]"
+                                                        title={fileName}
+                                                    >
+                                                        {displayName}
+                                                    </a>
+                                                ) : (
+                                                    <span className="truncate max-w-[150px]" title={fileName}>
+                                                        {displayName}
+                                                    </span>
+                                                )}
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleRemoveFile(url)}
+                                                    onClick={() => handleRemoveFile(path)}
                                                     className="text-muted-foreground hover:text-destructive ml-1 text-sm font-bold leading-none focus:outline-none"
+                                                    aria-label={`Remover ${fileName}`}
                                                 >
                                                     &times;
                                                 </button>

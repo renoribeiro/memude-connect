@@ -4,11 +4,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useAuth';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import Logo from '@/components/ui/logo';
 import { signInSchema, SignInFormData } from '@/lib/validations';
 import { AuthLoadingScreen } from '@/components/ui/loading-states';
@@ -16,14 +18,16 @@ import heroImage from '@/assets/hero-dashboard.jpg';
 
 const AuthPage = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { signIn, user, profile, loading } = useAuth();
   const { handleAsyncError } = useErrorHandler();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   // Redirect if already authenticated
   useEffect(() => {
     if (!loading && user && profile) {
-      console.log('User authenticated, redirecting to home');
       navigate('/', { replace: true });
     }
   }, [user, profile, loading, navigate]);
@@ -45,17 +49,46 @@ const AuthPage = () => {
       );
       
       if (result && !result.error) {
-        // Auth context will handle navigation through the useEffect
-        console.log('Login successful, waiting for auth state update');
+        // O contexto de autenticação conclui o redirecionamento.
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error(
+        'Falha no login:',
+        error instanceof Error ? error.message : 'erro desconhecido',
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handlePasswordReset = async () => {
+    const emailIsValid = await signInForm.trigger('email');
+    if (!emailIsValid) return;
 
+    setIsResetting(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        signInForm.getValues('email'),
+        { redirectTo: `${window.location.origin}/reset-password` },
+      );
+      if (error) throw error;
+
+      toast({
+        title: 'Verifique seu email',
+        description:
+          'Se houver uma conta com esse endereço, enviaremos as instruções para redefinir a senha.',
+      });
+    } catch {
+      // Resposta genérica para não revelar se uma conta existe.
+      toast({
+        title: 'Verifique seu email',
+        description:
+          'Se houver uma conta com esse endereço, enviaremos as instruções para redefinir a senha.',
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   // Show loading while checking auth status
   if (loading) {
@@ -117,18 +150,42 @@ const AuthPage = () => {
                     <FormItem>
                       <FormLabel className="text-foreground font-medium">Senha</FormLabel>
                       <FormControl>
-                        <Input
-                          {...field}
-                          type="password"
-                          placeholder="Sua senha"
-                          className="bg-white border-input text-foreground placeholder:text-muted-foreground"
-                          disabled={isLoading}
-                        />
+                        <div className="relative">
+                          <Input
+                            {...field}
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="Sua senha"
+                            autoComplete="current-password"
+                            className="bg-white border-input pr-10 text-foreground placeholder:text-muted-foreground"
+                            disabled={isLoading}
+                          />
+                          <button
+                            type="button"
+                            className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+                            onClick={() => setShowPassword((visible) => !visible)}
+                            aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                          >
+                            {showPassword
+                              ? <EyeOff className="h-4 w-4" />
+                              : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto p-0 text-sm"
+                    disabled={isLoading || isResetting}
+                    onClick={handlePasswordReset}
+                  >
+                    {isResetting ? 'Enviando instruções...' : 'Esqueci minha senha'}
+                  </Button>
+                </div>
                 <Button 
                   type="submit" 
                   className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"

@@ -1,8 +1,9 @@
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { authorize, readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -21,6 +22,9 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const access = await authorize(req, 'admin-or-internal');
+    if (access instanceof Response) return access;
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -32,7 +36,7 @@ Deno.serve(async (req) => {
 
     let body: TemplateRenderRequest;
     try {
-      body = await req.json();
+      body = await readJson(req, 1024 * 1024);
     } catch (e) {
       throw new Error('Invalid JSON payload');
     }

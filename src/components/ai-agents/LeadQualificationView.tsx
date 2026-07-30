@@ -71,7 +71,8 @@ export function LeadQualificationView({ agentId }: LeadQualificationViewProps) {
     const { data: qualifications, isLoading } = useQuery({
         queryKey: ["lead-qualifications", agentId],
         queryFn: async () => {
-            let query = supabase
+            const db = supabase as any;
+            let query = db
                 .from("ai_lead_qualification")
                 .select(`
                     *,
@@ -92,7 +93,19 @@ export function LeadQualificationView({ agentId }: LeadQualificationViewProps) {
 
             const { data, error } = await query;
             if (error) throw error;
-            return data as LeadQualificationData[];
+            return (data ?? []).map((qualification: any): LeadQualificationData => ({
+                ...qualification,
+                bant_total_score:
+                    (qualification.bant_budget_score ?? 0)
+                    + (qualification.bant_authority_score ?? 0)
+                    + (qualification.bant_need_score ?? 0)
+                    + (qualification.bant_timeline_score ?? 0),
+                lead_temperature: qualification.qualification_score >= 75
+                    ? "hot"
+                    : qualification.qualification_score >= 45
+                      ? "warm"
+                      : "cold",
+            }));
         }
     });
 

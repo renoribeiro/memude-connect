@@ -47,26 +47,24 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { toast } = useToast();
 
-  const fetchProfile = async (userId: string): Promise<Profile | null> => {
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     try {
-      // Fetch profile data
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, user_id, first_name, last_name, phone, avatar_url')
         .eq('user_id', userId)
         .maybeSingle();
 
       if (profileError) {
-        console.error('Error fetching profile:', profileError);
+        console.error('Falha ao carregar perfil:', profileError.message);
         return null;
       }
 
       if (!profileData) {
-        console.warn('No profile found for user:', userId);
+        console.warn('Perfil de usuário não encontrado');
         return null;
       }
 
-      // Fetch user role from user_roles table
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
@@ -74,32 +72,28 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
         .maybeSingle();
 
       if (roleError) {
-        console.error('Error fetching user role:', roleError);
-        // Fallback to profile role if exists
-        console.log('Profile loaded successfully (using fallback role):', profileData);
-        return profileData;
+        console.error('Falha ao carregar papel do usuário:', roleError.message);
+        return null;
       }
 
-      // Combine profile and role data
-      const profile = {
+      return {
         ...profileData,
-        role: roleData?.role || profileData.role || 'cliente'
+        // Ausência de papel falha para o nível sem privilégios.
+        role: roleData?.role || 'cliente',
       };
-
-      console.log('Profile loaded successfully:', profile);
-      return profile;
     } catch (error) {
-      console.error('Unexpected error fetching profile:', error);
+      console.error(
+        'Falha inesperada ao carregar perfil:',
+        error instanceof Error ? error.message : 'erro desconhecido',
+      );
       return null;
     }
-  };
+  }, []);
 
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-
         // Prevent race condition with getSession on mount
         if (event === 'INITIAL_SESSION') return;
 
@@ -111,7 +105,10 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
             setProfile(userProfile);
             setLoading(false);
           }).catch(error => {
-            console.error('Error loading profile:', error);
+            console.error(
+              'Falha ao carregar perfil autenticado:',
+              error instanceof Error ? error.message : 'erro desconhecido',
+            );
             setProfile(null);
             setLoading(false);
           });
@@ -137,7 +134,10 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
           setProfile(userProfile);
           setLoading(false);
         }).catch(error => {
-          console.error('Error loading profile:', error);
+          console.error(
+            'Falha ao carregar perfil da sessão:',
+            error instanceof Error ? error.message : 'erro desconhecido',
+          );
           setProfile(null);
           setLoading(false);
         });
@@ -147,7 +147,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchProfile]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     setIsAuthenticating(true);

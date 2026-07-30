@@ -67,7 +67,6 @@ export default function CrmLeadDetailPanel({
         if (!crmLead) return;
         setIsSaving(true);
         try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { error } = await (supabase as any)
                 .from('crm_leads')
                 .update({

@@ -38,12 +38,13 @@ export function WebhookMonitor() {
   // Query para buscar logs de webhook
   const { data: logs = [], refetch, isLoading } = useQuery({
     queryKey: ['webhook-logs'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('webhook_logs')
-        .select('*')
+        .select('id, event_type, instance_name, payload, processed_successfully, error_message, processing_time_ms, created_at')
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(20)
+        .abortSignal(signal);
       
       if (error) throw error;
       return data as WebhookLog[];

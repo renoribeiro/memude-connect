@@ -55,8 +55,8 @@ export default function CRM() {
     const activePipelineId = selectedPipelineId || pipelines.data?.[0]?.id || '';
 
     const currentPipeline = pipelines.data?.find((p) => p.id === activePipelineId);
-    const stagesData = stages.data ?? [];
-    const leadsData = crmLeads.data ?? [];
+    const stagesData = useMemo(() => stages.data ?? [], [stages.data]);
+    const leadsData = useMemo(() => crmLeads.data ?? [], [crmLeads.data]);
     const automationsData = automations.data ?? [];
 
     // Filter leads that actually belong to one of the current stages

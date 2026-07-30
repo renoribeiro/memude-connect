@@ -4,7 +4,7 @@
  * Part of Phase 3: Engagement Excellence
  */
 
-import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 // ============================================================
 // TYPES

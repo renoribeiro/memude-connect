@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,11 +48,7 @@ const VisitsChart = () => {
         }
     }, [period, dateRange]);
 
-    useEffect(() => {
-        fetchVisitsData();
-    }, [dateFilter]);
-
-    const fetchVisitsData = async () => {
+    const fetchVisitsData = useCallback(async () => {
         setLoading(true);
         try {
             const fromDate = format(startOfDay(dateFilter.from!), 'yyyy-MM-dd');
@@ -101,7 +97,11 @@ const VisitsChart = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [dateFilter]);
+
+    useEffect(() => {
+        void fetchVisitsData();
+    }, [fetchVisitsData]);
 
     const handlePeriodChange = (value: string) => {
         if (value) {

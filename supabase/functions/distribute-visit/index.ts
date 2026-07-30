@@ -1,10 +1,11 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { normalizePhoneNumber } from '../_shared/phoneHelpers.ts';
 import { logStructured } from '../_shared/structuredLogger.ts';
+import { readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -115,7 +116,7 @@ Deno.serve(async (req) => {
 
     let body;
     try {
-      body = await req.json();
+      body = await readJson(req, 1024 * 1024);
     } catch (e) {
       throw new Error('Invalid JSON payload');
     }
@@ -465,7 +466,7 @@ async function getEligibleCorretores(supabase: any, visita: any, settings: any) 
   const corretoresWithWhatsApp = sortedCorretores.filter(c => {
     const hasWhatsApp = !!(c.whatsapp || c.telefone);
     if (!hasWhatsApp) {
-      console.log(`❌ Corretor ${c.profiles.first_name} ${c.profiles.last_name} excluído - sem WhatsApp/telefone`);
+      console.log('Corretor excluído da distribuição por não possuir contato');
     }
     return hasWhatsApp;
   });
@@ -558,7 +559,7 @@ async function sendDistributionMessage(
   const rawPhoneNumber = corretor.whatsapp || corretor.telefone;
   const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
 
-  console.log(`Enviando WhatsApp para: ${phoneNumber} (original: ${rawPhoneNumber})`);
+  console.log('Enviando distribuição de visita pelo WhatsApp');
 
   try {
     const { data: checkResult, error: checkError } = await supabase.functions.invoke(
@@ -569,7 +570,7 @@ async function sendDistributionMessage(
     );
 
     if (checkError || !checkResult?.success || !checkResult?.exists) {
-      console.error(`❌ Número não existe no WhatsApp: ${phoneNumber}`, checkError);
+      console.error('Número do corretor não está disponível no WhatsApp');
 
       await supabase.from('communication_log').insert({
         type: 'whatsapp',

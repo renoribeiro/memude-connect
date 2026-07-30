@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { authorize, handleOptions, readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -26,41 +26,32 @@ interface TemplateRequest {
   };
 }
 
+function writableTemplateFields(data: NonNullable<TemplateRequest['templateData']>) {
+  return {
+    name: data.name,
+    category: data.category,
+    type: data.type,
+    subject: data.subject,
+    content: data.content,
+    variables: data.variables || [],
+    is_active: data.is_active ?? true,
+  };
+}
+
 const handler = async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Verificar autenticação
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Token de autorização obrigatório' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Token inválido' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    const access = await authorize(req, 'authenticated');
+    if (access instanceof Response) return access;
+    const { supabase, userId } = access;
 
     // Buscar perfil do usuário
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id, role')
-      .eq('user_id', user.id)
+      .select('id')
+      .eq('user_id', userId)
       .single();
 
     if (!profile) {
@@ -70,7 +61,16 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const { action, templateId, templateData, filters }: TemplateRequest = await req.json();
+    const { data: roleRecord, error: roleError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (roleError) throw roleError;
+    const isAdmin = roleRecord?.role === 'admin';
+
+    const { action, templateId, templateData, filters } =
+      await readJson<TemplateRequest>(req, 32 * 1024);
 
     switch (action) {
       case 'list': {
@@ -126,10 +126,9 @@ const handler = async (req: Request): Promise<Response> => {
         const { data: newTemplate, error } = await supabase
           .from('message_templates')
           .insert({
-            ...templateData,
+            ...writableTemplateFields(templateData),
             created_by: profile.id,
             is_system: false,
-            variables: templateData.variables || []
           })
           .select()
           .single();
@@ -158,8 +157,21 @@ const handler = async (req: Request): Promise<Response> => {
           .eq('id', templateId)
           .single();
 
-        if (existingTemplate?.is_system && profile.role !== 'admin') {
+        if (!existingTemplate) {
+          return new Response(JSON.stringify({ error: 'Template não encontrado' }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (existingTemplate.is_system && !isAdmin) {
           return new Response(JSON.stringify({ error: 'Apenas administradores podem editar templates do sistema' }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        if (!existingTemplate.is_system && !isAdmin && existingTemplate.created_by !== profile.id) {
+          return new Response(JSON.stringify({ error: 'Você só pode editar seus próprios templates' }), {
             status: 403,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
@@ -167,10 +179,7 @@ const handler = async (req: Request): Promise<Response> => {
 
         const { data: updatedTemplate, error } = await supabase
           .from('message_templates')
-          .update({
-            ...templateData,
-            variables: templateData.variables || []
-          })
+          .update(writableTemplateFields(templateData))
           .eq('id', templateId)
           .select()
           .single();
@@ -239,12 +248,25 @@ const handler = async (req: Request): Promise<Response> => {
         // Verificar se é um template do sistema
         const { data: existingTemplate } = await supabase
           .from('message_templates')
-          .select('is_system')
+          .select('created_by, is_system')
           .eq('id', templateId)
           .single();
 
-        if (existingTemplate?.is_system) {
+        if (!existingTemplate) {
+          return new Response(JSON.stringify({ error: 'Template não encontrado' }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (existingTemplate.is_system) {
           return new Response(JSON.stringify({ error: 'Templates do sistema não podem ser excluídos' }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        if (!isAdmin && existingTemplate.created_by !== profile.id) {
+          return new Response(JSON.stringify({ error: 'Você só pode excluir seus próprios templates' }), {
             status: 403,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });

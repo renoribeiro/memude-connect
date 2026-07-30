@@ -31,18 +31,19 @@ export function AIMetricsCard() {
     const { data: metrics, isLoading } = useQuery({
         queryKey: ["ai-metrics"],
         queryFn: async () => {
+            const db = supabase as any;
             // Get conversation stats
-            const { data: conversations } = await supabase
+            const { data: conversations } = await db
                 .from("agent_conversations")
                 .select("id, status, total_messages, total_tokens_used, lead_score");
 
             // Get qualification stats
-            const { data: qualifications } = await supabase
+            const { data: qualifications } = await db
                 .from("ai_lead_qualification")
                 .select("id, is_qualified");
 
             // Get scheduled visits from AI
-            const { data: aiVisits } = await supabase
+            const { data: aiVisits } = await db
                 .from("visitas")
                 .select("id")
                 .eq("origem", "whatsapp_ai");

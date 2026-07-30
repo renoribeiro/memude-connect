@@ -75,7 +75,7 @@ export default function SincronizacaoWordpress() {
       // Load sync logs
       const { data: logs, error: logsError } = await supabase
         .from('wp_sync_log')
-        .select('*')
+        .select('id, sync_date, total_posts_fetched, new_empreendimentos, updated_empreendimentos, errors_count, sync_duration_ms, last_wp_post_id, status, error_details, created_at')
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -85,7 +85,7 @@ export default function SincronizacaoWordpress() {
       // Load recent performance metrics
       const { data: metrics, error: metricsError } = await supabase
         .from('wp_sync_performance')
-        .select('*')
+        .select('id, operation_type, duration_ms, success, error_message, created_at')
         .order('created_at', { ascending: false })
         .limit(100);
 

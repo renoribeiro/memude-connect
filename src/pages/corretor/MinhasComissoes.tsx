@@ -25,6 +25,11 @@ import {
     Paperclip,
 } from 'lucide-react';
 import { formatCurrency } from '@/utils/formatters';
+import {
+    comprovanteFileName,
+    createComprovanteSignedUrls,
+    normalizeComprovantePath,
+} from '@/lib/comprovantes';
 
 interface Venda {
     id: string;
@@ -100,6 +105,26 @@ const MinhasComissoes = () => {
 
         return { total, recebidas, pendentes, media };
     }, [vendas]);
+
+    const comprovanteItems = useMemo(
+        () => vendas.flatMap((venda) =>
+            (venda.comprovantes || [])
+                .map(normalizeComprovantePath)
+                .filter((path): path is string => Boolean(path))
+                .map((path) => ({ vendaId: venda.id, path }))
+        ),
+        [vendas],
+    );
+
+    const { data: comprovanteUrls = {} } = useQuery({
+        queryKey: [
+            'comprovante-signed-urls',
+            comprovanteItems.map((item) => `${item.vendaId}:${item.path}`).join('|'),
+        ],
+        queryFn: () => createComprovanteSignedUrls(comprovanteItems),
+        enabled: comprovanteItems.length > 0,
+        staleTime: 4 * 60 * 1000,
+    });
 
     return (
         <DashboardLayout>
@@ -208,16 +233,18 @@ const MinhasComissoes = () => {
                                                 <div className="flex flex-col gap-1 pt-2 border-t border-dashed">
                                                     <span className="text-xs text-muted-foreground font-medium">Comprovantes:</span>
                                                     <div className="flex flex-wrap gap-1.5 mt-1">
-                                                        {venda.comprovantes.map((url, idx) => {
-                                                            const decodedUrl = decodeURIComponent(url);
-                                                            const fileName = decodedUrl.split('/').pop() || `Comprovante ${idx + 1}`;
+                                                        {venda.comprovantes.map((storedValue, idx) => {
+                                                            const path = normalizeComprovantePath(storedValue);
+                                                            const fileName = comprovanteFileName(path || '', `Comprovante ${idx + 1}`);
                                                             const displayName = fileName.length > 25 
                                                                 ? fileName.substring(0, 22) + '...'
                                                                 : fileName;
+                                                            const signedUrl = path ? comprovanteUrls[path] : null;
+                                                            if (!signedUrl) return null;
                                                             return (
                                                                 <a 
-                                                                    key={url}
-                                                                    href={url} 
+                                                                    key={path}
+                                                                    href={signedUrl}
                                                                     target="_blank" 
                                                                     rel="noopener noreferrer"
                                                                     className="inline-flex items-center gap-1.5 text-xs py-0.5 px-2.5 bg-slate-100 hover:bg-slate-200 rounded-full text-muted-foreground hover:text-foreground transition-colors font-medium"
@@ -284,13 +311,15 @@ const MinhasComissoes = () => {
                                                                      <div className="space-y-1.5">
                                                                          <h5 className="text-xs font-semibold text-muted-foreground px-2 py-1">Comprovantes</h5>
                                                                          <div className="flex flex-col gap-1">
-                                                                             {venda.comprovantes.map((url, idx) => {
-                                                                                 const decodedUrl = decodeURIComponent(url);
-                                                                                 const fileName = decodedUrl.split('/').pop() || `Comprovante ${idx + 1}`;
+                                                                             {venda.comprovantes.map((storedValue, idx) => {
+                                                                                 const path = normalizeComprovantePath(storedValue);
+                                                                                 const fileName = comprovanteFileName(path || '', `Comprovante ${idx + 1}`);
+                                                                                 const signedUrl = path ? comprovanteUrls[path] : null;
+                                                                                 if (!signedUrl) return null;
                                                                                  return (
                                                                                      <a
-                                                                                         key={url}
-                                                                                         href={url}
+                                                                                         key={path}
+                                                                                         href={signedUrl}
                                                                                          target="_blank"
                                                                                          rel="noopener noreferrer"
                                                                                          className="text-xs text-foreground hover:text-primary hover:bg-slate-50 rounded px-2 py-1.5 flex items-center gap-1.5 truncate transition-colors font-medium"

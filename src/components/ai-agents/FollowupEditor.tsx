@@ -87,12 +87,14 @@ export function FollowupEditor({ agentId }: FollowupEditorProps) {
 
     const { data: followups, isLoading, isError, error } = useQuery({
         queryKey: ['agent-followups', agentId],
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             const { data, error } = await supabase
                 .from('agent_followups')
-                .select('*')
+                .select('id, agent_id, sequence_order, delay_hours, message_template, send_after_hour, send_before_hour, is_active, skip_if_qualified, media_type, audio_url, audio_caption, image_url, image_caption, include_property_reminder')
                 .eq('agent_id', agentId)
-                .order('sequence_order', { ascending: true });
+                .order('sequence_order', { ascending: true })
+                .limit(100)
+                .abortSignal(signal);
             if (error) throw error;
             return data as Followup[];
         },

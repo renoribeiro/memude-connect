@@ -67,9 +67,10 @@ export const AdvancedDistributionMetrics = ({
       // Total de tentativas no período
       const { data: attempts } = await supabase
         .from('distribution_attempts')
-        .select('*')
+        .select('id, status, corretor_id, created_at, response_received_at, message_sent_at')
         .gte('created_at', start)
-        .lte('created_at', end);
+        .lte('created_at', end)
+        .limit(5000);
 
       const totalAttempts = attempts?.length || 0;
       const successfulAttempts = attempts?.filter(a => a.status === 'accepted').length || 0;

@@ -51,10 +51,11 @@ export function LeadDistribution() {
   // Fetch distribution settings (weights)
   const { data: distributionSettings, refetch: refetchSettings } = useQuery({
     queryKey: ['distribution-settings'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('distribution_settings')
-        .select('*')
+        .select('id, score_match_bairro, score_match_construtora, score_nota_multiplier, score_visitas_multiplier')
+        .abortSignal(signal)
         .single();
       if (error) throw error;
       return data as any; // Cast to any to handle new columns not yet in types
@@ -219,9 +220,10 @@ export function LeadDistribution() {
       // Get pending leads
       const { data: pendingLeads, error } = await supabase
         .from('leads')
-        .select('*')
+        .select('id')
         .in('status', ['novo', 'buscando_corretor'])
-        .is('corretor_designado_id', null);
+        .is('corretor_designado_id', null)
+        .limit(1000);
 
       if (error) throw error;
 
@@ -370,10 +372,8 @@ export function LeadDistribution() {
                     </Button>
                     <Switch
                       checked={rule.active}
-                      onCheckedChange={(checked) => {
-                        // Update rule active status
-                        console.log('Toggle rule:', rule.id, checked);
-                      }}
+                      disabled
+                      aria-label="Regra demonstrativa; edição ainda indisponível"
                     />
                   </div>
                 </div>

@@ -34,12 +34,13 @@ export function NotificationSystem() {
   // Fetch real notifications from database
   const { data: notifications = [], isLoading } = useQuery<Notification[]>({
     queryKey: ['notifications'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('notifications')
-        .select('*')
+        .select('id, user_id, type, title, message, read, metadata, related_lead_id, related_visit_id, related_corretor_id, created_at, read_at')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(50)
+        .abortSignal(signal);
 
       if (error) throw error;
       return (data || []) as Notification[];
@@ -58,7 +59,6 @@ export function NotificationSystem() {
           table: 'notifications',
         },
         (payload) => {
-          console.log('New notification received:', payload);
           queryClient.invalidateQueries({ queryKey: ['notifications'] });
           
           // Show browser notification

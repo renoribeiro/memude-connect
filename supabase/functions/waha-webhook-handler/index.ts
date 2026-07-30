@@ -1,10 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { processIncomingMessage } from '../_shared/distribution-logic.ts';
 import { logIntegration } from '../_shared/integration-logger.ts';
+import { jsonResponse, verifyWebhook } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, X-Api-Key, x-webhook-secret',
 };
 
@@ -33,27 +34,33 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Webhook Security Validation (Opção A)
-    const webhookSecret = req.headers.get('x-webhook-secret') || req.headers.get('X-Api-Key');
+    const declaredLength = Number(req.headers.get('content-length') ?? '0');
+    if (declaredLength > 1024 * 1024) {
+      return jsonResponse(req, { error: 'Payload excede o limite permitido' }, 413);
+    }
+
+    const rawBody = await req.text();
+    if (new TextEncoder().encode(rawBody).length > 1024 * 1024) {
+      return jsonResponse(req, { error: 'Payload excede o limite permitido' }, 413);
+    }
+
     const { data: secretSetting } = await supabase
       .from('system_settings')
       .select('value')
       .eq('key', 'waha_api_key')
       .maybeSingle();
 
-    if (secretSetting?.value) {
-      if (!webhookSecret || webhookSecret !== secretSetting.value) {
-        console.warn('🚫 WAHA Webhook authentication failed: invalid or missing secret');
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized: missing or invalid secret' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    const expectedSecret = Deno.env.get('WAHA_WEBHOOK_SECRET')
+      || Deno.env.get('WEBHOOK_SECRET')
+      || secretSetting?.value;
+    if (!(await verifyWebhook(req, rawBody, expectedSecret))) {
+      console.warn('WAHA webhook rejected: invalid signature');
+      return jsonResponse(req, { error: 'Não autorizado' }, 401);
     }
 
     const startTime = Date.now();
-    const payload = await req.json();
-    console.log('📨 Webhook WAHA FULL payload:', JSON.stringify(payload).substring(0, 2000));
+    const payload = JSON.parse(rawBody);
+    console.log('WAHA webhook received', { event: payload.event, message_id: payload.payload?.id ?? null });
 
     const event = payload.event;
     const data = payload.payload;
@@ -88,10 +95,8 @@ serve(async (req) => {
              text = data._data.quotedMsg.selectedButtonId || text; 
         }
 
-        console.log(`📱 Dados WAHA extraídos: phone=${phone}, text="${text}"`);
-
         if (phone && text) {
-            console.log(`Webhook WAHA: Recebido de ${phone}: ${text}`);
+            console.log('Webhook WAHA recebeu mensagem válida');
             const senderName = data.sender?.name || data.pushName || '';
 
             // ============================================
@@ -99,7 +104,7 @@ serve(async (req) => {
             // ============================================
             console.log('📋 Verificando lógica de distribuição...');
             const distributionResult = await processIncomingMessage(supabase, phone, text, senderName, data.from || '');
-            console.log('Resultado distribuição:', distributionResult);
+            console.log('Resultado de distribuição WAHA calculado');
 
             if (distributionResult.processed) {
               console.log(`✅ Mensagem processada pela distribuição: action=${distributionResult.action}`);
@@ -108,7 +113,11 @@ serve(async (req) => {
               await supabase.from('webhook_logs').insert({
                 event_type: 'WAHA_DISTRIBUTION_RESPONSE',
                 instance_name: 'waha_global',
-                payload: { phone, text, result: distributionResult },
+                payload: {
+                  action: distributionResult.action,
+                  message_length: text.length,
+                  processed: true,
+                },
                 processed_successfully: true,
                 processing_time_ms: Date.now() - startTime
               });
@@ -162,7 +171,7 @@ serve(async (req) => {
             await supabase.from('webhook_logs').insert({
               event_type: 'WAHA_UNHANDLED_MESSAGE',
               instance_name: 'waha_global',
-              payload: { phone, text },
+              payload: { message_length: text.length, processed: false },
               processed_successfully: false,
               processing_time_ms: Date.now() - startTime
             });
@@ -184,7 +193,8 @@ serve(async (req) => {
                 status: 'failed',
                 metadata: {
                   webhook_timestamp: new Date().toISOString(),
-                  error_details: data
+                  provider_ack: ack,
+                  provider_ack_name: ackName,
                 }
               })
               .eq('message_id', messageId);
@@ -209,11 +219,7 @@ serve(async (req) => {
                 .eq('id', leadAttempt.id);
 
               try {
-                const cronSecret = Deno.env.get('CRON_SECRET') || 'memude-cron-secret-2026-super-secure';
                 await supabase.functions.invoke('distribution-timeout-checker', {
-                  headers: {
-                    'x-cron-secret': cronSecret
-                  },
                   body: {
                     force_lead_id: leadAttempt.lead_id
                   }
@@ -244,11 +250,7 @@ serve(async (req) => {
                 .eq('id', visitAttempt.id);
 
               try {
-                const cronSecret = Deno.env.get('CRON_SECRET') || 'memude-cron-secret-2026-super-secure';
                 await supabase.functions.invoke('visit-distribution-timeout-checker', {
-                  headers: {
-                    'x-cron-secret': cronSecret
-                  },
                   body: {
                     force_visita_id: visitAttempt.visita_id
                   }
@@ -278,9 +280,12 @@ serve(async (req) => {
     return new Response(JSON.stringify(finalRespBody), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
-    console.error('Webhook error:', error);
+    console.error(
+      'Falha no webhook WAHA:',
+      error instanceof Error ? error.message : 'erro desconhecido',
+    );
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'Falha interna ao processar webhook' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

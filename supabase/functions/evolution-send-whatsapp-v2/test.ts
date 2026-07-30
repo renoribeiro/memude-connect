@@ -5,7 +5,7 @@
  */
 
 import { assertEquals, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 // Configurar environment
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://oxybasvtphosdmlmrfnb.supabase.co';

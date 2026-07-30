@@ -1,19 +1,34 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { normalizePhoneNumber, isValidBrazilianPhone } from '../_shared/phoneHelpers.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  authorize,
+  corsHeaders as buildCorsHeaders,
+  handleOptions,
+  readJson,
+  validateExternalHttpUrl,
+} from '../_shared/security.ts';
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Método não permitido' }), {
+      status: 405,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json; charset=utf-8',
+        Allow: 'POST, OPTIONS',
+      },
+    });
   }
 
   try {
+    const access = await authorize(req, 'admin-or-internal');
+    if (access instanceof Response) return access;
+
     console.log('=== EVOLUTION CHECK NUMBER ===');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -27,7 +42,7 @@ Deno.serve(async (req) => {
 
     let body;
     try {
-      body = await req.json();
+      body = await readJson<{ phone_number?: string }>(req, 4 * 1024);
     } catch (e) {
       throw new Error('Invalid JSON payload');
     }
@@ -40,7 +55,7 @@ Deno.serve(async (req) => {
     // Normalizar número
     const normalizedPhone = normalizePhoneNumber(phone_number);
 
-    console.log('Checking phone:', normalizedPhone);
+    console.log('Verificando disponibilidade de número no WhatsApp');
 
     if (!isValidBrazilianPhone(normalizedPhone)) {
       return new Response(
@@ -118,6 +133,7 @@ Deno.serve(async (req) => {
 
     // Normalize URL
     apiUrl = apiUrl.trim().replace(/\/$/, '');
+    validateExternalHttpUrl(apiUrl);
     instanceName = instanceName.trim();
 
     console.log('Checking with Evolution API...', { apiUrl, instanceName });

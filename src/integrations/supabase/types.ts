@@ -76,6 +76,7 @@ export type Database = {
           secondary_metrics: string[] | null
           start_date: string | null
           status: string | null
+          target_sample_size: number
           traffic_split: Json | null
           updated_at: string | null
           variants: Json
@@ -94,6 +95,7 @@ export type Database = {
           secondary_metrics?: string[] | null
           start_date?: string | null
           status?: string | null
+          target_sample_size?: number
           traffic_split?: Json | null
           updated_at?: string | null
           variants: Json
@@ -112,6 +114,7 @@ export type Database = {
           secondary_metrics?: string[] | null
           start_date?: string | null
           status?: string | null
+          target_sample_size?: number
           traffic_split?: Json | null
           updated_at?: string | null
           variants?: Json
@@ -258,30 +261,36 @@ export type Database = {
       }
       agent_followup_log: {
         Row: {
+          audio_sent: boolean | null
           conversation_id: string | null
           followup_id: string | null
           id: string
           lead_responded: boolean | null
+          media_type: string | null
           message_sent: string
           response_received_at: string | null
           sent_at: string | null
           sequence_order: number
         }
         Insert: {
+          audio_sent?: boolean | null
           conversation_id?: string | null
           followup_id?: string | null
           id?: string
           lead_responded?: boolean | null
-          message_sent: string
+          media_type?: string | null
+          message_sent?: string
           response_received_at?: string | null
           sent_at?: string | null
           sequence_order: number
         }
         Update: {
+          audio_sent?: boolean | null
           conversation_id?: string | null
           followup_id?: string | null
           id?: string
           lead_responded?: boolean | null
+          media_type?: string | null
           message_sent?: string
           response_received_at?: string | null
           sent_at?: string | null
@@ -307,12 +316,17 @@ export type Database = {
       agent_followups: {
         Row: {
           agent_id: string | null
+          audio_caption: string | null
+          audio_url: string | null
           created_at: string | null
           delay_hours: number
           id: string
+          image_caption: string | null
+          image_url: string | null
           include_property_reminder: boolean | null
           is_active: boolean | null
           max_attempts: number | null
+          media_type: string | null
           message_template: string
           message_variables: string[] | null
           only_if_stages: string[] | null
@@ -327,12 +341,17 @@ export type Database = {
         }
         Insert: {
           agent_id?: string | null
+          audio_caption?: string | null
+          audio_url?: string | null
           created_at?: string | null
           delay_hours?: number
           id?: string
+          image_caption?: string | null
+          image_url?: string | null
           include_property_reminder?: boolean | null
           is_active?: boolean | null
           max_attempts?: number | null
+          media_type?: string | null
           message_template: string
           message_variables?: string[] | null
           only_if_stages?: string[] | null
@@ -347,12 +366,17 @@ export type Database = {
         }
         Update: {
           agent_id?: string | null
+          audio_caption?: string | null
+          audio_url?: string | null
           created_at?: string | null
           delay_hours?: number
           id?: string
+          image_caption?: string | null
+          image_url?: string | null
           include_property_reminder?: boolean | null
           is_active?: boolean | null
           max_attempts?: number | null
+          media_type?: string | null
           message_template?: string
           message_variables?: string[] | null
           only_if_stages?: string[] | null
@@ -633,11 +657,13 @@ export type Database = {
           enable_property_search: boolean | null
           evolution_instance_id: string | null
           fallback_action: string | null
+          followup_pause_stages: string[] | null
           greeting_message: string | null
           humanization_enabled: boolean | null
           id: string
           is_active: boolean | null
           llm_provider: string | null
+          max_followup_attempts: number | null
           max_messages_per_conversation: number | null
           max_properties_to_show: number | null
           max_tokens: number | null
@@ -651,6 +677,7 @@ export type Database = {
           split_long_messages: boolean | null
           system_prompt: string
           temperature: number | null
+          timezone_offset: number | null
           tone: string | null
           transfer_keywords: string[] | null
           transfer_message: string | null
@@ -672,11 +699,13 @@ export type Database = {
           enable_property_search?: boolean | null
           evolution_instance_id?: string | null
           fallback_action?: string | null
+          followup_pause_stages?: string[] | null
           greeting_message?: string | null
           humanization_enabled?: boolean | null
           id?: string
           is_active?: boolean | null
           llm_provider?: string | null
+          max_followup_attempts?: number | null
           max_messages_per_conversation?: number | null
           max_properties_to_show?: number | null
           max_tokens?: number | null
@@ -690,6 +719,7 @@ export type Database = {
           split_long_messages?: boolean | null
           system_prompt: string
           temperature?: number | null
+          timezone_offset?: number | null
           tone?: string | null
           transfer_keywords?: string[] | null
           transfer_message?: string | null
@@ -711,11 +741,13 @@ export type Database = {
           enable_property_search?: boolean | null
           evolution_instance_id?: string | null
           fallback_action?: string | null
+          followup_pause_stages?: string[] | null
           greeting_message?: string | null
           humanization_enabled?: boolean | null
           id?: string
           is_active?: boolean | null
           llm_provider?: string | null
+          max_followup_attempts?: number | null
           max_messages_per_conversation?: number | null
           max_properties_to_show?: number | null
           max_tokens?: number | null
@@ -729,6 +761,7 @@ export type Database = {
           split_long_messages?: boolean | null
           system_prompt?: string
           temperature?: number | null
+          timezone_offset?: number | null
           tone?: string | null
           transfer_keywords?: string[] | null
           transfer_message?: string | null
@@ -981,13 +1014,364 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "audit_logs_user_id_fkey"
+            foreignKeyName: "audit_logs_user_id_fkey1"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
+      }
+      audit_logs_default: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_logs_y2026m05: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_logs_y2026m06: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_logs_y2026m07: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_logs_y2026m08: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_logs_y2026m09: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_logs_y2026m10: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_logs_y2026m11: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_logs_y2026m12: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       bairros: {
         Row: {
@@ -2098,6 +2482,357 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_logs_default: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          endpoint: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          request_payload: Json | null
+          response_body: Json | null
+          service: string
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service: string
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service?: string
+          status_code?: number | null
+        }
+        Relationships: []
+      }
+      integration_logs_y2026m05: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          endpoint: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          request_payload: Json | null
+          response_body: Json | null
+          service: string
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service: string
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service?: string
+          status_code?: number | null
+        }
+        Relationships: []
+      }
+      integration_logs_y2026m06: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          endpoint: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          request_payload: Json | null
+          response_body: Json | null
+          service: string
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service: string
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service?: string
+          status_code?: number | null
+        }
+        Relationships: []
+      }
+      integration_logs_y2026m07: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          endpoint: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          request_payload: Json | null
+          response_body: Json | null
+          service: string
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service: string
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service?: string
+          status_code?: number | null
+        }
+        Relationships: []
+      }
+      integration_logs_y2026m08: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          endpoint: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          request_payload: Json | null
+          response_body: Json | null
+          service: string
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service: string
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service?: string
+          status_code?: number | null
+        }
+        Relationships: []
+      }
+      integration_logs_y2026m09: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          endpoint: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          request_payload: Json | null
+          response_body: Json | null
+          service: string
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service: string
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service?: string
+          status_code?: number | null
+        }
+        Relationships: []
+      }
+      integration_logs_y2026m10: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          endpoint: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          request_payload: Json | null
+          response_body: Json | null
+          service: string
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service: string
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service?: string
+          status_code?: number | null
+        }
+        Relationships: []
+      }
+      integration_logs_y2026m11: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          endpoint: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          request_payload: Json | null
+          response_body: Json | null
+          service: string
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service: string
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service?: string
+          status_code?: number | null
+        }
+        Relationships: []
+      }
+      integration_logs_y2026m12: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          endpoint: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          request_payload: Json | null
+          response_body: Json | null
+          service: string
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service: string
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service?: string
+          status_code?: number | null
+        }
+        Relationships: []
+      }
       intent_classifications: {
         Row: {
           confidence: number | null
@@ -2667,7 +3402,6 @@ export type Database = {
           is_active: boolean | null
           last_name: string
           phone: string | null
-          role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
           user_id: string
         }
@@ -2679,7 +3413,6 @@ export type Database = {
           is_active?: boolean | null
           last_name: string
           phone?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
           user_id: string
         }
@@ -2691,7 +3424,6 @@ export type Database = {
           is_active?: boolean | null
           last_name?: string
           phone?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
           user_id?: string
         }
@@ -3757,9 +4489,21 @@ export type Database = {
       }
     }
     Functions: {
+      accept_lead_distribution: {
+        Args: { p_attempt_id: string; p_corretor_id: string }
+        Returns: boolean
+      }
+      accept_visit_distribution: {
+        Args: { p_attempt_id: string; p_corretor_id: string }
+        Returns: boolean
+      }
       assign_ab_experiment: {
         Args: { p_conversation_id: string; p_experiment_id: string }
         Returns: string
+      }
+      can_send_followup: {
+        Args: { p_agent_id: string; p_conversation_id: string }
+        Returns: boolean
       }
       cleanup_expired_data: {
         Args: never
@@ -3773,6 +4517,14 @@ export type Database = {
       cleanup_old_deleted_visitas: { Args: never; Returns: undefined }
       cleanup_old_notifications: { Args: never; Returns: undefined }
       cleanup_old_sync_logs: { Args: never; Returns: undefined }
+      cleanup_old_technical_logs: {
+        Args: never
+        Returns: {
+          application_logs_deleted: number
+          integration_logs_deleted: number
+          webhook_logs_deleted: number
+        }[]
+      }
       cleanup_old_whatsapp_verification: { Args: never; Returns: undefined }
       create_notification: {
         Args: {
@@ -3787,9 +4539,16 @@ export type Database = {
         }
         Returns: string
       }
-      delete_evolution_instance: {
-        Args: { instance_id: string }
-        Returns: undefined
+      dequeue_pending_messages: {
+        Args: { p_limit: number }
+        Returns: {
+          attempts: number
+          id: string
+          instance_id: string
+          message_body: Json
+          phone_number: string
+          priority: number
+        }[]
       }
       get_ab_test_results: {
         Args: { p_experiment_id: string }
@@ -3953,7 +4712,6 @@ export type Database = {
         Returns: string
       }
       restore_visita: { Args: { visita_id: string }; Returns: undefined }
-      save_evolution_instance: { Args: { payload: Json }; Returns: Json }
       set_cached_response: {
         Args: {
           p_agent_id: string
@@ -3967,6 +4725,10 @@ export type Database = {
       }
       soft_delete_visita: { Args: { visita_id: string }; Returns: undefined }
       validate_cpf: { Args: { cpf_input: string }; Returns: boolean }
+      verify_internal_function_secret: {
+        Args: { _candidate: string }
+        Returns: boolean
+      }
       write_audit_log: {
         Args: {
           p_action: string

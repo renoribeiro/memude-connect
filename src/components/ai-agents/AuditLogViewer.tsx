@@ -73,25 +73,40 @@ export function AuditLogViewer({ agentId }: AuditLogViewerProps) {
     const { data: logs, isLoading, refetch } = useQuery({
         queryKey: ["audit-logs", agentId, actionFilter, entityFilter, limit],
         queryFn: async () => {
-            let query = supabase
+            const db = supabase as any;
+            let query = db
                 .from("audit_logs")
                 .select("*")
                 .order("created_at", { ascending: false })
                 .limit(limit);
 
-            if (agentId) {
-                query = query.eq("agent_id", agentId);
-            }
             if (actionFilter && actionFilter !== "all") {
                 query = query.eq("action", actionFilter);
             }
             if (entityFilter && entityFilter !== "all") {
-                query = query.eq("entity_type", entityFilter);
+                query = query.eq("table_name", entityFilter);
             }
 
             const { data, error } = await query;
             if (error) throw error;
-            return data as AuditLogEntry[];
+            return (data ?? [])
+                .map((entry: any): AuditLogEntry => ({
+                    id: entry.id,
+                    user_id: entry.user_id,
+                    agent_id: entry.new_values?.agent_id ?? entry.old_values?.agent_id ?? null,
+                    conversation_id: entry.new_values?.conversation_id ?? entry.old_values?.conversation_id ?? null,
+                    action: entry.action,
+                    entity_type: entry.table_name,
+                    entity_id: entry.record_id,
+                    previous_value: entry.old_values,
+                    new_value: entry.new_values,
+                    metadata: {
+                        user_agent: entry.user_agent,
+                        ip_address: entry.ip_address,
+                    },
+                    created_at: entry.created_at,
+                }))
+                .filter((entry: AuditLogEntry) => !agentId || entry.agent_id === agentId);
         }
     });
 

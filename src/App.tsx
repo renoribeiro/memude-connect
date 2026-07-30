@@ -10,6 +10,7 @@ import { lazy, Suspense } from "react";
 
 const Index = lazy(() => import("./pages/Index"));
 const AuthPage = lazy(() => import("./components/auth/AuthPage"));
+const ResetPasswordPage = lazy(() => import("./components/auth/ResetPasswordPage"));
 const Unauthorized = lazy(() => import("./pages/Unauthorized"));
 const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
 const Leads = lazy(() => import("./pages/admin/Leads"));
@@ -45,6 +46,7 @@ const App = () => (
               <Routes>
                 {/* Public Routes */}
                 <Route path="/auth" element={<AuthPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/unauthorized" element={<Unauthorized />} />
 
                 {/* Protected Routes */}

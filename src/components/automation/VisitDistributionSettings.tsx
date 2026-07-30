@@ -15,10 +15,11 @@ export function VisitDistributionSettings() {
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['distribution-settings'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('distribution_settings')
-        .select('*')
+        .select('id, max_attempts, timeout_minutes, auto_distribution_enabled, fallback_to_admin, notification_method')
+        .abortSignal(signal)
         .single();
 
       if (error) throw error;

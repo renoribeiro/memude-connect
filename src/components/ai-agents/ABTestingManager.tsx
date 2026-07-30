@@ -29,7 +29,7 @@ interface ABTestingManagerProps {
 
 interface Experiment {
     id: string;
-    agent_id: string;
+    agent_id: string | null;
     name: string;
     description: string | null;
     experiment_type: string;
@@ -41,19 +41,18 @@ interface Experiment {
     primary_metric: string;
     secondary_metrics: string[];
     status: "draft" | "running" | "paused" | "completed" | "cancelled";
-    started_at: string | null;
-    ended_at: string | null;
+    start_date: string | null;
+    end_date: string | null;
     target_sample_size: number;
     created_at: string;
 }
 
 interface ExperimentResult {
-    variant_id: string;
+    variant_name: string;
     sample_size: number;
-    conversions: number;
     conversion_rate: number;
     avg_metric_value: number;
-    confidence_level: string;
+    is_winner: boolean;
 }
 
 const EXPERIMENT_TYPES = [
@@ -103,7 +102,7 @@ export function ABTestingManager({ agentId }: ABTestingManagerProps) {
                 .order("created_at", { ascending: false });
 
             if (error) throw error;
-            return data as Experiment[];
+            return data as unknown as Experiment[];
         }
     });
 
@@ -116,7 +115,7 @@ export function ABTestingManager({ agentId }: ABTestingManagerProps) {
                 p_experiment_id: selectedExperiment
             });
             if (error) throw error;
-            return data as ExperimentResult[];
+            return data as unknown as ExperimentResult[];
         },
         enabled: !!selectedExperiment
     });
@@ -135,7 +134,7 @@ export function ABTestingManager({ agentId }: ABTestingManagerProps) {
                     primary_metric: experiment.primary_metric,
                     target_sample_size: experiment.target_sample_size,
                     status: "draft"
-                })
+                } as any)
                 .select()
                 .single();
 
@@ -168,9 +167,9 @@ export function ABTestingManager({ agentId }: ABTestingManagerProps) {
         mutationFn: async ({ id, status }: { id: string; status: string }) => {
             const updates: Record<string, any> = { status };
             if (status === "running") {
-                updates.started_at = new Date().toISOString();
+                updates.start_date = new Date().toISOString();
             } else if (status === "completed" || status === "cancelled") {
-                updates.ended_at = new Date().toISOString();
+                updates.end_date = new Date().toISOString();
             }
 
             const { error } = await supabase
@@ -466,11 +465,11 @@ export function ABTestingManager({ agentId }: ABTestingManagerProps) {
                     <CardContent>
                         <div className="space-y-4">
                             {experimentResults.map((result, index) => (
-                                <div key={result.variant_id} className="space-y-2">
+                                <div key={result.variant_name} className="space-y-2">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <Badge variant={index === 0 ? "default" : "outline"}>
-                                                {result.variant_id === "control" ? "Controle" : result.variant_id}
+                                                {result.variant_name === "control" ? "Controle" : result.variant_name}
                                             </Badge>
                                             {index === 0 && (
                                                 <Badge variant="secondary" className="text-xs">
@@ -481,14 +480,14 @@ export function ABTestingManager({ agentId }: ABTestingManagerProps) {
                                         <div className="text-sm">
                                             <span className="font-bold text-lg">{result.conversion_rate}%</span>
                                             <span className="text-muted-foreground ml-2">
-                                                ({result.conversions}/{result.sample_size})
+                                                ({Math.round(result.sample_size * result.conversion_rate / 100)}/{result.sample_size})
                                             </span>
                                         </div>
                                     </div>
                                     <Progress value={result.conversion_rate} className="h-2" />
                                     <div className="flex justify-between text-xs text-muted-foreground">
                                         <span>Métrica média: {result.avg_metric_value}</span>
-                                        <span>{result.confidence_level}</span>
+                                        <span>{result.is_winner ? "Vencedora" : "Em avaliação"}</span>
                                     </div>
                                 </div>
                             ))}

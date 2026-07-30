@@ -57,6 +57,8 @@ interface Venda {
     corretores: { profiles: { first_name: string; last_name: string } } | null;
 }
 
+type VendaStatus = Venda['status'];
+
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
     pendente: { label: 'Pendente', variant: 'outline' },
     aprovada: { label: 'Aprovada', variant: 'secondary' },
@@ -84,7 +86,7 @@ const Vendas = () => {
                 .order('created_at', { ascending: false });
 
             if (filterStatus && filterStatus !== 'all') {
-                query = query.eq('status', filterStatus);
+                query = query.eq('status', filterStatus as VendaStatus);
             }
 
             const { data, error } = await query;

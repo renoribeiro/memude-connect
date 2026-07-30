@@ -1,20 +1,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { authorize, handleOptions, readJson } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
+
+  const access = await authorize(req, 'internal');
+  if (access instanceof Response) return access;
 
   // Security check: Verify x-cron-secret header to prevent unauthorized triggers
   const cronSecret = req.headers.get('x-cron-secret');
-  const expectedSecret = Deno.env.get('CRON_SECRET') || 'memude-cron-secret-2026-super-secure';
-  if (!cronSecret || cronSecret !== expectedSecret) {
+  const expectedSecret = cronSecret;
+  if (!cronSecret || !expectedSecret || cronSecret !== expectedSecret) {
     console.warn('🚫 Cron authentication failed: invalid or missing secret');
     return new Response(
       JSON.stringify({ error: 'Unauthorized: Invalid cron secret' }),
@@ -23,10 +25,7 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const { supabase } = access;
 
     console.log('Iniciando monitoramento de visitas (Lembretes e Pós-Venda)...');
 

@@ -1,7 +1,8 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { authorize, readJson, validateExternalHttpUrl } from '../_shared/security.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -11,6 +12,9 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const access = await authorize(req, 'admin');
+    if (access instanceof Response) return access;
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -30,6 +34,7 @@ Deno.serve(async (req) => {
 
     const settingsMap = new Map(settings?.map((s: any) => [s.key, s.value]) || []);
     const wahaUrl = settingsMap.get('waha_api_url')?.trim().replace(/\/$/, '');
+    if (wahaUrl) validateExternalHttpUrl(wahaUrl);
     const wahaKey = settingsMap.get('waha_api_key')?.trim();
 
     if (!wahaUrl) {

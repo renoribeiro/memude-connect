@@ -11,24 +11,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Bot, MessageSquare, Plus, Settings, BarChart3, Power, Trash2, Eye, Users } from "lucide-react";
-import { AgentEditor } from "@/components/ai-agents/AgentEditor";
+import { AgentEditor, type AIAgent } from "@/components/ai-agents/AgentEditor";
 import { ConversationMonitor } from "@/components/ai-agents/ConversationMonitor";
 import { LeadQualificationView } from "@/components/ai-agents/LeadQualificationView";
 import { AIMetricsCard } from "@/components/ai-agents/AIMetricsCard";
-
-interface AIAgent {
-    id: string;
-    name: string;
-    description: string | null;
-    is_active: boolean;
-    persona_name: string;
-    persona_role: string;
-    llm_provider: 'openai' | 'gemini' | 'anthropic';
-    ai_model: string;
-    created_at: string;
-    total_conversations?: number;
-    total_leads_qualified?: number;
-}
 
 const AIAgents = () => {
     const { toast } = useToast();
@@ -40,11 +26,26 @@ const AIAgents = () => {
     // Fetch agents
     const { data: agents, isLoading } = useQuery({
         queryKey: ['ai-agents'],
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             const { data, error } = await supabase
                 .from('ai_agents')
-                .select('*')
-                .order('created_at', { ascending: false });
+                .select(`
+                  id, name, description, is_active, system_prompt, greeting_message,
+                  llm_provider, ai_model, temperature, max_tokens, tone, persona_name,
+                  persona_role, qualification_questions, qualification_stages,
+                  regional_expressions, trigger_keywords, transfer_keywords,
+                  transfer_message, fallback_action, evolution_instance_id,
+                  enable_property_search, max_properties_to_show,
+                  conversation_timeout_hours, max_messages_per_conversation,
+                  max_unclear_attempts, max_followup_attempts, followup_pause_stages,
+                  humanization_enabled, split_long_messages, typing_delay_min_ms,
+                  typing_delay_max_ms, timezone_offset, transfer_on_frustration,
+                  transfer_on_request, transfer_on_unclear, use_casual_language,
+                  created_by, created_at, updated_at
+                `)
+                .order('created_at', { ascending: false })
+                .limit(100)
+                .abortSignal(signal);
 
             if (error) throw error;
             return data as AIAgent[];

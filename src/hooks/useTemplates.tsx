@@ -78,11 +78,13 @@ export const useTemplates = (filters?: TemplateFilters) => {
 export const useTemplateVariables = () => {
   return useQuery({
     queryKey: ['template-variables'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('template_variables')
-        .select('*')
-        .order('category', { ascending: true });
+        .select('id, name, description, category, data_type, default_value')
+        .order('category', { ascending: true })
+        .limit(500)
+        .abortSignal(signal);
 
       if (error) throw error;
       return data as TemplateVariable[];

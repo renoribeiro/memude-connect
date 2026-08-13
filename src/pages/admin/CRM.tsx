@@ -35,9 +35,8 @@ export default function CRM() {
         addLeadToPipeline,
         removeLeadFromPipeline,
         createPipeline,
-        updatePipeline,
         deletePipeline,
-        upsertStages,
+        savePipelineConfiguration,
         createAutomation,
         toggleAutomation,
         deleteAutomation,
@@ -279,15 +278,15 @@ export default function CRM() {
                         isDefault={currentPipeline.is_default || false}
                         stages={stagesData}
                         pipelineId={activePipelineId}
-                        isSaving={upsertStages.isPending || updatePipeline.isPending}
+                        isSaving={savePipelineConfiguration.isPending}
                         onSave={async (data) => {
-                            await updatePipeline.mutateAsync({
+                            await savePipelineConfiguration.mutateAsync({
                                 id: activePipelineId,
                                 nome: data.nome,
-                                descricao: data.descricao || undefined,
+                                descricao: data.descricao,
                                 auto_add_visits: data.auto_add_visits,
+                                stages: data.stages,
                             });
-                            await upsertStages.mutateAsync(data.stages);
                             setShowSettings(false);
                         }}
                         onDelete={() => {

@@ -62,6 +62,39 @@ export interface CrmAutomation {
     crm_stages?: { nome: string } | null;
 }
 
+interface SavePipelineConfigurationInput {
+    id: string;
+    nome: string;
+    descricao: string;
+    auto_add_visits: boolean;
+    stages: Array<{
+        id?: string;
+        pipeline_id: string;
+        nome: string;
+        cor: string;
+        posicao: number;
+        is_final?: boolean;
+    }>;
+}
+
+interface PipelineConfigurationRpc {
+    rpc: (
+        name: 'save_crm_pipeline_configuration',
+        args: {
+            p_pipeline_id: string;
+            p_nome: string;
+            p_descricao: string;
+            p_auto_add_visits: boolean;
+            p_stages: Array<{
+                id?: string;
+                nome: string;
+                cor: string;
+                is_final: boolean;
+            }>;
+        },
+    ) => Promise<{ error: { message: string } | null }>;
+}
+
 export function useCrmPipeline(pipelineId?: string) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
@@ -244,32 +277,6 @@ export function useCrmPipeline(pipelineId?: string) {
         },
     });
 
-    const updatePipeline = useMutation({
-        mutationFn: async ({
-            id,
-            ...data
-        }: {
-            id: string;
-            nome?: string;
-            descricao?: string;
-            auto_add_visits?: boolean;
-            is_default?: boolean;
-        }) => {
-            const { error } = await db
-                .from('crm_pipelines')
-                .update(data)
-                .eq('id', id);
-            if (error) throw error;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['crm-pipelines'] });
-            toast({ title: 'Pipeline atualizado' });
-        },
-        onError: () => {
-            toast({ title: 'Erro ao atualizar pipeline', variant: 'destructive' });
-        },
-    });
-
     const deletePipeline = useMutation({
         mutationFn: async (id: string) => {
             const { error } = await db
@@ -287,68 +294,44 @@ export function useCrmPipeline(pipelineId?: string) {
         },
     });
 
-    const upsertStages = useMutation({
-        mutationFn: async (
-            stagesData: Array<{
-                id?: string;
-                pipeline_id: string;
-                nome: string;
-                cor: string;
-                posicao: number;
-                is_final?: boolean;
-            }>
-        ) => {
-            if (!pipelineId) throw new Error('Pipeline não selecionado');
-
-            // Delete stages not in the new list
-            const existingIds = stagesData
-                .filter((s) => s.id)
-                .map((s) => s.id as string);
-
-            if (existingIds.length > 0) {
-                const { error: delError } = await db
-                    .from('crm_stages')
-                    .delete()
-                    .eq('pipeline_id', pipelineId)
-                    .not('id', 'in', `(${existingIds.join(',')})`);
-                if (delError) throw delError;
-            } else {
-                const { error: delError } = await db
-                    .from('crm_stages')
-                    .delete()
-                    .eq('pipeline_id', pipelineId);
-                if (delError) throw delError;
+    const savePipelineConfiguration = useMutation({
+        mutationFn: async (data: SavePipelineConfigurationInput) => {
+            if (!pipelineId || data.id !== pipelineId) {
+                throw new Error('Pipeline não selecionado');
+            }
+            if (data.stages.length === 0) {
+                throw new Error('O pipeline deve ter pelo menos uma etapa');
             }
 
-            // Upsert remaining
-            if (stagesData.length > 0) {
-                const payload = stagesData.map((stage) => {
-                    const item: any = {
-                        pipeline_id: pipelineId,
-                        nome: stage.nome,
-                        cor: stage.cor,
-                        posicao: stage.posicao,
-                        is_final: stage.is_final ?? false,
-                    };
-                    if (stage.id) {
-                        item.id = stage.id;
-                    }
-                    return item;
-                });
-
-                const { error: upsertError } = await db
-                    .from('crm_stages')
-                    .upsert(payload);
-                if (upsertError) throw upsertError;
-            }
+            // O RPC é adicionado pela migração desta alteração. O cast local
+            // evita editar manualmente o arquivo de tipos gerado pelo Supabase.
+            const rpcClient = db as unknown as PipelineConfigurationRpc;
+            const { error } = await rpcClient.rpc('save_crm_pipeline_configuration', {
+                p_pipeline_id: data.id,
+                p_nome: data.nome,
+                p_descricao: data.descricao,
+                p_auto_add_visits: data.auto_add_visits,
+                p_stages: data.stages.map((stage) => ({
+                    ...(stage.id ? { id: stage.id } : {}),
+                    nome: stage.nome,
+                    cor: stage.cor,
+                    is_final: stage.is_final ?? false,
+                })),
+            });
+            if (error) throw error;
         },
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['crm-pipelines'] });
             queryClient.invalidateQueries({ queryKey: ['crm-stages', pipelineId] });
             queryClient.invalidateQueries({ queryKey: ['crm-leads', pipelineId] });
-            toast({ title: 'Etapas atualizadas' });
+            toast({ title: 'Pipeline atualizado com sucesso' });
         },
-        onError: () => {
-            toast({ title: 'Erro ao salvar etapas', variant: 'destructive' });
+        onError: (error: Error) => {
+            toast({
+                title: 'Erro ao salvar pipeline',
+                description: error.message,
+                variant: 'destructive',
+            });
         },
     });
 
@@ -429,9 +412,8 @@ export function useCrmPipeline(pipelineId?: string) {
         addLeadToPipeline,
         removeLeadFromPipeline,
         createPipeline,
-        updatePipeline,
         deletePipeline,
-        upsertStages,
+        savePipelineConfiguration,
         createAutomation,
         toggleAutomation,
         deleteAutomation,

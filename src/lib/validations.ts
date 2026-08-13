@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidBrazilianPhone } from '@/utils/phoneHelpers';
 
 // Auth validation schemas
 export const signInSchema = z.object({
@@ -66,8 +67,8 @@ export const corretorSchema = z.object({
     .or(z.literal('')),
   telefone: z
     .string()
-    .min(10, 'Telefone deve ter no mínimo 10 dígitos')
-    .regex(/^\(\d{2}\)\s\d{4,5}-\d{4}$/, 'Formato: (11) 99999-9999'),
+    .min(1, 'Telefone é obrigatório')
+    .refine(isValidBrazilianPhone, 'Informe um celular brasileiro válido'),
   email: z
     .string()
     .email('Email deve ter um formato válido')

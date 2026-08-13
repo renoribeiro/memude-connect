@@ -3,6 +3,8 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { ScrollArea } from '@/components/ui/scroll-area';
 import KanbanCard from './KanbanCard';
 import type { CrmStage, CrmLead } from '@/hooks/useCrmPipeline';
+import { formatCurrency } from '@/utils/formatters';
+import { sumEstimatedOpportunityValue } from '@/utils/crmPipeline';
 
 interface KanbanColumnProps {
     stage: CrmStage;
@@ -18,6 +20,7 @@ export default function KanbanColumn({ stage, leads, onCardClick, onRemoveLead }
     });
 
     const sortableIds = leads.map((l) => l.id);
+    const estimatedValue = sumEstimatedOpportunityValue(leads);
 
     return (
         <div
@@ -34,6 +37,12 @@ export default function KanbanColumn({ stage, leads, onCardClick, onRemoveLead }
                     <h3 className="font-semibold text-sm truncate flex-1">{stage.nome}</h3>
                     <span className="text-xs bg-white px-2 py-0.5 rounded-full text-muted-foreground font-medium border">
                         {leads.length}
+                    </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Valor previsto</span>
+                    <span className="font-semibold tabular-nums text-foreground">
+                        {formatCurrency(estimatedValue)}
                     </span>
                 </div>
             </div>

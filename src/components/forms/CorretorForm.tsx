@@ -26,6 +26,18 @@ interface CorretorFormProps {
   onCancel: () => void;
 }
 
+async function getFunctionErrorMessage(error: any, fallback: string): Promise<string> {
+  try {
+    const payload = await error?.context?.json?.();
+    if (payload?.error) return payload.error;
+    if (payload?.message) return payload.message;
+  } catch {
+    // A resposta pode já ter sido consumida ou não conter JSON.
+  }
+
+  return error?.message || fallback;
+}
+
 const ESTADOS_BRASIL = [
   { value: 'AC', label: 'Acre' },
   { value: 'AL', label: 'Alagoas' },
@@ -195,8 +207,14 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
 
   // Sincronizar estados com o formulário para validação
   useEffect(() => {
-    form.setValue('bairros', selectedBairros);
-    form.setValue('construtoras', selectedConstrutoras);
+    form.setValue('bairros', selectedBairros, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    form.setValue('construtoras', selectedConstrutoras, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
   }, [selectedBairros, selectedConstrutoras, form]);
 
   // Função para lidar com "Todas as Construtoras"
@@ -258,7 +276,12 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
             }
           });
 
-          if (userError) throw userError;
+          if (userError) {
+            throw new Error(await getFunctionErrorMessage(
+              userError,
+              'Não foi possível criar o convite de usuário',
+            ));
+          }
           if (!userData?.user?.id) throw new Error('Falha ao criar usuário');
 
           const userId = userData.user.id;
@@ -544,6 +567,14 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
     }
   };
 
+  const onInvalidSubmit = () => {
+    toast({
+      title: "Revise os campos obrigatórios",
+      description: "Corrija os campos destacados antes de cadastrar o corretor.",
+      variant: "destructive",
+    });
+  };
+
   const toggleBairro = (bairroId: string) => {
     setSelectedBairros(prev =>
       prev.includes(bairroId)
@@ -561,7 +592,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
   };
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)} className="space-y-6">
       {/* Dados Pessoais */}
       <Card>
         <CardHeader>
@@ -656,7 +687,10 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
                   <Label htmlFor="telefone">Telefone *</Label>
                   <PhoneInput
                     value={form.watch("telefone")}
-                    onChange={(value) => form.setValue("telefone", value)}
+                    onChange={(value) => form.setValue("telefone", value, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })}
                     placeholder="(85) 99999-9999"
                   />
                   {form.formState.errors.telefone && (
@@ -749,7 +783,10 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
                   <Label htmlFor="telefone">Telefone *</Label>
                   <PhoneInput
                     value={form.watch("telefone")}
-                    onChange={(value) => form.setValue("telefone", value)}
+                    onChange={(value) => form.setValue("telefone", value, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })}
                     placeholder="(85) 99999-9999"
                   />
                   <PhoneVerification phoneNumber={form.watch("telefone")} />

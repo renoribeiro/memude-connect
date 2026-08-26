@@ -39,16 +39,16 @@ interface CorretorProfile {
 
 const statusVariants = {
   'em_avaliacao': 'secondary',
-  'aprovado': 'success',
-  'reprovado': 'destructive',
-  'suspenso': 'outline'
+  'ativo': 'success',
+  'inativo': 'outline',
+  'bloqueado': 'destructive'
 } as const;
 
 const statusLabels = {
   'em_avaliacao': 'Em Avaliação',
-  'aprovado': 'Aprovado',
-  'reprovado': 'Reprovado',
-  'suspenso': 'Suspenso'
+  'ativo': 'Ativo',
+  'inativo': 'Inativo',
+  'bloqueado': 'Bloqueado'
 };
 
 export default function Perfil() {
@@ -160,7 +160,14 @@ export default function Perfil() {
         title: "Dados atualizados",
         description: "Suas informações profissionais foram salvas.",
       });
-    }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao atualizar",
+        description: error.message || "Não foi possível salvar os dados profissionais.",
+        variant: "destructive",
+      });
+    },
   });
 
   const getRatingStars = (rating: number) => {
@@ -210,7 +217,7 @@ export default function Perfil() {
           creci: newCreci,
           whatsapp: newWhatsapp,
           status: 'em_avaliacao',
-          nota_media: 5.0,
+          nota_media: 0,
           total_visitas: 0,
           observacoes: newObservacoes || null
         });
@@ -343,9 +350,9 @@ export default function Perfil() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
-                <div className="text-2xl font-bold">{corretor.nota_media.toFixed(1)}</div>
+                <div className="text-2xl font-bold">{(corretor.nota_media ?? 0).toFixed(1)}</div>
                 <div className="flex items-center">
-                  {getRatingStars(corretor.nota_media)}
+                  {getRatingStars(corretor.nota_media ?? 0)}
                 </div>
               </div>
             </CardContent>
@@ -359,7 +366,7 @@ export default function Perfil() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{corretor.total_visitas}</div>
+              <div className="text-2xl font-bold">{corretor.total_visitas ?? 0}</div>
             </CardContent>
           </Card>
 
@@ -588,7 +595,7 @@ export default function Perfil() {
                           {format(new Date(corretor.data_avaliacao), 'dd/MM/yyyy', { locale: ptBR })}
                         </p>
                       </div>
-                      <Badge variant="success">Aprovado</Badge>
+                      <Badge variant="outline">Avaliado</Badge>
                     </div>
                   )}
 
@@ -599,8 +606,8 @@ export default function Perfil() {
                         {statusLabels[corretor.status as keyof typeof statusLabels]}
                       </p>
                     </div>
-                    <Badge variant={statusVariants[corretor.status as keyof typeof statusVariants]}>
-                      Ativo
+                    <Badge variant={statusVariants[corretor.status as keyof typeof statusVariants] || 'default'}>
+                      {statusLabels[corretor.status as keyof typeof statusLabels] || corretor.status}
                     </Badge>
                   </div>
                 </div>

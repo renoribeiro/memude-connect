@@ -66,14 +66,21 @@ const navigation = {
     { name: 'Minhas Visitas', href: '/minhas-visitas', icon: Calendar },
     { name: 'Minhas Comissões', href: '/minhas-comissoes', icon: DollarSign },
     { name: 'Meu Perfil', href: '/perfil', icon: UserCheck },
-  ]
+  ],
+  cliente: [
+    { name: 'Dashboard', href: '/', icon: Home },
+  ],
 };
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { profile, signOut, isAdmin, isCorretor } = useAuth();
   const location = useLocation();
 
-  const navItems = isAdmin ? navigation.admin : navigation.corretor;
+  const navItems = isAdmin
+    ? navigation.admin
+    : isCorretor
+      ? navigation.corretor
+      : navigation.cliente;
 
   const getUserInitials = () => {
     if (profile?.first_name && profile?.last_name) {

@@ -63,12 +63,12 @@ const App = () => (
                   </ProtectedRoute>
                 } />
                 <Route path="/leads" element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <Leads />
                   </ProtectedRoute>
                 } />
                 <Route path="/crm" element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <CRM />
                   </ProtectedRoute>
                 } />
@@ -83,7 +83,7 @@ const App = () => (
                   </ProtectedRoute>
                 } />
                 <Route path="/visitas" element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <Visitas />
                   </ProtectedRoute>
                 } />
@@ -93,12 +93,12 @@ const App = () => (
                   </ProtectedRoute>
                 } />
                 <Route path="/comunicacoes" element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <Comunicacoes />
                   </ProtectedRoute>
                 } />
                 <Route path="/relatorios" element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <Relatorios />
                   </ProtectedRoute>
                 } />

@@ -255,6 +255,8 @@ export function ReportTemplateManager({ onSelectTemplate, onNewTemplate }: Repor
                   <Button
                     variant="ghost"
                     size="sm"
+                    onClick={() => onSelectTemplate(template)}
+                    aria-label={`Editar template ${template.name}`}
                   >
                     <Edit className="h-4 w-4" />
                   </Button>

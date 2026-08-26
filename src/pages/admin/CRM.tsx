@@ -89,7 +89,7 @@ export default function CRM() {
         0
     );
 
-    const existingLeadIds = validLeadsData.map((l) => l.lead_id);
+    const existingLeadIds = leadsData.map((l) => l.lead_id);
 
     const currentDetailStage = detailLead
         ? stagesData.find((s) => s.id === detailLead.stage_id) ?? null
@@ -267,6 +267,20 @@ export default function CRM() {
             </div>
 
             {/* Modals */}
+            <CreatePipelineModal
+                open={showCreatePipeline}
+                onOpenChange={setShowCreatePipeline}
+                isCreating={createPipeline.isPending}
+                onCreate={(data) => {
+                    createPipeline.mutate(data, {
+                        onSuccess: (newPipeline) => {
+                            setShowCreatePipeline(false);
+                            setSelectedPipelineId(newPipeline.id);
+                        }
+                    });
+                }}
+            />
+
             {currentPipeline && (
                 <>
                     <PipelineSettingsModal
@@ -279,35 +293,22 @@ export default function CRM() {
                         stages={stagesData}
                         pipelineId={activePipelineId}
                         isSaving={savePipelineConfiguration.isPending}
-                        onSave={async (data) => {
-                            await savePipelineConfiguration.mutateAsync({
+                        onSave={(data) => {
+                            savePipelineConfiguration.mutate({
                                 id: activePipelineId,
                                 nome: data.nome,
                                 descricao: data.descricao,
                                 auto_add_visits: data.auto_add_visits,
                                 stages: data.stages,
+                            }, {
+                                onSuccess: () => setShowSettings(false),
                             });
-                            setShowSettings(false);
                         }}
                         onDelete={() => {
                             deletePipeline.mutate(activePipelineId, {
                                 onSuccess: () => {
                                     setShowSettings(false);
                                     setSelectedPipelineId('');
-                                }
-                            });
-                        }}
-                    />
-
-                    <CreatePipelineModal
-                        open={showCreatePipeline}
-                        onOpenChange={setShowCreatePipeline}
-                        isCreating={createPipeline.isPending}
-                        onCreate={(data) => {
-                            createPipeline.mutate(data, {
-                                onSuccess: (newPipeline) => {
-                                    setShowCreatePipeline(false);
-                                    setSelectedPipelineId(newPipeline.id);
                                 }
                             });
                         }}

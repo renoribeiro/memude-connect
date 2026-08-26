@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -67,6 +67,8 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
     const [comprovantes, setComprovantes] = useState<string[]>([]);
     const [comprovanteUrls, setComprovanteUrls] = useState<Record<string, string>>({});
     const [isUploading, setIsUploading] = useState(false);
+    const originalComprovantesRef = useRef<string[]>([]);
+    const sessionUploadsRef = useRef<Set<string>>(new Set());
 
     // Fetch system settings for defaults
     const { data: settings } = useQuery({
@@ -170,11 +172,12 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
             setDataVenda(vendaData.data_venda ? new Date(vendaData.data_venda + 'T12:00:00') : new Date());
             setDataPagamento(vendaData.data_pagamento ? new Date(vendaData.data_pagamento + 'T12:00:00') : undefined);
             setObservacoes(vendaData.observacoes || '');
-            setComprovantes(
-                (vendaData.comprovantes || [])
-                    .map(normalizeComprovantePath)
-                    .filter((path): path is string => Boolean(path)),
-            );
+            const originalComprovantes = (vendaData.comprovantes || [])
+                .map(normalizeComprovantePath)
+                .filter((path): path is string => Boolean(path));
+            originalComprovantesRef.current = originalComprovantes;
+            sessionUploadsRef.current.clear();
+            setComprovantes(originalComprovantes);
         }
     }, [vendaData]);
 
@@ -216,6 +219,8 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
             setObservacoes('');
             setComprovantes([]);
             setComprovanteUrls({});
+            originalComprovantesRef.current = [];
+            sessionUploadsRef.current.clear();
         }
     }, [isOpen]);
 
@@ -290,6 +295,20 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['vendas'] });
+            const removedOriginals = originalComprovantesRef.current.filter(
+                path => !comprovantes.includes(path),
+            );
+            const discardedUploads = [...sessionUploadsRef.current].filter(
+                path => !comprovantes.includes(path),
+            );
+            const pathsToDelete = [...new Set([...removedOriginals, ...discardedUploads])];
+            if (pathsToDelete.length > 0) {
+                void supabase.storage.from('comprovantes').remove(pathsToDelete).then(({ error }) => {
+                    if (error) console.error('Falha ao limpar comprovantes removidos:', error.message);
+                });
+            }
+            originalComprovantesRef.current = [...comprovantes];
+            sessionUploadsRef.current.clear();
             toast({
                 title: isEditing ? 'Venda atualizada' : 'Venda registrada',
                 description: isEditing ? 'Os dados da venda foram atualizados.' : 'A venda foi registrada com sucesso.',
@@ -348,6 +367,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                 });
 
             if (error) throw error;
+            sessionUploadsRef.current.add(data.path);
             setComprovantes(prev => [...prev, data.path]);
             toast({
                 title: 'Upload concluído',
@@ -368,17 +388,38 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
         setComprovantes(prev => prev.filter(url => url !== urlToRemove));
     };
 
+    const handleClose = () => {
+        if (isUploading) {
+            toast({
+                title: 'Aguarde o envio do comprovante',
+                description: 'O formulário poderá ser fechado assim que o upload terminar.',
+            });
+            return;
+        }
+        const abandonedUploads = [...sessionUploadsRef.current];
+        sessionUploadsRef.current.clear();
+        if (abandonedUploads.length > 0) {
+            void supabase.storage.from('comprovantes').remove(abandonedUploads).then(({ error }) => {
+                if (error) console.error('Falha ao limpar upload cancelado:', error.message);
+            });
+        }
+        onClose();
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!leadId || !empreendimentoId || !valorImovel) {
+        const valor = Number(valorImovel);
+        const comissao = Number(comissaoPercentual);
+        const imposto = Number(impostoPercentual);
+        if (!leadId || !empreendimentoId || !Number.isFinite(valor) || valor <= 0) {
             toast({ title: 'Preencha os campos obrigatórios', variant: 'destructive' });
             return;
         }
 
-        const comissao = parseFloat(comissaoPercentual);
-        const imposto = parseFloat(impostoPercentual);
-
-        if (comissao < 0 || comissao > 100 || imposto < 0 || imposto > 100) {
+        if (
+            !Number.isFinite(comissao) || !Number.isFinite(imposto)
+            || comissao < 0 || comissao > 100 || imposto < 0 || imposto > 100
+        ) {
             toast({ title: 'Porcentagens devem estar entre 0 e 100', variant: 'destructive' });
             return;
         }
@@ -387,7 +428,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
@@ -694,7 +735,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                         </div>
 
                         <div className="flex gap-2 self-end">
-                            <Button type="button" variant="outline" onClick={onClose} size="sm">
+                            <Button type="button" variant="outline" onClick={handleClose} size="sm" disabled={isUploading}>
                                 Cancelar
                             </Button>
                             <Button type="submit" disabled={saveMutation.isPending || isUploading} className="shadow-glow" size="sm">

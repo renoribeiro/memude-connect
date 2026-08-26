@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { parseLocalDate } from '@/utils/dateHelpers';
+import { useNavigate } from 'react-router-dom';
 
 interface CorretorStats {
   totalLeads: number;
@@ -42,6 +43,7 @@ interface VisitaProxima {
 }
 
 const CorretorDashboard = () => {
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const [hasNoProfile, setHasNoProfile] = useState(false);
   const [stats, setStats] = useState<CorretorStats>({
@@ -337,8 +339,8 @@ const CorretorDashboard = () => {
               </div>
             </div>
 
-            <Button className="w-full" variant="outline">
-              Ver Histórico Completo
+            <Button className="w-full" variant="outline" onClick={() => navigate('/minhas-visitas')}>
+              Ver Histórico de Visitas
             </Button>
           </CardContent>
         </Card>

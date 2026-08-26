@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, Phone, Mail, Calendar, MapPin, MessageSquare, Star } from "lucide-react";
+import { Search, Phone, Mail, Calendar, MapPin, MessageSquare } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { TableSkeleton } from "@/components/ui/loading-skeleton";
@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
+import { normalizePhoneNumber } from "@/utils/phoneHelpers";
 
 interface Lead {
   id: string;
@@ -229,9 +230,6 @@ export default function MeusLeads() {
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </select>
-                <Button variant="outline" size="icon" aria-label="Filtrar leads">
-                  <Filter className="w-4 h-4" aria-hidden="true" />
-                </Button>
               </div>
             </div>
           </CardContent>
@@ -307,8 +305,8 @@ export default function MeusLeads() {
                         size="sm"
                         className="flex items-center gap-2 text-green-600 border-green-600 hover:bg-green-50"
                         onClick={() => {
-                          const phone = lead.telefone.replace(/\D/g, '');
-                          window.open(`tel:+55${phone}`, '_self');
+                          const phone = normalizePhoneNumber(lead.telefone);
+                          window.location.href = `tel:+${phone}`;
                         }}
                       >
                         <Phone className="w-3 h-3" />
@@ -319,8 +317,8 @@ export default function MeusLeads() {
                         size="sm"
                         className="flex items-center gap-2 text-blue-600 border-blue-600 hover:bg-blue-50"
                         onClick={() => {
-                          const phone = lead.telefone.replace(/\D/g, '');
-                          window.open(`https://wa.me/55${phone}`, '_blank');
+                          const phone = normalizePhoneNumber(lead.telefone);
+                          window.open(`https://wa.me/${phone}`, '_blank', 'noopener,noreferrer');
                         }}
                       >
                         <MessageSquare className="w-3 h-3" />
@@ -337,20 +335,6 @@ export default function MeusLeads() {
                         }}
                       >
                         Detalhes
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-2"
-                        onClick={() => {
-                          toast({
-                            title: "Avaliar Lead",
-                            description: "Funcionalidade de avaliação será implementada em breve.",
-                          });
-                        }}
-                      >
-                        <Star className="w-3 h-3" />
-                        Avaliar
                       </Button>
                     </div>
                   </div>

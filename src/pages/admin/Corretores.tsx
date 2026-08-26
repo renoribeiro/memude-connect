@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter, User, Star, Calendar, Edit, Eye, Phone, Upload, Download, Trash2 } from "lucide-react";
+import { Plus, Search, User, Star, Calendar, Edit, Eye, Phone, Upload, Download, Trash2 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { TableSkeleton } from "@/components/ui/loading-skeleton";
@@ -253,9 +253,6 @@ export default function Corretores() {
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </select>
-                <Button variant="outline" size="icon">
-                  <Filter className="w-4 h-4" />
-                </Button>
               </div>
             </div>
           </CardContent>

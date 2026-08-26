@@ -13,10 +13,13 @@
     "test:build": "npm run build && vitest run src/e2e/routes.test.ts",
     "test:e2e": "npm run build && playwright test e2e/smoke.spec.ts",
     "test:e2e:authenticated": "node scripts/require-e2e-credentials.mjs && npm run build && playwright test e2e/authenticated.spec.ts",
+    "test:e2e:certification": "node scripts/require-certification-credentials.mjs && npm run build && playwright test e2e/certification.spec.ts",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "audit:security": "node scripts/audit-dependencies.mjs",
+    "audit:ui": "node scripts/audit-production-ui.mjs",
+    "audit:distribution": "node scripts/audit-edge-distribution.mjs",
     "scan:secrets": "node scripts/scan-secrets.mjs",
-    "check": "npm run typecheck && npm run lint && npm run scan:secrets && npm test && npm run test:build && npm run audit:security"
+    "check": "npm run typecheck && npm run lint && npm run scan:secrets && npm run audit:ui && npm run audit:distribution && npm test && npm run test:build && npm run audit:security"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -579,8 +579,12 @@ Deno.serve(async (req) => {
           const remoteJid = responseBody.key.remoteJid as string;
           const jidPhone = remoteJid.replace('@s.whatsapp.net', '').replace('@lid', '');
 
-          // Only map if remoteJid contains a real phone (not already a LID)
-          if (remoteJid.includes('@s.whatsapp.net') && /^\d{10,15}$/.test(jidPhone)) {
+          // A resposta de envio pode retornar tanto o telefone quanto um LID.
+          // Em ambos os casos a chave do JID identifica o destinatário real.
+          if (
+            (remoteJid.includes('@s.whatsapp.net') || remoteJid.includes('@lid'))
+            && /^\d{10,20}$/.test(jidPhone)
+          ) {
             await supabase.from('lid_phone_map').upsert({
               lid: jidPhone,
               phone: normalizedPhone,

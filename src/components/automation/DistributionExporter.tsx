@@ -19,15 +19,15 @@ import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { downloadXlsx, type WorkbookSheet } from '@/utils/xlsxExport';
+import { strToU8, zipSync } from 'fflate';
 
 interface ExportOptions {
   startDate: Date;
   endDate: Date;
-  format: 'excel' | 'csv' | 'pdf';
+  format: 'excel' | 'csv';
   includeAttempts: boolean;
   includeQueue: boolean;
   includeCommunications: boolean;
-  includeMetrics: boolean;
   includeCorretorStats: boolean;
 }
 
@@ -39,7 +39,6 @@ export const DistributionExporter = () => {
     includeAttempts: true,
     includeQueue: true,
     includeCommunications: false,
-    includeMetrics: true,
     includeCorretorStats: true
   });
 
@@ -56,7 +55,7 @@ export const DistributionExporter = () => {
       const { data: attempts, error: attemptsError } = await supabase
         .from('distribution_attempts')
         .select(`
-          id, lead_id, corretor_id, status, response_type, response_message,
+          id, lead_id, corretor_id, attempt_order, status, response_type, response_message,
           message_sent_at, response_received_at, timeout_at, created_at,
           leads!inner(nome, telefone, email),
           corretores!inner(
@@ -96,7 +95,7 @@ export const DistributionExporter = () => {
     if (options.includeCommunications) {
       const { data: communications, error: commError } = await supabase
         .from('communication_log')
-        .select('id, lead_id, corretor_id, direction, type, status, created_at')
+        .select('id, lead_id, corretor_id, direction, type, status, phone_number, content, message_id, created_at')
         .gte('created_at', start)
         .lte('created_at', end)
         .order('created_at', { ascending: false })
@@ -194,7 +193,7 @@ export const DistributionExporter = () => {
         'Mensagem Resposta': attempt.response_message || '',
         'Enviado em': attempt.message_sent_at ? format(new Date(attempt.message_sent_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
         'Respondido em': attempt.response_received_at ? format(new Date(attempt.response_received_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
-        'Timeout em': format(new Date(attempt.timeout_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })
+        'Timeout em': attempt.timeout_at ? format(new Date(attempt.timeout_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : ''
       }));
 
       appendSheet('Tentativas de Distribuição', attemptsData);
@@ -208,7 +207,7 @@ export const DistributionExporter = () => {
         'Telefone': item.leads.telefone,
         'Status': item.status,
         'Tentativa Atual': item.current_attempt,
-        'Iniciado em': format(new Date(item.started_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+        'Iniciado em': item.started_at ? format(new Date(item.started_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
         'Completado em': item.completed_at ? format(new Date(item.completed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
         'Motivo Falha': item.failure_reason || ''
       }));
@@ -224,7 +223,9 @@ export const DistributionExporter = () => {
         'Direção': comm.direction,
         'Telefone': comm.phone_number,
         'Status': comm.status,
-        'Mensagem': comm.content.substring(0, 100) + (comm.content.length > 100 ? '...' : ''),
+        'Mensagem': comm.content
+          ? comm.content.substring(0, 100) + (comm.content.length > 100 ? '...' : '')
+          : '',
         'Message ID': comm.message_id || ''
       }));
 
@@ -256,38 +257,77 @@ export const DistributionExporter = () => {
   };
 
   const exportToCSV = (data: any) => {
-    if (data.attempts) {
-      const attemptsData = data.attempts.map((attempt: any) => ({
-        data_hora: format(new Date(attempt.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
-        lead: attempt.leads.nome,
-        telefone: attempt.leads.telefone,
-        corretor: `${attempt.corretores.profiles.first_name} ${attempt.corretores.profiles.last_name}`,
-        status: attempt.status,
-        ordem_tentativa: attempt.attempt_order
-      }));
-
-      const headers = Object.keys(attemptsData[0] ?? {});
-      const escapeCsv = (value: unknown) => {
-        const text = String(value ?? '');
-        return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-      };
-      const csvOutput = [
+    const files: Record<string, Uint8Array> = {};
+    const escapeCsv = (value: unknown) => {
+      const text = String(value ?? '');
+      return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+    const addCsv = (name: string, rows: Record<string, unknown>[]) => {
+      if (rows.length === 0) return;
+      const headers = Object.keys(rows[0]);
+      const output = [
         headers.map(escapeCsv).join(','),
-        ...attemptsData.map((row: Record<string, unknown>) =>
-          headers.map(header => escapeCsv(row[header])).join(',')
-        ),
+        ...rows.map(row => headers.map(header => escapeCsv(row[header])).join(',')),
       ].join('\r\n');
-      
-      const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `tentativas_distribuicao_${format(options.startDate, 'yyyy-MM-dd')}_${format(options.endDate, 'yyyy-MM-dd')}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      files[`${name}.csv`] = strToU8(`\uFEFF${output}`);
+    };
+
+    addCsv('tentativas_distribuicao', (data.attempts ?? []).map((attempt: any) => ({
+      data_hora: format(new Date(attempt.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+      lead: attempt.leads.nome,
+      telefone: attempt.leads.telefone,
+      corretor: `${attempt.corretores.profiles.first_name} ${attempt.corretores.profiles.last_name}`,
+      status: attempt.status,
+      ordem_tentativa: attempt.attempt_order,
+      resposta: attempt.response_type || '',
+      mensagem_resposta: attempt.response_message || ''
+    })));
+    addCsv('fila_distribuicao', (data.queue ?? []).map((item: any) => ({
+      data_criacao: format(new Date(item.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+      lead: item.leads.nome,
+      telefone: item.leads.telefone,
+      status: item.status,
+      tentativa_atual: item.current_attempt,
+      iniciado_em: item.started_at ? format(new Date(item.started_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
+      completado_em: item.completed_at ? format(new Date(item.completed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
+      motivo_falha: item.failure_reason || ''
+    })));
+    addCsv('comunicacoes', (data.communications ?? []).map((comm: any) => ({
+      data_hora: comm.created_at ? format(new Date(comm.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
+      tipo: comm.type,
+      direcao: comm.direction,
+      telefone: comm.phone_number || '',
+      status: comm.status || '',
+      mensagem: comm.content || '',
+      message_id: comm.message_id || ''
+    })));
+    addCsv('estatisticas_corretores', (data.corretorStats ?? []).map((stats: any) => ({
+      corretor: stats.nome,
+      whatsapp: stats.whatsapp,
+      creci: stats.creci,
+      total_tentativas: stats.total_attempts,
+      aceitos: stats.accepted,
+      rejeitados: stats.rejected,
+      timeouts: stats.timeout,
+      taxa_aceitacao_percentual: stats.acceptance_rate.toFixed(2),
+      tempo_medio_resposta_minutos: stats.response_time_avg.toFixed(2),
+      total_visitas: stats.total_visitas,
+      nota_media: stats.nota_media
+    })));
+
+    if (Object.keys(files).length === 0) {
+      throw new Error('Não há dados no período selecionado para exportar.');
     }
+
+    const blob = new Blob([zipSync(files)], { type: 'application/zip' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `relatorio_distribuicao_${format(options.startDate, 'yyyy-MM-dd')}_${format(options.endDate, 'yyyy-MM-dd')}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   };
 
   const handleExport = async () => {
@@ -319,7 +359,7 @@ export const DistributionExporter = () => {
       console.error('Erro na exportação:', error);
       toast({
         title: "Erro",
-        description: "Erro ao exportar relatório",
+        description: error instanceof Error ? error.message : "Erro ao exportar relatório",
         variant: "destructive"
       });
     } finally {
@@ -386,7 +426,7 @@ export const DistributionExporter = () => {
           <Label>Formato do Arquivo</Label>
           <Select 
             value={options.format} 
-            onValueChange={(value: 'excel' | 'csv' | 'pdf') => 
+            onValueChange={(value: 'excel' | 'csv') =>
               setOptions(prev => ({ ...prev, format: value }))
             }
           >
@@ -395,8 +435,7 @@ export const DistributionExporter = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="excel">Excel (.xlsx)</SelectItem>
-              <SelectItem value="csv">CSV (.csv)</SelectItem>
-              <SelectItem value="pdf" disabled>PDF (em breve)</SelectItem>
+              <SelectItem value="csv">CSV (arquivos em .zip)</SelectItem>
             </SelectContent>
           </Select>
         </div>

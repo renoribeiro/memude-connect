@@ -13,22 +13,6 @@ serve(async (req) => {
   const access = await authorize(req, 'internal');
   if (access instanceof Response) return access;
 
-  // Security check: Verify x-cron-secret header OR Authorization service role to prevent unauthorized triggers
-  const cronSecret = req.headers.get('x-cron-secret');
-  const expectedSecret = cronSecret;
-  
-  const authHeader = req.headers.get('Authorization');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const isServiceRole = authHeader && serviceRoleKey && (authHeader.replace('Bearer ', '') === serviceRoleKey || authHeader === serviceRoleKey);
-
-  if ((!cronSecret || !expectedSecret || cronSecret !== expectedSecret) && !isServiceRole) {
-    console.warn('🚫 Authentication failed: invalid cron secret and not service role');
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized: Access denied' }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
   try {
     const { supabase } = access;
 
@@ -40,6 +24,20 @@ serve(async (req) => {
     }
 
     const forceLeadId = body?.force_lead_id || body?.force_process_lead;
+    const forceAdvanceLeadId = body?.force_advance_lead_id;
+
+    if (forceAdvanceLeadId) {
+      if (!/^[0-9a-f-]{36}$/i.test(forceAdvanceLeadId)) {
+        return new Response(JSON.stringify({ error: 'force_advance_lead_id inválido' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      const advanced = await advanceDistributionForLead(supabase, forceAdvanceLeadId);
+      return new Response(JSON.stringify({ success: true, advanced }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     if (forceLeadId) {
       console.log(`Forçando processamento de timeout para lead: ${forceLeadId}`);
@@ -56,6 +54,7 @@ serve(async (req) => {
           lead:leads!lead_id (
             id,
             nome,
+            telefone,
             empreendimento:empreendimentos!empreendimento_id (
               nome
             )
@@ -113,6 +112,7 @@ serve(async (req) => {
         lead:leads!lead_id (
           id,
           nome,
+          telefone,
           empreendimento:empreendimentos!empreendimento_id (
             nome
           )
@@ -173,6 +173,45 @@ async function processExpiredAttempt(supabase: any, attempt: any) {
     })
     .eq('id', attempt.id);
 
+  const queue = attempt.distribution_queue || await findActiveQueue(supabase, attempt.lead_id);
+  if (!queue) {
+    console.error(`Fila ativa não encontrada para tentativa ${attempt.id}`);
+    return;
+  }
+
+  await advanceDistributionQueue(supabase, queue, attempt.lead);
+}
+
+async function findActiveQueue(supabase: any, leadId: string) {
+  const { data, error } = await supabase
+    .from('distribution_queue')
+    .select('id, status, current_attempt, lead_id')
+    .eq('lead_id', leadId)
+    .in('status', ['pending', 'in_progress'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function advanceDistributionForLead(supabase: any, leadId: string) {
+  const queue = await findActiveQueue(supabase, leadId);
+  if (!queue) return false;
+
+  const { data: lead, error } = await supabase
+    .from('leads')
+    .select('id, nome, telefone, empreendimento:empreendimentos!inner(id, nome, bairro_id, construtora_id)')
+    .eq('id', leadId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!lead) return false;
+
+  await advanceDistributionQueue(supabase, queue, lead);
+  return true;
+}
+
+async function advanceDistributionQueue(supabase: any, queue: any, lead: any) {
   // Buscar configurações
   const { data: settings } = await supabase
     .from('distribution_settings')
@@ -180,41 +219,54 @@ async function processExpiredAttempt(supabase: any, attempt: any) {
     .single();
 
   const maxAttempts = settings?.max_attempts || 5;
-  const currentAttempt = attempt.distribution_queue.current_attempt;
+  const currentAttempt = queue.current_attempt || 1;
 
   if (currentAttempt >= maxAttempts) {
     // Todas as tentativas esgotadas
-    console.log(`Máximo de tentativas (${maxAttempts}) atingido para lead ${attempt.lead.id}`);
+    console.log(`Máximo de tentativas (${maxAttempts}) atingido para lead ${lead.id}`);
     
-    await supabase
+    const { data: failedQueue, error: failError } = await supabase
       .from('distribution_queue')
       .update({ 
         status: 'failed',
         failure_reason: 'Todas as tentativas esgotadas',
         completed_at: new Date().toISOString()
       })
-      .eq('id', attempt.distribution_queue.id);
+      .eq('id', queue.id)
+      .in('status', ['pending', 'in_progress'])
+      .select('id')
+      .maybeSingle();
+    if (failError) throw failError;
+    if (!failedQueue) return;
 
     // Notificar admin
-    await notifyAdminFailure(supabase, attempt.lead, 'Todas as tentativas esgotadas');
+    await notifyAdminFailure(supabase, lead, 'Todas as tentativas esgotadas');
     
   } else {
     // Tentar próximo corretor
-    console.log(`Tentando próximo corretor para lead ${attempt.lead.id}`);
+    console.log(`Tentando próximo corretor para lead ${lead.id}`);
     
-    await supabase
+    const { data: claimedQueue, error: claimError } = await supabase
       .from('distribution_queue')
       .update({ 
         current_attempt: currentAttempt + 1
       })
-      .eq('id', attempt.distribution_queue.id);
+      .eq('id', queue.id)
+      .eq('current_attempt', currentAttempt)
+      .select('id')
+      .maybeSingle();
+    if (claimError) throw claimError;
+    if (!claimedQueue) {
+      console.log(`Fila ${queue.id} já foi avançada por outro processo`);
+      return;
+    }
 
     // Buscar próximo corretor elegível
-    await distributeToNextCorretor(supabase, attempt.lead.id, currentAttempt + 1);
+    await distributeToNextCorretor(supabase, queue.id, lead.id, currentAttempt + 1);
   }
 }
 
-async function distributeToNextCorretor(supabase: any, leadId: string, attemptNumber: number) {
+async function distributeToNextCorretor(supabase: any, queueId: string, leadId: string, attemptNumber: number) {
   console.log(`Distribuindo para próximo corretor, tentativa ${attemptNumber}`);
 
   // Buscar corretores que ainda não receberam esta oportunidade
@@ -245,8 +297,13 @@ async function distributeToNextCorretor(supabase: any, leadId: string, attemptNu
     return;
   }
 
+  const { data: settings } = await supabase
+    .from('distribution_settings')
+    .select('*')
+    .single();
+
   // Buscar próximo corretor elegível
-  const nextCorretor = await getNextEligibleCorretor(supabase, lead, usedIds);
+  const nextCorretor = await getNextEligibleCorretor(supabase, lead, usedIds, settings);
 
   if (!nextCorretor) {
     console.log('Nenhum corretor elegível restante');
@@ -265,15 +322,14 @@ async function distributeToNextCorretor(supabase: any, leadId: string, attemptNu
   }
 
   // Enviar para próximo corretor
-  const { data: settings } = await supabase
-    .from('distribution_settings')
-    .select('*')
-    .single();
-
-  await sendDistributionMessage(supabase, leadId, nextCorretor, lead, settings, attemptNumber);
+  const sent = await sendDistributionMessage(supabase, queueId, leadId, nextCorretor, lead, settings, attemptNumber);
+  if (!sent) {
+    const queue = await findActiveQueue(supabase, leadId);
+    if (queue) await advanceDistributionQueue(supabase, queue, lead);
+  }
 }
 
-async function getNextEligibleCorretor(supabase: any, lead: any, excludeIds: string[]) {
+async function getNextEligibleCorretor(supabase: any, lead: any, excludeIds: string[], settings: any) {
   let query = supabase
     .from('corretores')
     .select(`
@@ -283,10 +339,10 @@ async function getNextEligibleCorretor(supabase: any, lead: any, excludeIds: str
       whatsapp,
       nota_media,
       total_visitas,
-      corretor_bairros!inner (bairro_id),
-      corretor_construtoras!inner (construtora_id)
+      corretor_bairros (bairro_id),
+      corretor_construtoras (construtora_id)
     `)
-    .eq('status', 'aprovado');
+    .eq('status', 'ativo');
 
   if (excludeIds.length > 0) {
     query = query.not('id', 'in', `(${excludeIds.join(',')})`);
@@ -305,26 +361,26 @@ async function getNextEligibleCorretor(supabase: any, lead: any, excludeIds: str
     let score = 0;
 
     // Prioridade bairro
-    const hasBairroMatch = corretor.corretor_bairros.some(
+    const hasBairroMatch = corretor.corretor_bairros?.some(
       (cb: any) => cb.bairro_id === lead.empreendimento.bairro_id
-    );
+    ) || false;
     
     if (hasBairroMatch) {
-      score = 1000;
+      score = settings?.score_match_bairro ?? 10000;
     } else {
       // Prioridade construtora
-      const hasConstrutorMatch = corretor.corretor_construtoras.some(
+      const hasConstrutorMatch = corretor.corretor_construtoras?.some(
         (cc: any) => cc.construtora_id === lead.empreendimento.construtora_id
-      );
+      ) || false;
       
       if (hasConstrutorMatch) {
-        score = 500;
+        score = settings?.score_match_construtora ?? 10000;
       }
     }
 
-    score += (corretor.nota_media || 0) * 20;
-    const visitasPenalty = Math.min(corretor.total_visitas || 0, 50);
-    score += (50 - visitasPenalty);
+    score += (corretor.nota_media || 0) * (settings?.score_nota_multiplier ?? 100);
+    const visitasPenalty = (corretor.total_visitas || 0) * (settings?.score_visitas_multiplier ?? 10);
+    score += 1000 - Math.min(visitasPenalty, 1000);
 
     corretoresWithScore.push({ ...corretor, score });
   }
@@ -335,12 +391,13 @@ async function getNextEligibleCorretor(supabase: any, lead: any, excludeIds: str
 
 async function sendDistributionMessage(
   supabase: any,
+  queueId: string,
   leadId: string,
   corretor: any,
   lead: any,
   settings: any,
   attemptOrder: number
-) {
+): Promise<boolean> {
   console.log(`Enviando mensagem para corretor ${corretor.id}, tentativa ${attemptOrder}`);
 
   const timeoutAt = new Date();
@@ -350,6 +407,7 @@ async function sendDistributionMessage(
   const { data: attempt, error: attemptError } = await supabase
     .from('distribution_attempts')
     .insert({
+      queue_id: queueId,
       lead_id: leadId,
       corretor_id: corretor.id,
       attempt_order: attemptOrder,
@@ -361,7 +419,7 @@ async function sendDistributionMessage(
 
   if (attemptError) {
     console.error('Erro ao registrar tentativa:', attemptError);
-    return;
+    return false;
   }
 
   // Preparar e enviar mensagem
@@ -408,6 +466,8 @@ Para recusar, responda: *NÃO*
       })
       .eq('id', attempt.id);
 
+    return true;
+
   } catch (error) {
     console.error('Erro ao enviar mensagem:', error);
     
@@ -419,6 +479,7 @@ Para recusar, responda: *NÃO*
         response_message: `Erro no envio: ${error.message}`
       })
       .eq('id', attempt.id);
+    return false;
   }
 }
 

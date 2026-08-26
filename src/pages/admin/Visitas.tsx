@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Calendar, Clock, MapPin, Star, CalendarDays, Filter, User, Phone, Trash2, Users } from "lucide-react";
+import { Search, Plus, Calendar, Clock, MapPin, Star, CalendarDays, User, Phone, Trash2, Users } from "lucide-react";
 import { VisitaModal } from "@/components/modals/VisitaModal";
 import { VisitaActions } from "@/components/actions/VisitaActions";
 import { VisitaDetails } from "@/components/modals/VisitaDetails";
@@ -277,9 +277,6 @@ export default function Visitas() {
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </select>
-                <Button variant="outline" size="icon" className="hover-scale transition-all duration-200">
-                  <Filter className="w-4 h-4" />
-                </Button>
               </div>
             </div>
           </CardContent>

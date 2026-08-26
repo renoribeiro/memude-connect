@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter, Phone, Mail, Calendar, MapPin, Eye, Edit, Trash2, RotateCcw, AlertCircle } from "lucide-react";
+import { Plus, Search, Phone, Mail, Calendar, MapPin, Eye, Edit, Trash2, RotateCcw, AlertCircle } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { TableSkeleton } from "@/components/ui/loading-skeleton";
@@ -318,9 +318,6 @@ export default function Leads() {
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </select>
-                <Button variant="outline" size="icon" aria-label="Filtrar leads">
-                  <Filter className="w-4 h-4" aria-hidden="true" />
-                </Button>
               </div>
             </div>
           </CardContent>

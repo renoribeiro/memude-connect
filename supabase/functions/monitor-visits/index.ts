@@ -13,17 +13,6 @@ serve(async (req) => {
   const access = await authorize(req, 'internal');
   if (access instanceof Response) return access;
 
-  // Security check: Verify x-cron-secret header to prevent unauthorized triggers
-  const cronSecret = req.headers.get('x-cron-secret');
-  const expectedSecret = cronSecret;
-  if (!cronSecret || !expectedSecret || cronSecret !== expectedSecret) {
-    console.warn('🚫 Cron authentication failed: invalid or missing secret');
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized: Invalid cron secret' }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
   try {
     const { supabase } = access;
 

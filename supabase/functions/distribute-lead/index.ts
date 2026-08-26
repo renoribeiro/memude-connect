@@ -116,6 +116,13 @@ serve(async (req) => {
 
     const { lead_id }: LeadDistributionRequest = await readJson(req, 1024 * 1024);
 
+    if (!lead_id || !/^[0-9a-f-]{36}$/i.test(lead_id)) {
+      return new Response(JSON.stringify({ error: 'lead_id inválido' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     console.log('Iniciando distribuição para lead:', lead_id);
 
     // Buscar o lead com empreendimento
@@ -135,6 +142,27 @@ serve(async (req) => {
 
     if (leadError || !lead) {
       throw new Error(`Lead não encontrado: ${leadError?.message}`);
+    }
+    if (lead.corretor_designado_id) {
+      return new Response(JSON.stringify({ error: 'Lead já possui corretor designado' }), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const { data: activeQueue, error: activeQueueError } = await supabase
+      .from('distribution_queue')
+      .select('id')
+      .eq('lead_id', lead_id)
+      .in('status', ['pending', 'in_progress', 'processing'])
+      .limit(1)
+      .maybeSingle();
+    if (activeQueueError) throw activeQueueError;
+    if (activeQueue) {
+      return new Response(JSON.stringify({ error: 'Lead já possui distribuição em andamento' }), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Buscar configurações de distribuição
@@ -330,6 +358,7 @@ async function sendDistributionMessage(
   const { data: attempt, error: attemptError } = await supabase
     .from('distribution_attempts')
     .insert({
+      queue_id: queueId,
       lead_id: lead.id,
       corretor_id: corretor.id,
       attempt_order: attemptOrder,
@@ -383,6 +412,8 @@ async function sendDistributionMessage(
         })
         .eq('id', attempt.id);
 
+      await advanceDistributionAfterFailure(supabase, lead.id);
+
       return;
     }
 
@@ -393,7 +424,7 @@ async function sendDistributionMessage(
   }
 
   // Preparar mensagem
-  const message = formatDistributionMessage(lead, corretor.match_type);
+  const message = formatDistributionMessage(lead, corretor.match_type, settings.timeout_minutes);
 
   try {
     // Enviar via WhatsApp usando evolution-send-whatsapp-v2 com botões (Async)
@@ -499,10 +530,21 @@ async function sendDistributionMessage(
         response_message: `Erro no envio: ${error.message}`
       })
       .eq('id', attempt.id);
+
+    await advanceDistributionAfterFailure(supabase, lead.id);
   }
 }
 
-function formatDistributionMessage(lead: any, matchType: string): string {
+async function advanceDistributionAfterFailure(supabase: any, leadId: string) {
+  const { error } = await supabase.functions.invoke('distribution-timeout-checker', {
+    body: { force_advance_lead_id: leadId }
+  });
+  if (error) {
+    console.error('Erro ao avançar distribuição após falha de envio:', error);
+  }
+}
+
+function formatDistributionMessage(lead: any, matchType: string, timeoutMinutes: number): string {
   const matchInfo = matchType === 'bairro'
     ? 'no seu bairro de atendimento'
     : matchType === 'construtora'
@@ -522,7 +564,7 @@ Esta oportunidade está ${matchInfo}.
 Para aceitar, responda: *SIM*
 Para recusar, responda: *NÃO*
 
-⏰ Você tem 15 minutos para responder.`;
+⏰ Você tem ${timeoutMinutes} minutos para responder.`;
 }
 
 async function notifyAdmin(supabase: any, leadId: string, reason: string) {

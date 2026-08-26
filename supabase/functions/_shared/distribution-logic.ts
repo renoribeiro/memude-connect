@@ -1,5 +1,6 @@
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { normalizePhoneNumber } from './phoneHelpers.ts';
+import { analyzeDistributionResponse } from './distribution-response.ts';
 
 // Definição de tipos para clareza
 export interface DistributionResult {
@@ -9,7 +10,6 @@ export interface DistributionResult {
   id?: string;
   error?: string;
 }
-
 export interface ProcessingResponse {
   type: 'accepted' | 'rejected' | 'unclear';
   confidence: number;
@@ -25,7 +25,7 @@ export async function processIncomingMessage(
   console.log('CORE LOGIC: processando mensagem recebida');
 
   // 1. Normalizar resposta
-  const response = analyzeResponse(messageText);
+  const response = analyzeDistributionResponse(messageText);
   console.log('🧠 CORE LOGIC: Intenção detectada:', response);
 
   if (response.type === 'unclear') {
@@ -47,22 +47,17 @@ export async function processIncomingMessage(
   const leadResult = await handleLeadAttempt(supabase, phoneNumber, response, messageText);
   if (leadResult.processed) return leadResult;
 
-  // 4. LID FALLBACK: Se nenhum handler processou E temos um LID no remoteJid
-  const isLidMessage = remoteJid.includes('@lid');
-  if (isLidMessage && (response.type === 'accepted' || response.type === 'rejected')) {
-    console.log(`🔄 LID FALLBACK: Tentando encontrar tentativa pendente sem filtro de telefone...`);
-    const lidFallbackResult = await handleVisitAttemptByLidFallback(supabase, phoneNumber, response, messageText, remoteJid);
-    if (lidFallbackResult.processed) return lidFallbackResult;
-
-    const lidLeadFallbackResult = await handleLeadAttemptByLidFallback(supabase, phoneNumber, response, messageText, remoteJid);
-    if (lidLeadFallbackResult.processed) return lidLeadFallbackResult;
+  // Nunca associe um LID desconhecido à "última tentativa" global. O webhook
+  // só pode processar distribuições depois que o envio gravou lid_phone_map.
+  if (remoteJid.includes('@lid')) {
+    console.warn('Resposta com LID sem mapeamento seguro; distribuição não processada');
   }
 
-  // 5. Processar Confirmação do Corretor ao Lembrete (SIM/NÃO antes da visita)
+  // 4. Processar Confirmação do Corretor ao Lembrete (SIM/NÃO antes da visita)
   const corretorConfirmResult = await handleCorretorReminderConfirmation(supabase, phoneNumber, response, messageText);
   if (corretorConfirmResult.processed) return corretorConfirmResult;
 
-  // 6. Processar Confirmação do Lead ao Lembrete (SIM/NÃO antes da visita)
+  // 5. Processar Confirmação do Lead ao Lembrete (SIM/NÃO antes da visita)
   const confirmationResult = await handleLeadConfirmation(supabase, phoneNumber, response, messageText);
   if (confirmationResult.processed) return confirmationResult;
 
@@ -70,26 +65,6 @@ export async function processIncomingMessage(
 }
 
 // --- Funções Auxiliares de Análise ---
-
-function analyzeResponse(message: string): ProcessingResponse {
-  const text = message.toLowerCase().trim();
-
-  // Lista expandida de palavras-chave
-  const acceptWords = ['sim', 's', 'yes', 'y', 'aceito', 'quero', 'vou', 'posso', 'ok', 'pode', 'confirmo', 'topo', 'confirmado', 'agendar', '1'];
-  const rejectWords = ['não', 'nao', 'n', 'no', 'recuso', 'negativo', 'impossível', 'impossivel', 'ocupado', 'nem', 'jamais', 'cancelar', '2'];
-
-  // Verificar correspondência exata ou parcial forte
-  if (acceptWords.includes(text)) return { type: 'accepted', confidence: 10 };
-  if (rejectWords.includes(text)) return { type: 'rejected', confidence: 10 };
-
-  const acceptScore = acceptWords.reduce((score, word) => text.includes(word) ? score + 1 : score, 0);
-  const rejectScore = rejectWords.reduce((score, word) => text.includes(word) ? score + 1 : score, 0);
-
-  if (acceptScore > rejectScore && acceptScore > 0) return { type: 'accepted', confidence: acceptScore };
-  else if (rejectScore > acceptScore && rejectScore > 0) return { type: 'rejected', confidence: rejectScore };
-
-  return { type: 'unclear', confidence: 0 };
-}
 
 async function checkPendingAttempts(supabase: SupabaseClient, phoneNumber: string) {
   // Busca corretor usando busca flexível por telefone
@@ -254,44 +229,40 @@ async function handleVisitAttempt(
 
   console.log(`🧠 CORE: Processando tentativa de visita ${attempt.id} - Ação: ${response.type}`);
 
-  // Atualizar tentativa com a resposta
-  await supabase
-    .from('visit_distribution_attempts')
-    .update({
-      status: response.type === 'accepted' ? 'accepted' : 'rejected',
-      response_type: response.type,
-      response_message: originalText,
-      response_received_at: new Date().toISOString()
-    })
-    .eq('id', attempt.id);
-
   if (response.type === 'accepted') {
-    // 1. Aceitar
-    await supabase.from('visitas').update({ corretor_id: corretor.id, status: 'confirmada' }).eq('id', attempt.visita.id);
-    await supabase.from('leads').update({ corretor_designado_id: corretor.id, status: 'visita_agendada' }).eq('id', attempt.visita.lead.id);
-    await supabase.from('visit_distribution_queue').update({ status: 'completed', assigned_corretor_id: corretor.id, completed_at: new Date().toISOString() }).eq('id', attempt.visit_distribution_queue.id);
+    const { data: accepted, error: acceptanceError } = await supabase.rpc(
+      'accept_visit_distribution',
+      { p_attempt_id: attempt.id, p_corretor_id: corretor.id }
+    );
+    if (acceptanceError) throw acceptanceError;
+    if (!accepted) {
+      await sendWhatsappMessage(supabase, phoneNumber, '❌ Esta oportunidade já não está disponível.');
+      return { processed: true, action: 'rejected', type: 'visit', id: attempt.visita.id };
+    }
 
-    // Cancelar outros
-    await supabase.from('visit_distribution_attempts').update({ status: 'timeout', response_type: 'cancelled' }).eq('visita_id', attempt.visita.id).eq('status', 'pending').neq('id', attempt.id);
-
-    // 2. Notificar (Usando Unified Sender)
+    // Notificar após o commit transacional.
     await notifyVisitConfirmation(supabase, attempt, phoneNumber);
 
     return { processed: true, action: 'accepted', type: 'visit', id: attempt.visita.id };
 
   } else {
-    // 1. Rejeitar
-    const { data: settings } = await supabase.from('distribution_settings').select('*').single();
-    const maxAttempts = settings?.max_attempts || 5;
+    const { error: rejectionError } = await supabase
+      .from('visit_distribution_attempts')
+      .update({
+        status: 'rejected',
+        response_type: response.type,
+        response_message: originalText,
+        response_received_at: new Date().toISOString()
+      })
+      .eq('id', attempt.id)
+      .eq('status', 'pending');
+    if (rejectionError) throw rejectionError;
 
-    if (attempt.visit_distribution_queue.current_attempt >= maxAttempts) {
-      await supabase.from('visit_distribution_queue').update({ status: 'failed', failure_reason: 'Todos rejeitaram' }).eq('id', attempt.visit_distribution_queue.id);
-      // Notificar admin falha total (Implementar depois)
-    } else {
-      await supabase.from('visit_distribution_queue').update({ current_attempt: attempt.visit_distribution_queue.current_attempt + 1 }).eq('id', attempt.visit_distribution_queue.id);
-      // Trigger próximo
-      await supabase.functions.invoke('visit-distribution-timeout-checker');
-    }
+    const { error: advanceError } = await supabase.functions.invoke(
+      'visit-distribution-timeout-checker',
+      { body: { force_advance_visita_id: attempt.visita.id } }
+    );
+    if (advanceError) console.error('Falha ao avançar visita após recusa:', advanceError);
 
     // Agradecer resposta
     await sendWhatsappMessage(supabase, phoneNumber, "📝 Entendido. Obrigado pela resposta!");
@@ -299,7 +270,6 @@ async function handleVisitAttempt(
     return { processed: true, action: 'rejected', type: 'visit', id: attempt.visita.id };
   }
 }
-
 async function handleLeadAttempt(
   supabase: SupabaseClient,
   phoneNumber: string,
@@ -324,26 +294,35 @@ async function handleLeadAttempt(
 
   if (!attempt) return { processed: false, action: 'none', type: 'lead' };
 
-  // Update tentativa
-  await supabase.from('distribution_attempts').update({
-    status: response.type === 'accepted' ? 'accepted' : 'rejected',
-    response_type: response.type,
-    response_message: originalText,
-    response_received_at: new Date().toISOString()
-  }).eq('id', attempt.id);
-
   if (response.type === 'accepted') {
-    await supabase.from('leads').update({ corretor_designado_id: corretor.id, status: 'em_contato' }).eq('id', attempt.lead.id);
-    await supabase.from('distribution_queue').update({ status: 'completed', assigned_corretor_id: corretor.id }).eq('lead_id', attempt.lead.id);
-    await supabase.from('distribution_attempts').update({ status: 'timeout' }).eq('lead_id', attempt.lead.id).eq('status', 'pending').neq('id', attempt.id);
+    const { data: accepted, error: acceptanceError } = await supabase.rpc(
+      'accept_lead_distribution',
+      { p_attempt_id: attempt.id, p_corretor_id: corretor.id }
+    );
+    if (acceptanceError) throw acceptanceError;
+    if (!accepted) {
+      await sendWhatsappMessage(supabase, phoneNumber, '❌ Esta oportunidade já não está disponível.');
+      return { processed: true, action: 'rejected', type: 'lead', id: attempt.lead.id };
+    }
 
     await sendWhatsappMessage(supabase, phoneNumber, `✅ *LEAD CONFIRMADO*\n\nLead: ${attempt.lead.nome}\nEmpreendimento: ${attempt.lead.empreendimento?.nome}`);
 
     return { processed: true, action: 'accepted', type: 'lead', id: attempt.lead.id };
   } else {
-    // Rejection logic (simplified)
-    await supabase.from('distribution_queue').update({ current_attempt: 99 }).eq('lead_id', attempt.lead.id); // Hack: force next check
-    await supabase.functions.invoke('distribution-timeout-checker');
+    const { error: rejectionError } = await supabase.from('distribution_attempts').update({
+      status: 'responded',
+      response_type: response.type,
+      response_message: originalText,
+      response_received_at: new Date().toISOString()
+    }).eq('id', attempt.id).eq('status', 'pending');
+    if (rejectionError) throw rejectionError;
+
+    const { error: advanceError } = await supabase.functions.invoke('distribution-timeout-checker', {
+      body: { force_advance_lead_id: attempt.lead.id }
+    });
+    if (advanceError) {
+      console.error('Falha ao avançar distribuição após recusa:', advanceError);
+    }
     await sendWhatsappMessage(supabase, phoneNumber, "📝 Entendido.");
     return { processed: true, action: 'rejected', type: 'lead', id: attempt.lead.id };
   }
@@ -619,155 +598,5 @@ async function sendWhatsappMessage(supabase: SupabaseClient, phone: string, mess
       event_type: 'DEBUG_SEND_INVOKE_OK',
       payload: { invoked: true }
     });
-  }
-}
-
-// =============================================
-// LID FALLBACK FUNCTIONS
-// When Evolution API V2 sends the instance phone instead of the
-// real sender phone, we find ANY pending attempt and match it.
-// Then we save the LID→phone mapping for future lookups.
-// =============================================
-
-async function saveLidMapping(supabase: SupabaseClient, remoteJid: string, realPhone: string) {
-  const lid = remoteJid.replace('@lid', '').replace('@s.whatsapp.net', '');
-  try {
-    await supabase.from('lid_phone_map').upsert({
-      lid,
-      phone: realPhone,
-      instance_name: 'avisosmemude',
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'lid' });
-    console.log('Mapeamento LID salvo');
-  } catch (e) {
-    console.warn('⚠️ Failed to save LID mapping:', e);
-  }
-}
-
-async function handleVisitAttemptByLidFallback(
-  supabase: SupabaseClient,
-  _phoneNumber: string,
-  response: ProcessingResponse,
-  originalText: string,
-  remoteJid: string
-): Promise<DistributionResult> {
-  console.log(`🔄 LID FALLBACK (VISITA): Buscando QUALQUER tentativa pendente...`);
-
-  // Find the single most recent pending visit attempt (regardless of corretor phone)
-  const { data: attempt, error: attemptError } = await supabase
-    .from('visit_distribution_attempts')
-    .select(`
-      *,
-      visit_distribution_queue:queue_id (id, status, current_attempt),
-      visita:visitas!inner (
-        id, data_visita, horario_visita,
-        lead:leads!inner (id, nome, telefone),
-        empreendimento:empreendimentos (nome, endereco)
-      ),
-      corretor:corretores!inner (id, whatsapp)
-    `)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (attemptError || !attempt) {
-    console.log(`❌ LID FALLBACK: Nenhuma tentativa pendente encontrada`);
-    return { processed: false, action: 'none', type: 'visit' };
-  }
-
-  console.log('LID fallback encontrou uma tentativa de visita');
-
-  // Save the LID mapping for future use
-  await saveLidMapping(supabase, remoteJid, attempt.corretor.whatsapp);
-
-  // Atualizar tentativa com a resposta
-  await supabase
-    .from('visit_distribution_attempts')
-    .update({
-      status: response.type === 'accepted' ? 'accepted' : 'rejected',
-      response_type: response.type,
-      response_message: originalText,
-      response_received_at: new Date().toISOString()
-    })
-    .eq('id', attempt.id);
-
-  if (response.type === 'accepted') {
-    await supabase.from('visitas').update({ corretor_id: attempt.corretor.id, status: 'confirmada' }).eq('id', attempt.visita.id);
-    await supabase.from('leads').update({ corretor_designado_id: attempt.corretor.id, status: 'visita_agendada' }).eq('id', attempt.visita.lead.id);
-    await supabase.from('visit_distribution_queue').update({ status: 'completed', assigned_corretor_id: attempt.corretor.id, completed_at: new Date().toISOString() }).eq('id', attempt.visit_distribution_queue.id);
-
-    // Cancelar outros
-    await supabase.from('visit_distribution_attempts').update({ status: 'timeout', response_type: 'cancelled' }).eq('visita_id', attempt.visita.id).eq('status', 'pending').neq('id', attempt.id);
-
-    // Notificações
-    await notifyVisitConfirmation(supabase, attempt, attempt.corretor.whatsapp);
-
-    return { processed: true, action: 'accepted', type: 'visit', id: attempt.visita.id };
-  } else {
-    const { data: settings } = await supabase.from('distribution_settings').select('*').single();
-    const maxAttempts = settings?.max_attempts || 5;
-
-    if (attempt.visit_distribution_queue.current_attempt >= maxAttempts) {
-      await supabase.from('visit_distribution_queue').update({ status: 'failed', failure_reason: 'Todos rejeitaram' }).eq('id', attempt.visit_distribution_queue.id);
-    } else {
-      await supabase.from('visit_distribution_queue').update({ current_attempt: attempt.visit_distribution_queue.current_attempt + 1 }).eq('id', attempt.visit_distribution_queue.id);
-      await supabase.functions.invoke('visit-distribution-timeout-checker');
-    }
-
-    await sendWhatsappMessage(supabase, attempt.corretor.whatsapp, "📝 Entendido. Obrigado pela resposta!");
-
-    return { processed: true, action: 'rejected', type: 'visit', id: attempt.visita.id };
-  }
-}
-
-async function handleLeadAttemptByLidFallback(
-  supabase: SupabaseClient,
-  _phoneNumber: string,
-  response: ProcessingResponse,
-  originalText: string,
-  remoteJid: string
-): Promise<DistributionResult> {
-  console.log(`🔄 LID FALLBACK (LEAD): Buscando QUALQUER tentativa pendente...`);
-
-  const { data: attempt } = await supabase
-    .from('distribution_attempts')
-    .select(`*, lead:leads!inner(id, nome, telefone, empreendimento:empreendimentos(nome)), corretor:corretores!inner(id, whatsapp)`)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!attempt) {
-    console.log(`❌ LID FALLBACK (LEAD): Nenhuma tentativa pendente encontrada`);
-    return { processed: false, action: 'none', type: 'lead' };
-  }
-
-  console.log('LID fallback encontrou uma tentativa de lead');
-
-  // Save LID mapping
-  await saveLidMapping(supabase, remoteJid, attempt.corretor.whatsapp);
-
-  // Update attempt
-  await supabase.from('distribution_attempts').update({
-    status: response.type === 'accepted' ? 'accepted' : 'rejected',
-    response_type: response.type,
-    response_message: originalText,
-    response_received_at: new Date().toISOString()
-  }).eq('id', attempt.id);
-
-  if (response.type === 'accepted') {
-    await supabase.from('leads').update({ corretor_designado_id: attempt.corretor.id, status: 'em_contato' }).eq('id', attempt.lead.id);
-    await supabase.from('distribution_queue').update({ status: 'completed', assigned_corretor_id: attempt.corretor.id }).eq('lead_id', attempt.lead.id);
-    await supabase.from('distribution_attempts').update({ status: 'timeout' }).eq('lead_id', attempt.lead.id).eq('status', 'pending').neq('id', attempt.id);
-
-    await sendWhatsappMessage(supabase, attempt.corretor.whatsapp, `✅ *LEAD CONFIRMADO*\n\nLead: ${attempt.lead.nome}\nEmpreendimento: ${attempt.lead.empreendimento?.nome}`);
-
-    return { processed: true, action: 'accepted', type: 'lead', id: attempt.lead.id };
-  } else {
-    await supabase.from('distribution_queue').update({ current_attempt: 99 }).eq('lead_id', attempt.lead.id);
-    await supabase.functions.invoke('distribution-timeout-checker');
-    await sendWhatsappMessage(supabase, attempt.corretor.whatsapp, "📝 Entendido.");
-    return { processed: true, action: 'rejected', type: 'lead', id: attempt.lead.id };
   }
 }

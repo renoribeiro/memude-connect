@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter, MapPin, Building, DollarSign, Edit, Eye } from "lucide-react";
+import { Plus, Search, MapPin, Building, DollarSign, Edit, Eye } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { TableSkeleton } from "@/components/ui/loading-skeleton";
@@ -174,9 +174,6 @@ export default function Empreendimentos() {
                   <option value="true">Ativos</option>
                   <option value="false">Inativos</option>
                 </select>
-                <Button variant="outline" size="icon">
-                  <Filter className="w-4 h-4" />
-                </Button>
               </div>
             </div>
           </CardContent>

@@ -964,15 +964,20 @@ export default function Configuracoes() {
                   </select>
                 </div>
                 <Separator />
-                <div className="flex gap-4">
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <Database className="w-4 h-4" />
-                    Fazer Backup Agora
+                <div className="space-y-2">
+                  <Button asChild variant="outline" className="flex items-center gap-2 w-fit">
+                    <a
+                      href="https://supabase.com/dashboard/project/oxybasvtphosdmlmrfnb/database/backups"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Database className="w-4 h-4" />
+                      Gerenciar backups no Supabase
+                    </a>
                   </Button>
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <Database className="w-4 h-4" />
-                    Restaurar Backup
-                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Backups e restaurações são operações administrativas do banco gerenciado e exigem confirmação no painel do Supabase.
+                  </p>
                 </div>
               </CardContent>
             </Card>

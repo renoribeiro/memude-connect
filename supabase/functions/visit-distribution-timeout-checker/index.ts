@@ -14,22 +14,6 @@ serve(async (req) => {
   const access = await authorize(req, 'internal');
   if (access instanceof Response) return access;
 
-  // Security check: Verify x-cron-secret header OR Authorization service role to prevent unauthorized triggers
-  const cronSecret = req.headers.get('x-cron-secret');
-  const expectedSecret = cronSecret;
-  
-  const authHeader = req.headers.get('Authorization');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const isServiceRole = authHeader && serviceRoleKey && (authHeader.replace('Bearer ', '') === serviceRoleKey || authHeader === serviceRoleKey);
-
-  if ((!cronSecret || !expectedSecret || cronSecret !== expectedSecret) && !isServiceRole) {
-    console.warn('🚫 Authentication failed: invalid cron secret and not service role');
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized: Access denied' }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
   try {
     const { supabase } = access;
 
@@ -41,6 +25,31 @@ serve(async (req) => {
     }
 
     const forceVisitaId = body?.force_visita_id || body?.force_process_visita;
+    const forceAdvanceVisitaId = body?.force_advance_visita_id;
+
+    if (forceAdvanceVisitaId) {
+      if (!/^[0-9a-f-]{36}$/i.test(forceAdvanceVisitaId)) {
+        return new Response(JSON.stringify({ error: 'force_advance_visita_id inválido' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      const { data: queue, error: queueError } = await supabase
+        .from('visit_distribution_queue')
+        .select('id, visita_id, status, current_attempt')
+        .eq('visita_id', forceAdvanceVisitaId)
+        .in('status', ['pending', 'in_progress', 'processing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (queueError) throw queueError;
+      const result = queue
+        ? await advanceVisitQueue(supabase, queue, forceAdvanceVisitaId)
+        : { advanced: false, reason: 'active_queue_not_found' };
+      return new Response(JSON.stringify({ success: true, ...result }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     if (forceVisitaId) {
       console.log(`Forçando processamento de timeout para visita: ${forceVisitaId}`);
@@ -249,16 +258,24 @@ async function processExpiredAttempt(supabase: any, attempt: any) {
     // Tentar próximo corretor
     console.log(`Tentando próximo corretor para visita ${attempt.visita.id}`);
     
-    await supabase
+    const { data: claimedQueue, error: claimError } = await supabase
       .from('visit_distribution_queue')
       .update({ 
         current_attempt: currentAttempt + 1
       })
-      .eq('id', attempt.visit_distribution_queue.id);
+      .eq('id', attempt.visit_distribution_queue.id)
+      .eq('current_attempt', currentAttempt)
+      .select('id')
+      .maybeSingle();
+    if (claimError) throw claimError;
+    if (!claimedQueue) {
+      return { attempt_id: attempt.id, action: 'already_advanced' };
+    }
 
     // Buscar próximo corretor elegível
     const nextResult = await distributeToNextCorretor(
       supabase, 
+      attempt.visit_distribution_queue.id,
       attempt.visita_id, 
       currentAttempt + 1
     );
@@ -272,8 +289,51 @@ async function processExpiredAttempt(supabase: any, attempt: any) {
   }
 }
 
+async function advanceVisitQueue(supabase: any, queue: any, visitaId: string) {
+  const { data: settings, error: settingsError } = await supabase
+    .from('distribution_settings')
+    .select('*')
+    .single();
+  if (settingsError) throw settingsError;
+
+  const currentAttempt = queue.current_attempt || 1;
+  const maxAttempts = settings?.max_attempts || 5;
+  if (currentAttempt >= maxAttempts) {
+    await supabase
+      .from('visit_distribution_queue')
+      .update({
+        status: 'failed',
+        failure_reason: 'Todas as tentativas esgotadas - nenhum corretor aceitou',
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', queue.id)
+      .in('status', ['pending', 'in_progress', 'processing']);
+    return { advanced: false, reason: 'max_attempts_reached' };
+  }
+
+  const nextAttempt = currentAttempt + 1;
+  const { data: claimedQueue, error: claimError } = await supabase
+    .from('visit_distribution_queue')
+    .update({ current_attempt: nextAttempt })
+    .eq('id', queue.id)
+    .eq('current_attempt', currentAttempt)
+    .select('id')
+    .maybeSingle();
+  if (claimError) throw claimError;
+  if (!claimedQueue) return { advanced: false, reason: 'already_advanced' };
+
+  const nextCorretor = await distributeToNextCorretor(
+    supabase,
+    queue.id,
+    visitaId,
+    nextAttempt
+  );
+  return { advanced: true, next_attempt: nextAttempt, next_corretor: nextCorretor };
+}
+
 async function distributeToNextCorretor(
-  supabase: any, 
+  supabase: any,
+  queueId: string,
   visitaId: string, 
   attemptNumber: number
 ) {
@@ -345,14 +405,23 @@ async function distributeToNextCorretor(
     .select('*')
     .single();
 
-  await sendDistributionMessage(
+  const sent = await sendDistributionMessage(
     supabase, 
+    queueId,
     visitaId, 
     nextCorretor, 
     visita, 
     settings, 
     attemptNumber
   );
+
+  if (!sent) {
+    return (await advanceVisitQueue(
+      supabase,
+      { id: queueId, current_attempt: attemptNumber },
+      visitaId
+    )).next_corretor ?? null;
+  }
 
   return {
     corretor_id: nextCorretor.id,
@@ -474,12 +543,13 @@ async function getNextEligibleCorretor(
 
 async function sendDistributionMessage(
   supabase: any,
+  queueId: string,
   visitaId: string,
   corretor: any,
   visita: any,
   settings: any,
   attemptOrder: number
-) {
+): Promise<boolean> {
   console.log(`Enviando mensagem para corretor ${corretor.id}, tentativa ${attemptOrder}`);
 
   const timeoutAt = new Date();
@@ -491,6 +561,7 @@ async function sendDistributionMessage(
   const { data: attempt, error: attemptError } = await supabase
     .from('visit_distribution_attempts')
     .insert({
+      queue_id: queueId,
       visita_id: visitaId,
       corretor_id: corretor.id,
       attempt_order: attemptOrder,
@@ -557,6 +628,7 @@ ${visita.lead.email ? `*E-mail:* ${visita.lead.email}` : ''}
       .eq('id', attempt.id);
 
     console.log(`Mensagem enviada com sucesso para tentativa ${attemptOrder}`);
+    return true;
 
   } catch (error) {
     console.error('Erro ao enviar mensagem:', error);
@@ -569,7 +641,7 @@ ${visita.lead.email ? `*E-mail:* ${visita.lead.email}` : ''}
       })
       .eq('id', attempt.id);
 
-    throw error;
+    return false;
   }
 }
 

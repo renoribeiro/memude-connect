@@ -69,7 +69,7 @@ export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardPro
                                     className="text-destructive"
                                 >
                                     <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                    Remover do funil
+                                    Remover oportunidade
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
@@ -87,12 +87,12 @@ export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardPro
                         </div>
                     )}
 
-                    {lead?.empreendimentos && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Building2 className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{lead.empreendimentos.nome}</span>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Building2 className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">
+                            {crmLead.empreendimentos?.nome || 'Sem empreendimento definido'}
+                        </span>
+                    </div>
 
                     {lead?.corretores?.profiles && (
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

@@ -5,14 +5,14 @@ import { useCrmPipeline } from '@/hooks/useCrmPipeline';
 import KanbanBoard from '@/components/crm/KanbanBoard';
 import PipelineSettingsModal from '@/components/crm/PipelineSettingsModal';
 import CrmAutomationsModal from '@/components/crm/CrmAutomationsModal';
-import AddLeadToPipelineModal from '@/components/crm/AddLeadToPipelineModal';
+import CreateOpportunityModal from '@/components/crm/CreateOpportunityModal';
+import CreateLeadOpportunityModal from '@/components/crm/CreateLeadOpportunityModal';
 import CrmLeadDetailPanel from '@/components/crm/CrmLeadDetailPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Settings, Zap, UserPlus, PlusCircle, Users, TrendingUp, Clock, Target } from 'lucide-react';
+import { BriefcaseBusiness, Settings, Zap, UserPlus, PlusCircle, Clock, Target } from 'lucide-react';
 import type { CrmLead } from '@/hooks/useCrmPipeline';
 import CreatePipelineModal from '@/components/crm/CreatePipelineModal';
 
@@ -22,6 +22,7 @@ export default function CRM() {
     const [showSettings, setShowSettings] = useState(false);
     const [showAutomations, setShowAutomations] = useState(false);
     const [showAddLead, setShowAddLead] = useState(false);
+    const [showCreateOpportunity, setShowCreateOpportunity] = useState(false);
     const [detailLead, setDetailLead] = useState<CrmLead | null>(null);
     const [showDetail, setShowDetail] = useState(false);
     const [showCreatePipeline, setShowCreatePipeline] = useState(false);
@@ -32,7 +33,8 @@ export default function CRM() {
         crmLeads,
         automations,
         moveLeadToStage,
-        addLeadToPipeline,
+        createOpportunity,
+        createLeadWithOpportunity,
         removeLeadFromPipeline,
         createPipeline,
         deletePipeline,
@@ -89,11 +91,17 @@ export default function CRM() {
         0
     );
 
-    const existingLeadIds = leadsData.map((l) => l.lead_id);
-
     const currentDetailStage = detailLead
         ? stagesData.find((s) => s.id === detailLead.stage_id) ?? null
         : null;
+
+    useEffect(() => {
+        if (!detailLead) return;
+        const latestOpportunity = leadsData.find((item) => item.id === detailLead.id);
+        if (latestOpportunity && latestOpportunity !== detailLead) {
+            setDetailLead(latestOpportunity);
+        }
+    }, [detailLead, leadsData]);
 
     if (!profile) return null;
 
@@ -107,7 +115,7 @@ export default function CRM() {
                     <div>
                         <h1 className="text-3xl font-bold">CRM</h1>
                         <p className="text-muted-foreground">
-                            Gerencie seus leads no funil de vendas
+                            Gerencie oportunidades independentes no funil de vendas
                         </p>
                     </div>
                 </div>
@@ -157,9 +165,19 @@ export default function CRM() {
                         </Button>
 
                         <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowCreateOpportunity(true)}
+                            disabled={!activePipelineId || stagesData.length === 0}
+                        >
+                            <BriefcaseBusiness className="h-4 w-4 mr-1.5" />
+                            Gerar Oportunidade
+                        </Button>
+
+                        <Button
                             size="sm"
                             onClick={() => setShowAddLead(true)}
-                            disabled={!activePipelineId}
+                            disabled={!activePipelineId || stagesData.length === 0}
                         >
                             <UserPlus className="h-4 w-4 mr-1.5" />
                             Adicionar Lead
@@ -172,7 +190,7 @@ export default function CRM() {
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                                <Users className="h-4 w-4" />
+                                <BriefcaseBusiness className="h-4 w-4" />
                                 Total no Funil
                             </CardTitle>
                         </CardHeader>
@@ -239,7 +257,7 @@ export default function CRM() {
                             <Settings className="h-12 w-12 mx-auto mb-4 opacity-20" />
                             <h3 className="text-lg font-medium mb-1">Nenhuma etapa configurada</h3>
                             <p className="text-sm text-muted-foreground mb-4">
-                                Configure as etapas do seu funil para começar a organizar os leads
+                                Configure as etapas do seu funil para começar a organizar as oportunidades
                             </p>
                             <Button onClick={() => setShowSettings(true)}>
                                 <Settings className="h-4 w-4 mr-2" />
@@ -327,16 +345,26 @@ export default function CRM() {
                         onDeleteAutomation={(id) => deleteAutomation.mutate(id)}
                     />
 
-                    <AddLeadToPipelineModal
+                    <CreateOpportunityModal
+                        open={showCreateOpportunity}
+                        onOpenChange={setShowCreateOpportunity}
+                        stages={stagesData}
+                        isCreating={createOpportunity.isPending}
+                        onCreate={(input) => {
+                            createOpportunity.mutate(input, {
+                                onSuccess: () => setShowCreateOpportunity(false),
+                            });
+                        }}
+                    />
+
+                    <CreateLeadOpportunityModal
                         open={showAddLead}
                         onOpenChange={setShowAddLead}
-                        pipelineId={activePipelineId}
                         stages={stagesData}
-                        existingLeadIds={existingLeadIds}
-                        isAdding={addLeadToPipeline.isPending}
-                        onAdd={(leadId, stageId, valorEstimado) => {
-                            addLeadToPipeline.mutate(
-                                { leadId, stageId, valorEstimado },
+                        isCreating={createLeadWithOpportunity.isPending}
+                        onCreate={(input) => {
+                            createLeadWithOpportunity.mutate(
+                                input,
                                 { onSuccess: () => setShowAddLead(false) }
                             );
                         }}

@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -1887,6 +1887,7 @@ export type Database = {
       crm_leads: {
         Row: {
           created_at: string | null
+          empreendimento_id: string | null
           google_drive_url: string | null
           id: string
           lead_id: string
@@ -1897,9 +1898,11 @@ export type Database = {
           stage_id: string | null
           updated_at: string | null
           valor_estimado: number | null
+          visita_id: string | null
         }
         Insert: {
           created_at?: string | null
+          empreendimento_id?: string | null
           google_drive_url?: string | null
           id?: string
           lead_id: string
@@ -1910,9 +1913,11 @@ export type Database = {
           stage_id?: string | null
           updated_at?: string | null
           valor_estimado?: number | null
+          visita_id?: string | null
         }
         Update: {
           created_at?: string | null
+          empreendimento_id?: string | null
           google_drive_url?: string | null
           id?: string
           lead_id?: string
@@ -1923,8 +1928,16 @@ export type Database = {
           stage_id?: string | null
           updated_at?: string | null
           valor_estimado?: number | null
+          visita_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "crm_leads_empreendimento_id_fkey"
+            columns: ["empreendimento_id"]
+            isOneToOne: false
+            referencedRelation: "empreendimentos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "crm_leads_lead_id_fkey"
             columns: ["lead_id"]
@@ -1944,6 +1957,13 @@ export type Database = {
             columns: ["stage_id"]
             isOneToOne: false
             referencedRelation: "crm_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_leads_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: false
+            referencedRelation: "visitas"
             referencedColumns: ["id"]
           },
         ]
@@ -4505,6 +4525,15 @@ export type Database = {
         Args: { p_agent_id: string; p_conversation_id: string }
         Returns: boolean
       }
+      cleanup_database_operational_history: {
+        Args: never
+        Returns: {
+          cron_runs_deleted: number
+          health_metrics_deleted: number
+          rate_limits_deleted: number
+          response_cache_deleted: number
+        }[]
+      }
       cleanup_expired_data: {
         Args: never
         Returns: {
@@ -4526,6 +4555,30 @@ export type Database = {
         }[]
       }
       cleanup_old_whatsapp_verification: { Args: never; Returns: undefined }
+      compact_operational_tables_if_needed: {
+        Args: never
+        Returns: {
+          cron_compacted: boolean
+          cron_rows_preserved: number
+          net_compacted: boolean
+          net_rows_preserved: number
+        }[]
+      }
+      create_crm_opportunity: {
+        Args: {
+          p_empreendimento_id?: string
+          p_lead_id: string
+          p_notas?: string
+          p_pipeline_id: string
+          p_stage_id: string
+          p_valor_estimado?: number
+        }
+        Returns: string
+      }
+      create_lead_with_crm_opportunity: {
+        Args: { p_input: Json }
+        Returns: Json
+      }
       create_notification: {
         Args: {
           p_message: string
@@ -4549,6 +4602,10 @@ export type Database = {
           phone_number: string
           priority: number
         }[]
+      }
+      ensure_monthly_log_partitions: {
+        Args: { p_months_ahead?: number }
+        Returns: number
       }
       get_ab_test_results: {
         Args: { p_experiment_id: string }
@@ -4711,7 +4768,18 @@ export type Database = {
         Args: { phone_input: string }
         Returns: string
       }
+      permanently_delete_lead: { Args: { p_lead_id: string }; Returns: boolean }
       restore_visita: { Args: { visita_id: string }; Returns: undefined }
+      save_crm_pipeline_configuration: {
+        Args: {
+          p_auto_add_visits: boolean
+          p_descricao: string
+          p_nome: string
+          p_pipeline_id: string
+          p_stages: Json
+        }
+        Returns: undefined
+      }
       set_cached_response: {
         Args: {
           p_agent_id: string

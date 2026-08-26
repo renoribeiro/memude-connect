@@ -62,7 +62,7 @@ export default function KanbanColumn({ stage, leads, onCardClick, onRemoveLead }
                             ))}
                             {leads.length === 0 && (
                                 <div className="text-center py-8 text-xs text-muted-foreground select-none">
-                                    Arraste leads para cá
+                                    Arraste oportunidades para cá
                                 </div>
                             )}
                         </div>

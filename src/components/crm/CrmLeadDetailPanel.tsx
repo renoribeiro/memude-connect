@@ -14,10 +14,11 @@ import type { CrmLead, CrmStage } from '@/hooks/useCrmPipeline';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 
 interface CrmLeadDetailPanelProps {
@@ -37,6 +38,8 @@ const statusLabels: Record<string, string> = {
     follow_up: 'Follow-up',
 };
 
+const NO_SELECTION = '__none__';
+
 export default function CrmLeadDetailPanel({
     open,
     onOpenChange,
@@ -48,18 +51,37 @@ export default function CrmLeadDetailPanel({
     const { toast } = useToast();
     const [notas, setNotas] = useState('');
     const [valorEstimado, setValorEstimado] = useState('');
+    const [empreendimentoId, setEmpreendimentoId] = useState('');
     const [googleDriveUrl, setGoogleDriveUrl] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
-    // Sync state when crmLead changes
     const lead = crmLead?.leads;
 
+    useEffect(() => {
+        if (!open || !crmLead) return;
+        setNotas(crmLead.notas || '');
+        setValorEstimado(crmLead.valor_estimado?.toString() || '');
+        setEmpreendimentoId(crmLead.empreendimento_id || '');
+        setGoogleDriveUrl(crmLead.google_drive_url || '');
+    }, [crmLead, open]);
+
+    const { data: empreendimentos = [] } = useQuery({
+        queryKey: ['empreendimentos-select'],
+        queryFn: async ({ signal }) => {
+            const { data, error } = await supabase
+                .from('empreendimentos')
+                .select('id, nome')
+                .eq('ativo', true)
+                .order('nome')
+                .limit(500)
+                .abortSignal(signal);
+            if (error) throw error;
+            return data;
+        },
+        enabled: open,
+    });
+
     const handleOpen = (v: boolean) => {
-        if (v && crmLead) {
-            setNotas(crmLead.notas || '');
-            setValorEstimado(crmLead.valor_estimado?.toString() || '');
-            setGoogleDriveUrl(crmLead.google_drive_url || '');
-        }
         onOpenChange(v);
     };
 
@@ -67,11 +89,12 @@ export default function CrmLeadDetailPanel({
         if (!crmLead) return;
         setIsSaving(true);
         try {
-            const { error } = await (supabase as any)
+            const { error } = await supabase
                 .from('crm_leads')
                 .update({
                     notas: notas || null,
                     valor_estimado: valorEstimado ? parseFloat(valorEstimado) : null,
+                    empreendimento_id: empreendimentoId || null,
                     google_drive_url: googleDriveUrl || null,
                 })
                 .eq('id', crmLead.id);
@@ -123,10 +146,10 @@ export default function CrmLeadDetailPanel({
                                     {lead.email}
                                 </div>
                             )}
-                            {lead.empreendimentos && (
+                            {crmLead.empreendimentos && (
                                 <div className="flex items-center gap-2 text-sm">
                                     <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                                    {lead.empreendimentos.nome}
+                                    {crmLead.empreendimentos.nome}
                                 </div>
                             )}
                             {lead.corretores && (
@@ -172,8 +195,23 @@ export default function CrmLeadDetailPanel({
                     {/* Editable Fields */}
                     <div className="space-y-3">
                         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                            Dados do Funil
+                            Dados da Oportunidade
                         </h4>
+                        <div className="space-y-1.5">
+                            <Label>Empreendimento negociado</Label>
+                            <Select
+                                value={empreendimentoId || NO_SELECTION}
+                                onValueChange={(value) => setEmpreendimentoId(value === NO_SELECTION ? '' : value)}
+                            >
+                                <SelectTrigger><SelectValue placeholder="Selecione o empreendimento" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={NO_SELECTION}>Sem empreendimento definido</SelectItem>
+                                    {empreendimentos.map((item) => (
+                                        <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="space-y-1.5">
                             <Label htmlFor="crm-valor" className="flex items-center gap-1.5">
                                 <DollarSign className="h-3.5 w-3.5" />
@@ -206,7 +244,7 @@ export default function CrmLeadDetailPanel({
                                         variant="outline"
                                         size="icon"
                                         className="shrink-0"
-                                        onClick={() => window.open(googleDriveUrl, '_blank')}
+                                        onClick={() => window.open(googleDriveUrl, '_blank', 'noopener,noreferrer')}
                                         title="Abrir no Google Drive"
                                     >
                                         <ExternalLink className="h-4 w-4" />

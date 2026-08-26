@@ -29,10 +29,13 @@ export interface CrmLead {
     stage_id: string | null;
     posicao: number;
     valor_estimado: number | null;
+    empreendimento_id: string | null;
+    visita_id: string | null;
     notas: string | null;
     google_drive_url: string | null;
     moved_at: string;
     created_at: string;
+    empreendimentos: { id: string; nome: string } | null;
     leads: {
         id: string;
         nome: string;
@@ -60,6 +63,27 @@ export interface CrmAutomation {
     target_stage_id: string | null;
     is_active: boolean;
     crm_stages?: { nome: string } | null;
+}
+
+export interface CreateOpportunityInput {
+    leadId: string;
+    stageId: string;
+    empreendimentoId?: string;
+    valorEstimado?: number;
+    notas?: string;
+}
+
+export interface CreateLeadOpportunityInput {
+    nome: string;
+    telefone: string;
+    email?: string;
+    origem: string;
+    observacoes?: string;
+    corretorDesignadoId?: string;
+    stageId: string;
+    empreendimentoId?: string;
+    valorEstimado?: number;
+    notas?: string;
 }
 
 interface SavePipelineConfigurationInput {
@@ -139,7 +163,9 @@ export function useCrmPipeline(pipelineId?: string) {
                 .from('crm_leads')
                 .select(`
           id, lead_id, pipeline_id, stage_id, posicao, valor_estimado,
+          empreendimento_id, visita_id,
           notas, google_drive_url, moved_at, created_at,
+          empreendimentos(id, nome),
           leads (
             id, nome, telefone, email, status, origem, observacoes,
             empreendimento_id, corretor_designado_id,
@@ -198,42 +224,85 @@ export function useCrmPipeline(pipelineId?: string) {
             queryClient.invalidateQueries({ queryKey: ['crm-leads', pipelineId] });
         },
         onError: () => {
-            toast({ title: 'Erro ao mover lead', variant: 'destructive' });
+            toast({ title: 'Erro ao mover oportunidade', variant: 'destructive' });
         },
     });
 
-    const addLeadToPipeline = useMutation({
-        mutationFn: async ({
-            leadId,
-            stageId,
-            valorEstimado,
-            notas,
-        }: {
-            leadId: string;
-            stageId: string;
-            valorEstimado?: number;
-            notas?: string;
-        }) => {
+    const createOpportunity = useMutation({
+        mutationFn: async ({ leadId, stageId, empreendimentoId, valorEstimado, notas }: CreateOpportunityInput) => {
             if (!pipelineId) throw new Error('Pipeline não selecionado');
-            const { error } = await db.from('crm_leads').insert({
-                lead_id: leadId,
-                pipeline_id: pipelineId,
-                stage_id: stageId,
-                valor_estimado: valorEstimado || null,
-                notas: notas || null,
-                posicao: 0,
+            const { data, error } = await db.rpc('create_crm_opportunity', {
+                p_lead_id: leadId,
+                p_pipeline_id: pipelineId,
+                p_stage_id: stageId,
+                p_empreendimento_id: empreendimentoId || undefined,
+                p_valor_estimado: valorEstimado,
+                p_notas: notas || undefined,
             });
             if (error) throw error;
+            return data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['crm-leads', pipelineId] });
-            toast({ title: 'Lead adicionado ao funil' });
+            toast({ title: 'Oportunidade criada com sucesso' });
         },
-        onError: (error: any) => {
-            const msg = error?.message?.includes('duplicate')
-                ? 'Este lead já está no funil'
-                : 'Erro ao adicionar lead';
-            toast({ title: msg, variant: 'destructive' });
+        onError: (error: Error) => {
+            toast({
+                title: 'Erro ao criar oportunidade',
+                description: error.message,
+                variant: 'destructive',
+            });
+        },
+    });
+
+    const createLeadWithOpportunity = useMutation({
+        mutationFn: async (input: CreateLeadOpportunityInput) => {
+            if (!pipelineId) throw new Error('Pipeline não selecionado');
+            const { data, error } = await db.rpc('create_lead_with_crm_opportunity', {
+                p_input: {
+                    nome: input.nome,
+                    telefone: input.telefone,
+                    email: input.email || null,
+                    origem: input.origem,
+                    observacoes: input.observacoes || null,
+                    corretor_designado_id: input.corretorDesignadoId || null,
+                    pipeline_id: pipelineId,
+                    stage_id: input.stageId,
+                    empreendimento_id: input.empreendimentoId || null,
+                    valor_estimado: input.valorEstimado ?? null,
+                    notas: input.notas || null,
+                },
+            });
+            if (error) throw error;
+
+            const result = data as { lead_id: string; opportunity_id: string };
+            let distributionFailed = false;
+            if (!input.corretorDesignadoId) {
+                const { error: distributionError } = await supabase.functions.invoke('distribute-lead', {
+                    body: { lead_id: result.lead_id },
+                });
+                distributionFailed = Boolean(distributionError);
+            }
+
+            return { ...result, distributionFailed };
+        },
+        onSuccess: (result) => {
+            queryClient.invalidateQueries({ queryKey: ['leads'] });
+            queryClient.invalidateQueries({ queryKey: ['crm-leads', pipelineId] });
+            toast({
+                title: 'Lead e oportunidade criados',
+                description: result.distributionFailed
+                    ? 'Os registros foram salvos, mas a distribuição automática deverá ser iniciada novamente.'
+                    : 'O novo atendimento já está disponível no funil.',
+                variant: result.distributionFailed ? 'destructive' : 'default',
+            });
+        },
+        onError: (error: Error) => {
+            toast({
+                title: 'Erro ao cadastrar lead no funil',
+                description: error.message,
+                variant: 'destructive',
+            });
         },
     });
 
@@ -247,10 +316,10 @@ export function useCrmPipeline(pipelineId?: string) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['crm-leads', pipelineId] });
-            toast({ title: 'Lead removido do funil' });
+            toast({ title: 'Oportunidade removida do funil' });
         },
         onError: () => {
-            toast({ title: 'Erro ao remover lead', variant: 'destructive' });
+            toast({ title: 'Erro ao remover oportunidade', variant: 'destructive' });
         },
     });
 
@@ -409,7 +478,8 @@ export function useCrmPipeline(pipelineId?: string) {
         crmLeads,
         automations,
         moveLeadToStage,
-        addLeadToPipeline,
+        createOpportunity,
+        createLeadWithOpportunity,
         removeLeadFromPipeline,
         createPipeline,
         deletePipeline,

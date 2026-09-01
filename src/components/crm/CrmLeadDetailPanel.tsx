@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Phone, Mail, Building2, User, Calendar, MapPin, Clock, FileText, DollarSign, FolderOpen, ExternalLink } from 'lucide-react';
+import { Phone, Mail, Building2, User, Calendar, MapPin, Clock, FileText, DollarSign, FolderOpen, ExternalLink, Tag } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { CrmLead, CrmStage } from '@/hooks/useCrmPipeline';
@@ -40,6 +40,9 @@ const statusLabels: Record<string, string> = {
 
 const NO_SELECTION = '__none__';
 
+// Mesmo limite da constraint crm_leads_tag_length no banco.
+const TAG_MAX_LENGTH = 40;
+
 export default function CrmLeadDetailPanel({
     open,
     onOpenChange,
@@ -53,6 +56,7 @@ export default function CrmLeadDetailPanel({
     const [valorEstimado, setValorEstimado] = useState('');
     const [empreendimentoId, setEmpreendimentoId] = useState('');
     const [googleDriveUrl, setGoogleDriveUrl] = useState('');
+    const [tag, setTag] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     const lead = crmLead?.leads;
@@ -63,6 +67,7 @@ export default function CrmLeadDetailPanel({
         setValorEstimado(crmLead.valor_estimado?.toString() || '');
         setEmpreendimentoId(crmLead.empreendimento_id || '');
         setGoogleDriveUrl(crmLead.google_drive_url || '');
+        setTag(crmLead.tag || '');
     }, [crmLead, open]);
 
     const { data: empreendimentos = [] } = useQuery({
@@ -96,6 +101,7 @@ export default function CrmLeadDetailPanel({
                     valor_estimado: valorEstimado ? parseFloat(valorEstimado) : null,
                     empreendimento_id: empreendimentoId || null,
                     google_drive_url: googleDriveUrl || null,
+                    tag: tag.trim() || null,
                 })
                 .eq('id', crmLead.id);
             if (error) throw error;
@@ -211,6 +217,23 @@ export default function CrmLeadDetailPanel({
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="crm-tag" className="flex items-center gap-1.5">
+                                <Tag className="h-3.5 w-3.5" />
+                                Tag
+                            </Label>
+                            <Input
+                                id="crm-tag"
+                                value={tag}
+                                onChange={(e) => setTag(e.target.value)}
+                                placeholder="Ex.: AGO/26, Prioridade, Aguardando doc"
+                                maxLength={TAG_MAX_LENGTH}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Aparece no card do funil. Use para marcar o mês da oportunidade ou
+                                qualquer outra situação (origem, prioridade, pendência).
+                            </p>
                         </div>
                         <div className="space-y-1.5">
                             <Label htmlFor="crm-valor" className="flex items-center gap-1.5">

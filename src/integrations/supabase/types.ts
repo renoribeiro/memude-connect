@@ -1897,6 +1897,7 @@ export type Database = {
           posicao: number | null
           stage_id: string | null
           tag: string | null
+          tag_cor: string | null
           updated_at: string | null
           valor_estimado: number | null
           visita_id: string | null
@@ -1913,6 +1914,7 @@ export type Database = {
           posicao?: number | null
           stage_id?: string | null
           tag?: string | null
+          tag_cor?: string | null
           updated_at?: string | null
           valor_estimado?: number | null
           visita_id?: string | null
@@ -1929,6 +1931,7 @@ export type Database = {
           posicao?: number | null
           stage_id?: string | null
           tag?: string | null
+          tag_cor?: string | null
           updated_at?: string | null
           valor_estimado?: number | null
           visita_id?: string | null

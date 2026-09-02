@@ -79,6 +79,7 @@ export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardPro
                         <Badge
                             variant="secondary"
                             className="max-w-full gap-1 px-1.5 py-0 text-[10px] font-medium"
+                            style={crmLead.tag_cor ? { backgroundColor: crmLead.tag_cor, color: '#fff' } : undefined}
                         >
                             <Tag className="h-2.5 w-2.5 flex-shrink-0" aria-hidden="true" />
                             <span className="truncate">{crmLead.tag}</span>

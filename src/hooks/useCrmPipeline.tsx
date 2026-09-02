@@ -34,6 +34,7 @@ export interface CrmLead {
     notas: string | null;
     google_drive_url: string | null;
     tag: string | null;
+    tag_cor: string | null;
     moved_at: string;
     created_at: string;
     empreendimentos: { id: string; nome: string } | null;
@@ -165,7 +166,7 @@ export function useCrmPipeline(pipelineId?: string) {
                 .select(`
           id, lead_id, pipeline_id, stage_id, posicao, valor_estimado,
           empreendimento_id, visita_id,
-          notas, google_drive_url, tag, moved_at, created_at,
+          notas, google_drive_url, tag, tag_cor, moved_at, created_at,
           empreendimentos(id, nome),
           leads (
             id, nome, telefone, email, status, origem, observacoes,

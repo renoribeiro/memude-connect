@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Phone, Mail, Building2, User, Calendar, MapPin, Clock, FileText, DollarSign, FolderOpen, ExternalLink, Tag } from 'lucide-react';
+import { Phone, Mail, Building2, User, Calendar, MapPin, Clock, FileText, DollarSign, FolderOpen, ExternalLink, Tag, Ban } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { CrmLead, CrmStage } from '@/hooks/useCrmPipeline';
@@ -43,6 +43,13 @@ const NO_SELECTION = '__none__';
 // Mesmo limite da constraint crm_leads_tag_length no banco.
 const TAG_MAX_LENGTH = 40;
 
+// Paleta da etiqueta. Todas as cores têm contraste >= 5:1 com o texto branco do badge,
+// que no card do funil é exibido em 10px. Sem cor escolhida, o badge fica no cinza padrão.
+const TAG_COLORS = [
+    '#be123c', '#b45309', '#047857', '#0e7490',
+    '#1d4ed8', '#6d28d9', '#a21caf', '#475569',
+];
+
 export default function CrmLeadDetailPanel({
     open,
     onOpenChange,
@@ -57,6 +64,7 @@ export default function CrmLeadDetailPanel({
     const [empreendimentoId, setEmpreendimentoId] = useState('');
     const [googleDriveUrl, setGoogleDriveUrl] = useState('');
     const [tag, setTag] = useState('');
+    const [tagCor, setTagCor] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     const lead = crmLead?.leads;
@@ -68,6 +76,7 @@ export default function CrmLeadDetailPanel({
         setEmpreendimentoId(crmLead.empreendimento_id || '');
         setGoogleDriveUrl(crmLead.google_drive_url || '');
         setTag(crmLead.tag || '');
+        setTagCor(crmLead.tag_cor || '');
     }, [crmLead, open]);
 
     const { data: empreendimentos = [] } = useQuery({
@@ -102,6 +111,8 @@ export default function CrmLeadDetailPanel({
                     empreendimento_id: empreendimentoId || null,
                     google_drive_url: googleDriveUrl || null,
                     tag: tag.trim() || null,
+                    // Sem etiqueta não faz sentido guardar cor.
+                    tag_cor: tag.trim() ? tagCor || null : null,
                 })
                 .eq('id', crmLead.id);
             if (error) throw error;
@@ -230,6 +241,48 @@ export default function CrmLeadDetailPanel({
                                 placeholder="Ex.: AGO/26, Prioridade, Aguardando doc"
                                 maxLength={TAG_MAX_LENGTH}
                             />
+                            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                <button
+                                    type="button"
+                                    onClick={() => setTagCor('')}
+                                    aria-label="Etiqueta sem cor"
+                                    aria-pressed={!tagCor}
+                                    title="Sem cor"
+                                    className="flex h-6 w-6 items-center justify-center rounded-full border border-input bg-background transition-transform hover:scale-110"
+                                    style={{
+                                        boxShadow: !tagCor ? '0 0 0 2px white, 0 0 0 4px hsl(var(--ring))' : 'none',
+                                    }}
+                                >
+                                    <Ban className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                                </button>
+                                {TAG_COLORS.map((color) => (
+                                    <button
+                                        key={color}
+                                        type="button"
+                                        onClick={() => setTagCor(color)}
+                                        aria-label={`Usar a cor ${color} na etiqueta`}
+                                        aria-pressed={tagCor === color}
+                                        className="h-6 w-6 rounded-full transition-transform hover:scale-110"
+                                        style={{
+                                            backgroundColor: color,
+                                            boxShadow: tagCor === color ? `0 0 0 2px white, 0 0 0 4px ${color}` : 'none',
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                            {tag.trim() && (
+                                <div className="flex items-center gap-2 pt-0.5">
+                                    <span className="text-xs text-muted-foreground">No card:</span>
+                                    <Badge
+                                        variant="secondary"
+                                        className="max-w-full gap-1 px-1.5 py-0 text-[10px] font-medium"
+                                        style={tagCor ? { backgroundColor: tagCor, color: '#fff' } : undefined}
+                                    >
+                                        <Tag className="h-2.5 w-2.5 flex-shrink-0" aria-hidden="true" />
+                                        <span className="truncate">{tag.trim()}</span>
+                                    </Badge>
+                                </div>
+                            )}
                             <p className="text-xs text-muted-foreground">
                                 Aparece no card do funil. Use para marcar o mês da oportunidade ou
                                 qualquer outra situação (origem, prioridade, pendência).

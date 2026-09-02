@@ -2,7 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Mail, Building2, User, Clock, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Phone, Mail, Building2, User, Clock, MoreHorizontal, Trash2, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -74,6 +74,16 @@ export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardPro
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
+
+                    {crmLead.tag && (
+                        <Badge
+                            variant="secondary"
+                            className="max-w-full gap-1 px-1.5 py-0 text-[10px] font-medium"
+                        >
+                            <Tag className="h-2.5 w-2.5 flex-shrink-0" aria-hidden="true" />
+                            <span className="truncate">{crmLead.tag}</span>
+                        </Badge>
+                    )}
 
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Phone className="h-3 w-3 flex-shrink-0" />

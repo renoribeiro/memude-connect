@@ -1896,6 +1896,7 @@ export type Database = {
           pipeline_id: string
           posicao: number | null
           stage_id: string | null
+          tag: string | null
           updated_at: string | null
           valor_estimado: number | null
           visita_id: string | null
@@ -1911,6 +1912,7 @@ export type Database = {
           pipeline_id: string
           posicao?: number | null
           stage_id?: string | null
+          tag?: string | null
           updated_at?: string | null
           valor_estimado?: number | null
           visita_id?: string | null
@@ -1926,6 +1928,7 @@ export type Database = {
           pipeline_id?: string
           posicao?: number | null
           stage_id?: string | null
+          tag?: string | null
           updated_at?: string | null
           valor_estimado?: number | null
           visita_id?: string | null

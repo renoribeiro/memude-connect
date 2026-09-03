@@ -47,7 +47,7 @@ import { ptBR } from 'date-fns/locale';
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', '#8884d8', '#82ca9d', '#ffc658'];
 
 const FallbackNoData = () => (
-  <div className="flex flex-col items-center justify-center h-[220px] text-muted-foreground text-xs bg-slate-50/30 rounded-lg border border-dashed border-slate-200">
+  <div className="flex flex-col items-center justify-center h-[220px] text-muted-foreground text-xs bg-muted/30 rounded-lg border border-dashed border-border">
     Sem dados no período
   </div>
 );
@@ -233,7 +233,7 @@ export function GeneratedReportDialog({ open, onOpenChange, config, data }: Gene
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6" id="report-printable-area">
           {/* Metadata info */}
-          <div className="flex flex-wrap justify-between items-center gap-2 p-3 bg-slate-50 border rounded-lg text-xs text-muted-foreground">
+          <div className="flex flex-wrap justify-between items-center gap-2 p-3 bg-muted border rounded-lg text-xs text-muted-foreground">
             <div><strong>Frequência/Período:</strong> {getPeriodLabel(config.period)}</div>
             <div><strong>Filtro Leads:</strong> {config.filters.status ? config.filters.status.replace(/_/g, ' ') : 'Todos'}</div>
             <div><strong>Gerado em:</strong> {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</div>
@@ -491,7 +491,7 @@ export function GeneratedReportDialog({ open, onOpenChange, config, data }: Gene
           </div>
         </div>
 
-        <div className="p-4 border-t bg-slate-50 flex justify-end">
+        <div className="p-4 border-t bg-muted flex justify-end">
           <Button onClick={() => onOpenChange(false)}>Fechar</Button>
         </div>
       </DialogContent>

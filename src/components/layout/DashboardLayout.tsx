@@ -37,6 +37,7 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 import Logo from '@/components/ui/logo';
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
+import ThemeToggle from '@/components/layout/ThemeToggle';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -101,7 +102,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <header className="bg-white border-b border-border sticky top-0 z-50 shadow-sm">
+      <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-2">
@@ -112,7 +113,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-64 p-0">
-                  <div className="flex h-full flex-col bg-white">
+                  <div className="flex h-full flex-col bg-card">
                     <div className="flex h-16 items-center px-6 border-b">
                       <Logo size="md" />
                     </div>
@@ -128,12 +129,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                                 group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors
                                 ${isActive
                                   ? 'bg-primary text-white shadow-glow'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                 }
                               `}
                             >
                               <item.icon
-                                className={`mr-3 h-5 w-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'}`}
+                                className={`mr-3 h-5 w-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-muted-foreground group-hover:text-foreground'}`}
                                 aria-hidden="true"
                               />
                               {item.name}
@@ -164,6 +165,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   </a>
                 </Button>
               )}
+              <ThemeToggle />
               <NotificationSystem />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -201,7 +203,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       <div className="flex h-[calc(100vh-4rem)]">
         {/* Sidebar (Desktop) */}
-        <nav className="hidden md:flex w-64 bg-slate-50/50 border-r border-border">
+        <nav className="hidden md:flex w-64 bg-muted/50 border-r border-border">
           <div className="flex h-full flex-col">
             <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
               <div className="flex flex-1 flex-col space-y-1 px-3">
@@ -215,12 +217,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                         group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors
                         ${isActive
                           ? 'bg-primary text-white shadow-glow'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                         }
                       `}
                     >
                       <item.icon
-                        className={`mr-3 h-5 w-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'
+                        className={`mr-3 h-5 w-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-muted-foreground group-hover:text-foreground'
                           }`}
                         aria-hidden="true"
                       />

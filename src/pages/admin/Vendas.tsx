@@ -133,8 +133,8 @@ const Vendas = () => {
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Vendas & Comissões</h1>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <h1 className="text-2xl font-bold text-foreground">Vendas & Comissões</h1>
+                        <p className="text-sm text-muted-foreground mt-1">
                             Gerencie vendas, calcule comissões e acompanhe pagamentos
                         </p>
                     </div>
@@ -191,7 +191,7 @@ const Vendas = () => {
                 {/* Filters */}
                 <div className="flex gap-4">
                     <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                         <Input
                             placeholder="Buscar por cliente, empreendimento ou corretor..."
                             value={searchTerm}
@@ -221,7 +221,7 @@ const Vendas = () => {
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                             </div>
                         ) : vendas.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-48 text-gray-500">
+                            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                                 <AlertCircle className="h-8 w-8 mb-2" />
                                 <p>Nenhuma venda encontrada</p>
                             </div>
@@ -244,7 +244,7 @@ const Vendas = () => {
                                     {vendas.map((venda) => (
                                         <TableRow
                                             key={venda.id}
-                                            className="cursor-pointer hover:bg-gray-50/50"
+                                            className="cursor-pointer hover:bg-muted/50"
                                             onClick={() => handleOpenModal(venda.id)}
                                         >
                                             <TableCell className="font-medium">

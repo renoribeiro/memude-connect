@@ -305,7 +305,7 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
             </div>
 
             {formData.role === 'corretor' && (
-              <div className="space-y-4 pt-4 border-t border-gray-100">
+              <div className="space-y-4 pt-4 border-t border-border">
                 <div className="flex items-center gap-2 text-primary font-semibold text-sm">
                   <Award className="w-4 h-4" />
                   <span>Dados Profissionais do Corretor</span>
@@ -419,7 +419,7 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
             )}
           </div>
  
-          <div className="flex justify-end space-x-2 pt-4 border-t border-gray-100">
+          <div className="flex justify-end space-x-2 pt-4 border-t border-border">
             <Button
               type="button"
               variant="outline"

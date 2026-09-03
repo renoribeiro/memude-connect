@@ -365,7 +365,7 @@ export default function LeadForm({ initialData, onSuccess, onCancel }: LeadFormP
 
       {/* Cadastro de Visita Toggle - Somente na Criação */}
       {!initialData?.id && (
-        <div className="flex items-center space-x-2 bg-slate-50 p-4 rounded-lg border border-slate-100 mb-2">
+        <div className="flex items-center space-x-2 bg-muted p-4 rounded-lg border border-border mb-2">
           <Switch
             id="cadastrar_sem_visita"
             checked={watch("cadastrar_sem_visita")}

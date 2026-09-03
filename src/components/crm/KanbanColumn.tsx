@@ -24,18 +24,18 @@ export default function KanbanColumn({ stage, leads, onCardClick, onRemoveLead }
 
     return (
         <div
-            className={`flex flex-col bg-gray-50/80 rounded-xl min-w-[300px] w-[300px] border transition-colors ${isOver ? 'border-primary/40 bg-primary/5' : 'border-gray-200/60'
+            className={`flex flex-col bg-muted/80 rounded-xl min-w-[300px] w-[300px] border transition-colors ${isOver ? 'border-primary/40 bg-primary/5' : 'border-border'
                 }`}
         >
             {/* Column Header */}
-            <div className="p-3 border-b border-gray-200/60">
+            <div className="p-3 border-b border-border">
                 <div className="flex items-center gap-2">
                     <div
                         className="w-3 h-3 rounded-full flex-shrink-0"
                         style={{ backgroundColor: stage.cor }}
                     />
                     <h3 className="font-semibold text-sm truncate flex-1">{stage.nome}</h3>
-                    <span className="text-xs bg-white px-2 py-0.5 rounded-full text-muted-foreground font-medium border">
+                    <span className="text-xs bg-card px-2 py-0.5 rounded-full text-muted-foreground font-medium border">
                         {leads.length}
                     </span>
                 </div>

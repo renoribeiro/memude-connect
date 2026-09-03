@@ -41,7 +41,7 @@ export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardPro
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
             <Card
-                className="p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow bg-white border border-gray-100 group"
+                className="p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow bg-card border border-border group"
                 onClick={onClick}
             >
                 <div className="space-y-2">
@@ -114,7 +114,7 @@ export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardPro
                         </div>
                     )}
 
-                    <div className="flex items-center justify-between pt-1 border-t border-gray-50">
+                    <div className="flex items-center justify-between pt-1 border-t border-border">
                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                             <Clock className="h-2.5 w-2.5" />
                             {timeInStage}

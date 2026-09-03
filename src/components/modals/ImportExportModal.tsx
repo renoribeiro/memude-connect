@@ -173,7 +173,7 @@ export default function ImportExportModal({ open, onOpenChange, type }: ImportEx
                         <div className="grid grid-cols-1 gap-y-1.5">
                           <div className="grid grid-cols-2 gap-x-3">
                             <span>1. Nome Completo <span className="text-red-500">*</span></span>
-                            <span>8. Bairros <span className="text-gray-500">(vírgula)</span></span>
+                            <span>8. Bairros <span className="text-muted-foreground">(vírgula)</span></span>
                           </div>
                           <div className="grid grid-cols-2 gap-x-3">
                             <span>2. CPF</span>
@@ -181,7 +181,7 @@ export default function ImportExportModal({ open, onOpenChange, type }: ImportEx
                           </div>
                           <div className="grid grid-cols-2 gap-x-3">
                             <span>3. Telefone <span className="text-red-500">*</span></span>
-                            <span>10. Construtora <span className="text-gray-500">(vírgula)</span></span>
+                            <span>10. Construtora <span className="text-muted-foreground">(vírgula)</span></span>
                           </div>
                           <div className="grid grid-cols-2 gap-x-3">
                             <span>4. Email</span>
@@ -204,7 +204,7 @@ export default function ImportExportModal({ open, onOpenChange, type }: ImportEx
                           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                             <span><span className="text-red-500">*</span> Obrigatório</span>
                             <span><span className="text-blue-500">†</span> Calculado automaticamente</span>
-                            <span><span className="text-gray-500">(vírgula)</span> Múltiplos valores</span>
+                            <span><span className="text-muted-foreground">(vírgula)</span> Múltiplos valores</span>
                           </div>
                         </div>
                       </div>

@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { lazy, Suspense } from "react";
+import { ThemeProvider } from "next-themes";
 
 const Index = lazy(() => import("./pages/Index"));
 const AuthPage = lazy(() => import("./components/auth/AuthPage"));
@@ -36,6 +37,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <ErrorBoundary>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
@@ -162,6 +164,7 @@ const App = () => (
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
+    </ThemeProvider>
   </ErrorBoundary>
 );
 

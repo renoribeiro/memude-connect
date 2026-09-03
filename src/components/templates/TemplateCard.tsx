@@ -37,7 +37,7 @@ const getTypeColor = (type: string) => {
     case 'sms':
       return 'bg-teal-100 text-teal-800';
     default:
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-muted text-foreground';
   }
 };
 

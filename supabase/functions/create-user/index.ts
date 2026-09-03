@@ -14,6 +14,8 @@ interface CreateUserRequest {
   last_name?: string;
   role?: AppRole;
   phone?: string;
+  /** Quando false, cria a conta sem disparar email de convite. */
+  send_invite?: boolean;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,6 +23,16 @@ const ALLOWED_ROLES = new Set<AppRole>(['admin', 'corretor', 'cliente']);
 
 function cleanText(value: unknown, maxLength: number): string {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
+}
+
+/**
+ * Senha aleatória para contas criadas sem convite. Não é retornada, exibida
+ * nem transmitida: serve só para a conta existir. A pessoa define a dela pelo
+ * fluxo de "esqueci minha senha" quando o acesso for liberado.
+ */
+function throwawayPassword(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return `Mc-${btoa(String.fromCharCode(...bytes)).slice(0, 40)}`;
 }
 
 Deno.serve(async (req) => {
@@ -44,6 +56,8 @@ Deno.serve(async (req) => {
     const lastName = cleanText(body.last_name, 120);
     const phone = cleanText(body.phone, 30);
     const role = body.role;
+    // Convite é o padrão: só não envia quando o admin desmarca explicitamente.
+    const sendInvite = body.send_invite !== false;
 
     if (
       !EMAIL_PATTERN.test(email)
@@ -69,20 +83,40 @@ Deno.serve(async (req) => {
       throw new Error('APP_URL inválida');
     }
 
-    // O Supabase envia um convite de uso único. Nenhuma senha temporária é
-    // criada, exibida na interface ou transmitida por email/WhatsApp.
-    const { data: inviteData, error: inviteError } =
-      await access.supabase.auth.admin.inviteUserByEmail(email, {
-        redirectTo: new URL('/reset-password', appUrl).toString(),
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-        },
-      });
-    if (inviteError || !inviteData.user) {
-      throw inviteError || new Error('Falha ao criar convite');
+    if (sendInvite) {
+      // O Supabase envia um convite de uso único. Nenhuma senha temporária é
+      // criada, exibida na interface ou transmitida por email/WhatsApp.
+      const { data: inviteData, error: inviteError } =
+        await access.supabase.auth.admin.inviteUserByEmail(email, {
+          redirectTo: new URL('/reset-password', appUrl).toString(),
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+          },
+        });
+      if (inviteError || !inviteData.user) {
+        throw inviteError || new Error('Falha ao criar convite');
+      }
+      createdUserId = inviteData.user.id;
+    } else {
+      // Conta criada em silêncio, sem email: contorna o limite de envio do
+      // SMTP e serve para cadastro em lote. A senha é descartável e ninguém
+      // a conhece — o acesso se dá depois, por "esqueci minha senha".
+      const { data: userData, error: userError } =
+        await access.supabase.auth.admin.createUser({
+          email,
+          password: throwawayPassword(),
+          email_confirm: true,
+          user_metadata: {
+            first_name: firstName,
+            last_name: lastName,
+          },
+        });
+      if (userError || !userData.user) {
+        throw userError || new Error('Falha ao criar usuário');
+      }
+      createdUserId = userData.user.id;
     }
-    createdUserId = inviteData.user.id;
 
     const { error: profileError } = await access.supabase
       .from('profiles')
@@ -111,7 +145,7 @@ Deno.serve(async (req) => {
 
     return jsonResponse(req, {
       success: true,
-      invitation_sent: true,
+      invitation_sent: sendInvite,
       user: {
         id: createdUserId,
         email,
@@ -122,12 +156,15 @@ Deno.serve(async (req) => {
       await access.supabase.auth.admin.deleteUser(createdUserId);
     }
     const message = safeError(error);
-    console.error('Falha ao convidar usuário:', message);
+    console.error('Falha ao criar usuário:', message);
     const duplicate = /already|registered|exists/i.test(message);
+    const rateLimited = /rate limit/i.test(message);
     return jsonResponse(req, {
       error: duplicate
         ? 'Já existe uma conta com este email'
-        : 'Não foi possível criar o convite de usuário',
+        : rateLimited
+          ? 'Limite de envio de email do Supabase atingido. Desmarque "Enviar convite por email" para cadastrar agora sem disparar email.'
+          : 'Não foi possível criar o convite de usuário',
     }, duplicate ? 409 : 400);
   }
 });

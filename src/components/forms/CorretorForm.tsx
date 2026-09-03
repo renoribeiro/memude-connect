@@ -603,7 +603,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
         </CardHeader>
         <CardContent className="space-y-4">
           {!initialData?.id && (
-            <div className="flex flex-col space-y-2 pb-4 border-b border-gray-100">
+            <div className="flex flex-col space-y-2 pb-4 border-b border-border">
               <Label className="text-sm font-semibold text-muted-foreground">Configuração de Conta do Corretor</Label>
               <div className="flex gap-2">
                 <Button

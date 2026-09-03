@@ -117,7 +117,7 @@ export default function CrmAutomationsModal({
                             {automations.map((auto) => (
                                 <div
                                     key={auto.id}
-                                    className="flex items-center justify-between p-3 border rounded-lg bg-white"
+                                    className="flex items-center justify-between p-3 border rounded-lg bg-card"
                                 >
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
@@ -165,7 +165,7 @@ export default function CrmAutomationsModal({
 
                     {/* Create Form */}
                     {showForm ? (
-                        <div className="border rounded-lg p-4 bg-gray-50/50 space-y-3">
+                        <div className="border rounded-lg p-4 bg-muted/50 space-y-3">
                             <div>
                                 <Label>Nome da automação</Label>
                                 <Input

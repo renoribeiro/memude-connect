@@ -545,30 +545,30 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                     {/* Calculation Preview */}
                     {parseFloat(valorImovel) > 0 && (
                         <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg p-4 space-y-3">
-                            <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                            <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
                                 <TrendingDown className="h-4 w-4" />
                                 Cálculo Automático
                             </h4>
                             <div className="grid grid-cols-2 gap-3 text-sm">
                                 <div className="flex justify-between">
-                                    <span className="text-gray-500">Comissão Bruta:</span>
+                                    <span className="text-muted-foreground">Comissão Bruta:</span>
                                     <span className="font-mono font-medium">{formatCurrency(calculations.comissaoBruta)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-500">Imposto:</span>
+                                    <span className="text-muted-foreground">Imposto:</span>
                                     <span className="font-mono font-medium text-red-500">
                                         - {formatCurrency(calculations.valorImposto)}
                                     </span>
                                 </div>
                                 <div className="flex justify-between col-span-2 pt-2 border-t">
-                                    <span className="text-gray-700 font-medium">Comissão Líquida:</span>
+                                    <span className="text-foreground font-medium">Comissão Líquida:</span>
                                     <span className="font-mono font-bold text-lg">{formatCurrency(calculations.comissaoLiquida)}</span>
                                 </div>
                             </div>
                             <Separator />
                             <div className="grid grid-cols-2 gap-3 text-sm">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-gray-500 flex items-center gap-1">
+                                    <span className="text-muted-foreground flex items-center gap-1">
                                         <ArrowRight className="h-3 w-3" /> Corretor (50%):
                                     </span>
                                     <span className="font-mono font-semibold text-blue-600">
@@ -576,7 +576,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-gray-500 flex items-center gap-1">
+                                    <span className="text-muted-foreground flex items-center gap-1">
                                         <ArrowRight className="h-3 w-3" /> MeMude ({vendaDireta ? '100%' : '50%'}):
                                     </span>
                                     <span className="font-mono font-semibold text-emerald-600">
@@ -672,7 +672,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                                             : fileName;
                                         const signedUrl = comprovanteUrls[path];
                                         return (
-                                            <Badge key={path} variant="secondary" className="flex items-center gap-1 text-xs py-0.5 px-2 bg-slate-100 hover:bg-slate-200">
+                                            <Badge key={path} variant="secondary" className="flex items-center gap-1 text-xs py-0.5 px-2 bg-muted hover:bg-muted">
                                                 {signedUrl ? (
                                                     <a
                                                         href={signedUrl}

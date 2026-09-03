@@ -345,7 +345,7 @@ export default function Leads() {
                 {leads.map((lead) => (
                   <div
                     key={lead.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-white/50"
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-card/50"
                   >
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center gap-3">
@@ -409,7 +409,7 @@ export default function Leads() {
                             setSelectedLead(lead);
                             setShowLeadModal(true);
                           }}>
-                            <Eye className="w-4 h-4 text-gray-500" />
+                            <Eye className="w-4 h-4 text-muted-foreground" />
                             <span className="sr-only">Visualizar</span>
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => {

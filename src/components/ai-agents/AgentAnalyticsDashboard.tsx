@@ -123,7 +123,7 @@ export function AgentAnalyticsDashboard({ agentId }: AgentAnalyticsDashboardProp
             hot: { icon: <Flame className="h-4 w-4" />, color: "text-red-500", bg: "bg-red-500" },
             warm: { icon: <Thermometer className="h-4 w-4" />, color: "text-orange-500", bg: "bg-orange-500" },
             cool: { icon: <Snowflake className="h-4 w-4" />, color: "text-blue-400", bg: "bg-blue-400" },
-            cold: { icon: <Snowflake className="h-4 w-4" />, color: "text-gray-400", bg: "bg-gray-400" }
+            cold: { icon: <Snowflake className="h-4 w-4" />, color: "text-muted-foreground", bg: "bg-gray-400" }
         };
         return configs[temp] || configs.cold;
     };

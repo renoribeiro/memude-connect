@@ -33,7 +33,7 @@ const statusConfig = {
     label: 'Novo',
     variant: 'default' as const,
     icon: Clock,
-    color: 'text-gray-600'
+    color: 'text-muted-foreground'
   },
   'buscando_corretor': {
     label: 'Em Contato',
@@ -157,7 +157,7 @@ export default function LeadStatusActions({ lead }: LeadStatusActionsProps) {
                   onClick={() => updateStatusMutation.mutate(status)}
                   className="cursor-pointer"
                 >
-                  <Icon className={`w-4 h-4 mr-2 ${config?.color || 'text-gray-600'}`} />
+                  <Icon className={`w-4 h-4 mr-2 ${config?.color || 'text-muted-foreground'}`} />
                   {config?.label || status}
                 </DropdownMenuItem>
               );

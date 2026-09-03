@@ -226,7 +226,7 @@ export default function PipelineSettingsModal({
                             {editStages.map((stage, index) => (
                                 <div
                                     key={stage.clientKey}
-                                    className="flex items-center gap-2 p-2 border rounded-lg bg-white"
+                                    className="flex items-center gap-2 p-2 border rounded-lg bg-card"
                                 >
                                     <div className="flex flex-col gap-0.5">
                                         <button
@@ -234,7 +234,7 @@ export default function PipelineSettingsModal({
                                             onClick={() => moveStage(index, index - 1)}
                                             disabled={index === 0}
                                             aria-label={`Mover ${stage.nome || `etapa ${index + 1}`} para cima`}
-                                            className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                                            className="text-muted-foreground hover:text-muted-foreground disabled:opacity-30"
                                         >
                                             <GripVertical className="h-3.5 w-3" />
                                         </button>
@@ -253,7 +253,7 @@ export default function PipelineSettingsModal({
                                             <Palette className="h-3 w-3 text-white/70 mx-auto" />
                                         </button>
                                         {colorPickerIndex === index && (
-                                            <div className="absolute top-full left-0 mt-2 z-[100] bg-white border border-gray-200 rounded-xl shadow-xl p-3 grid grid-cols-5 gap-2 w-max animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95">
+                                            <div className="absolute top-full left-0 mt-2 z-[100] bg-card border border-border rounded-xl shadow-xl p-3 grid grid-cols-5 gap-2 w-max animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95">
                                                 {PRESET_COLORS.map((color) => (
                                                     <button
                                                         type="button"

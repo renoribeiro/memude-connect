@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { isValidBrazilianPhone } from '@/utils/phoneHelpers';
+import { isValidPhone } from '@/utils/phoneHelpers';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -95,7 +95,7 @@ export default function CreateLeadOpportunityModal({
     const parsedValue = valorEstimado === '' ? undefined : Number(valorEstimado);
     const isValueValid = parsedValue === undefined || (Number.isFinite(parsedValue) && parsedValue >= 0);
     const isEmailValid = !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    const isPhoneValid = isValidBrazilianPhone(telefone);
+    const isPhoneValid = isValidPhone(telefone);
     const canSubmit = Boolean(nome.trim().length >= 2 && isPhoneValid && isEmailValid && stageId && isValueValid && !isCreating);
 
     const handleSubmit = () => {

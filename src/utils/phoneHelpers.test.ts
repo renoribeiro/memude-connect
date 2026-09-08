@@ -3,6 +3,9 @@ import {
   normalizePhoneNumber,
   formatPhoneDisplay,
   isValidBrazilianPhone,
+  isValidInternationalPhone,
+  isValidPhone,
+  isInternationalPhone,
   cleanPhoneNumber,
 } from './phoneHelpers';
 
@@ -69,5 +72,49 @@ describe('phoneHelpers', () => {
       expect(cleanPhoneNumber('+55 (85) 99622-7722')).toBe('5585996227722');
       expect(cleanPhoneNumber('abc-123')).toBe('123');
     });
+  });
+});
+
+describe('números do exterior', () => {
+  it('reconhece pelo "+" com DDI diferente de 55', () => {
+    expect(isInternationalPhone('+351912345678')).toBe(true);
+    expect(isInternationalPhone('+12125550147')).toBe(true);
+    expect(isInternationalPhone('+5585996227722')).toBe(false);
+    expect(isInternationalPhone('5585996227722')).toBe(false);
+    expect(isInternationalPhone('')).toBe(false);
+  });
+
+  it('preserva o DDI original em vez de injetar 55', () => {
+    expect(normalizePhoneNumber('+351 912 345 678')).toBe('+351912345678');
+    expect(normalizePhoneNumber('+1 (212) 555-0147')).toBe('+12125550147');
+    expect(normalizePhoneNumber('+33 6 12 34 56 78')).toBe('+33612345678');
+  });
+
+  it('continua tratando +55 como número brasileiro', () => {
+    expect(normalizePhoneNumber('+55 85 99622-7722')).toBe('5585996227722');
+  });
+
+  it('exibe número do exterior em E.164, sem máscara brasileira', () => {
+    expect(formatPhoneDisplay('+351912345678')).toBe('+351912345678');
+    expect(formatPhoneDisplay('5585996227722')).toBe('(85) 99622-7722');
+  });
+
+  it('valida tamanho e DDI, sem regra de operadora', () => {
+    expect(isValidInternationalPhone('+351912345678')).toBe(true);
+    expect(isValidInternationalPhone('+12125550147')).toBe(true);
+    expect(isValidInternationalPhone('+3519')).toBe(false);
+    expect(isValidInternationalPhone('+0351912345678')).toBe(false);
+    expect(isValidInternationalPhone('5585996227722')).toBe(false);
+  });
+
+  it('isValidPhone aceita os dois mundos e recusa lixo', () => {
+    expect(isValidPhone('5585996227722')).toBe(true);
+    expect(isValidPhone('+351912345678')).toBe(true);
+    expect(isValidPhone('+123')).toBe(false);
+    expect(isValidPhone('')).toBe(false);
+  });
+
+  it('número do exterior não passa pela validação brasileira', () => {
+    expect(isValidBrazilianPhone('+351912345678')).toBe(false);
   });
 });

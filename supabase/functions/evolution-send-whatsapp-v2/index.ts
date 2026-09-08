@@ -1,6 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
-import { normalizePhoneNumber, isValidBrazilianPhone } from '../_shared/phoneHelpers.ts';
+import { normalizePhoneNumber, isValidPhone } from '../_shared/phoneHelpers.ts';
 import { logIntegration } from '../_shared/integration-logger.ts';
 import {
   authorize,
@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
 
     console.log('Iniciando envio WhatsApp');
 
-    if (!isValidBrazilianPhone(normalizedPhone)) {
+    if (!isValidPhone(phone_number)) {
       throw new Error('Número de telefone inválido');
     }
 

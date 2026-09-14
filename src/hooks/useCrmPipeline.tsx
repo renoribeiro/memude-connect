@@ -35,6 +35,8 @@ export interface CrmLead {
     google_drive_url: string | null;
     tag: string | null;
     tag_cor: string | null;
+    venda_realizada: boolean;
+    venda_realizada_em: string | null;
     moved_at: string;
     created_at: string;
     empreendimentos: { id: string; nome: string } | null;
@@ -166,7 +168,8 @@ export function useCrmPipeline(pipelineId?: string) {
                 .select(`
           id, lead_id, pipeline_id, stage_id, posicao, valor_estimado,
           empreendimento_id, visita_id,
-          notas, google_drive_url, tag, tag_cor, moved_at, created_at,
+          notas, google_drive_url, tag, tag_cor,
+          venda_realizada, venda_realizada_em, moved_at, created_at,
           empreendimentos(id, nome),
           leads (
             id, nome, telefone, email, status, origem, observacoes,
@@ -305,6 +308,31 @@ export function useCrmPipeline(pipelineId?: string) {
                 description: error.message,
                 variant: 'destructive',
             });
+        },
+    });
+
+    const setVendaRealizada = useMutation({
+        mutationFn: async ({ crmLeadId, vendaRealizada }: { crmLeadId: string; vendaRealizada: boolean }) => {
+            const { error } = await db
+                .from('crm_leads')
+                .update({
+                    venda_realizada: vendaRealizada,
+                    venda_realizada_em: vendaRealizada ? new Date().toISOString() : null,
+                })
+                .eq('id', crmLeadId);
+            if (error) throw error;
+            return vendaRealizada;
+        },
+        onSuccess: (vendaRealizada) => {
+            queryClient.invalidateQueries({ queryKey: ['crm-leads', pipelineId] });
+            toast({
+                title: vendaRealizada
+                    ? 'Venda realizada registrada'
+                    : 'Marca de venda removida',
+            });
+        },
+        onError: () => {
+            toast({ title: 'Erro ao atualizar a venda', variant: 'destructive' });
         },
     });
 
@@ -482,6 +510,7 @@ export function useCrmPipeline(pipelineId?: string) {
         moveLeadToStage,
         createOpportunity,
         createLeadWithOpportunity,
+        setVendaRealizada,
         removeLeadFromPipeline,
         createPipeline,
         deletePipeline,

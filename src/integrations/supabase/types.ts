@@ -1900,6 +1900,8 @@ export type Database = {
           tag_cor: string | null
           updated_at: string | null
           valor_estimado: number | null
+          venda_realizada: boolean
+          venda_realizada_em: string | null
           visita_id: string | null
         }
         Insert: {
@@ -1917,6 +1919,8 @@ export type Database = {
           tag_cor?: string | null
           updated_at?: string | null
           valor_estimado?: number | null
+          venda_realizada?: boolean
+          venda_realizada_em?: string | null
           visita_id?: string | null
         }
         Update: {
@@ -1934,6 +1938,8 @@ export type Database = {
           tag_cor?: string | null
           updated_at?: string | null
           valor_estimado?: number | null
+          venda_realizada?: boolean
+          venda_realizada_em?: string | null
           visita_id?: string | null
         }
         Relationships: [

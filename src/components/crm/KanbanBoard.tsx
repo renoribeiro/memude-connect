@@ -22,6 +22,7 @@ interface KanbanBoardProps {
     onMoveLead: (crmLeadId: string, newStageId: string, newPosition: number) => void;
     onCardClick?: (crmLead: CrmLead) => void;
     onRemoveLead?: (crmLeadId: string) => void;
+    onToggleVendaRealizada?: (crmLeadId: string, vendaRealizada: boolean) => void;
     onConfigureClick?: () => void;
 }
 
@@ -31,6 +32,7 @@ export default function KanbanBoard({
     onMoveLead,
     onCardClick,
     onRemoveLead,
+    onToggleVendaRealizada,
     onConfigureClick,
 }: KanbanBoardProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -130,6 +132,7 @@ export default function KanbanBoard({
                         leads={leadsByStage[stage.id] ?? []}
                         onCardClick={onCardClick}
                         onRemoveLead={onRemoveLead}
+                        onToggleVendaRealizada={onToggleVendaRealizada}
                     />
                 ))}
 

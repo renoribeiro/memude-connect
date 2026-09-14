@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BriefcaseBusiness, Settings, Zap, UserPlus, PlusCircle, Clock, Target } from 'lucide-react';
+import { BriefcaseBusiness, Settings, Zap, UserPlus, PlusCircle, Clock, Target, BadgeCheck } from 'lucide-react';
 import type { CrmLead } from '@/hooks/useCrmPipeline';
 import CreatePipelineModal from '@/components/crm/CreatePipelineModal';
 
@@ -33,6 +33,7 @@ export default function CRM() {
         crmLeads,
         automations,
         moveLeadToStage,
+        setVendaRealizada,
         createOpportunity,
         createLeadWithOpportunity,
         removeLeadFromPipeline,
@@ -90,6 +91,17 @@ export default function CRM() {
         (acc, l) => acc + (l.valor_estimado || 0),
         0
     );
+
+    // Vendas realizadas: soma o valor estimado das oportunidades marcadas como
+    // vendidas. Elas continuam contando no "Valor Estimado", que segue sendo o
+    // total do funil.
+    const vendasRealizadas = useMemo(() => {
+        const vendidas = validLeadsData.filter((l) => l.venda_realizada);
+        return {
+            quantidade: vendidas.length,
+            valor: vendidas.reduce((acc, l) => acc + (l.valor_estimado || 0), 0),
+        };
+    }, [validLeadsData]);
 
     const currentDetailStage = detailLead
         ? stagesData.find((s) => s.id === detailLead.stage_id) ?? null
@@ -186,7 +198,7 @@ export default function CRM() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-fade-in">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 animate-fade-in">
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
@@ -238,6 +250,27 @@ export default function CRM() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    <Card className="border-green-600/40">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                                <BadgeCheck className="h-4 w-4 text-green-600" />
+                                Vendas Realizadas
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-green-600">
+                                {vendasRealizadas.valor > 0
+                                    ? `R$ ${vendasRealizadas.valor.toLocaleString('pt-BR')}`
+                                    : 'R$ 0'}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                {vendasRealizadas.quantidade === 1
+                                    ? '1 oportunidade vendida'
+                                    : `${vendasRealizadas.quantidade} oportunidades vendidas`}
+                            </p>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 {/* Kanban Board */}
@@ -278,6 +311,9 @@ export default function CRM() {
                         }}
                         onRemoveLead={(crmLeadId) => {
                             removeLeadFromPipeline.mutate(crmLeadId);
+                        }}
+                        onToggleVendaRealizada={(crmLeadId, vendaRealizada) => {
+                            setVendaRealizada.mutate({ crmLeadId, vendaRealizada });
                         }}
                         onConfigureClick={() => setShowSettings(true)}
                     />

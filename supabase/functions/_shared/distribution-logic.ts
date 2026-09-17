@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { normalizePhoneNumber } from './phoneHelpers.ts';
+import { visitPhone } from './visit-workflow.ts';
 
 // Definição de tipos para clareza
 export interface DistributionResult {
@@ -23,6 +24,14 @@ export async function processIncomingMessage(
   remoteJid: string = ''
 ): Promise<DistributionResult> {
   console.log('CORE LOGIC: processando mensagem recebida');
+
+  // A bare response is ambiguous while a visit question is open. Require its
+  // button/reference instead of reinterpreting it as distribution or AI.
+  const { data: visitQuestions, error: visitQuestionError } = await supabase.from('visit_prompts')
+    .select('id').eq('phone', visitPhone(phoneNumber)).is('answered_at', null)
+    .not('sent_at', 'is', null).gt('expires_at', new Date().toISOString()).limit(1);
+  if (visitQuestionError) throw visitQuestionError;
+  if (visitQuestions?.length && /^(sim|não|nao|s|n|ok|[0-9]|10)$/i.test(messageText.trim())) return { processed: true, action: 'clarification', type: 'visit' };
 
   // 1. Normalizar resposta
   const response = analyzeResponse(messageText);
@@ -267,7 +276,12 @@ async function handleVisitAttempt(
 
   if (response.type === 'accepted') {
     // 1. Aceitar
-    await supabase.from('visitas').update({ corretor_id: corretor.id, status: 'confirmada' }).eq('id', attempt.visita.id);
+    const {error:assignmentError}=await supabase.from('visitas').update({ corretor_id: corretor.id, status: 'agendada' }).eq('id', attempt.visita.id);
+    if(assignmentError){
+      await supabase.from('visit_distribution_attempts').update({status:'rejected',response_message:assignmentError.message}).eq('id',attempt.id);
+      await supabase.from('visit_distribution_queue').update({status:'failed',failure_reason:assignmentError.message}).eq('id',attempt.visit_distribution_queue.id);
+      throw assignmentError;
+    }
     await supabase.from('leads').update({ corretor_designado_id: corretor.id, status: 'visita_agendada' }).eq('id', attempt.visita.lead.id);
     await supabase.from('visit_distribution_queue').update({ status: 'completed', assigned_corretor_id: corretor.id, completed_at: new Date().toISOString() }).eq('id', attempt.visit_distribution_queue.id);
 
@@ -381,6 +395,10 @@ async function handleCorretorReminderConfirmation(
     return { processed: false, action: 'none', type: 'visit' };
   }
 
+  const { data: managedCycle, error: cycleError } = await supabase.from('visit_cycles').select('visita_id').eq('visita_id', visit.id).maybeSingle();
+  if (cycleError) throw cycleError;
+  if (managedCycle) return { processed: true, action: 'clarification', type: 'visit' };
+
   const dataVisita = new Date(visit.data_visita).toLocaleDateString('pt-BR');
 
   if (response.type === 'accepted') {
@@ -465,6 +483,10 @@ async function handleLeadConfirmation(
   if (!visit) {
     return { processed: false, action: 'none', type: 'visit' };
   }
+
+  const { data: managedCycle, error: cycleError } = await supabase.from('visit_cycles').select('visita_id').eq('visita_id', visit.id).maybeSingle();
+  if (cycleError) throw cycleError;
+  if (managedCycle) return { processed: true, action: 'clarification', type: 'visit' };
 
   const dataVisita = new Date(visit.data_visita).toLocaleDateString('pt-BR');
 
@@ -693,7 +715,12 @@ async function handleVisitAttemptByLidFallback(
     .eq('id', attempt.id);
 
   if (response.type === 'accepted') {
-    await supabase.from('visitas').update({ corretor_id: attempt.corretor.id, status: 'confirmada' }).eq('id', attempt.visita.id);
+    const {error:assignmentError}=await supabase.from('visitas').update({ corretor_id: attempt.corretor.id, status: 'agendada' }).eq('id', attempt.visita.id);
+    if(assignmentError){
+      await supabase.from('visit_distribution_attempts').update({status:'rejected',response_message:assignmentError.message}).eq('id',attempt.id);
+      await supabase.from('visit_distribution_queue').update({status:'failed',failure_reason:assignmentError.message}).eq('id',attempt.visit_distribution_queue.id);
+      throw assignmentError;
+    }
     await supabase.from('leads').update({ corretor_designado_id: attempt.corretor.id, status: 'visita_agendada' }).eq('id', attempt.visita.lead.id);
     await supabase.from('visit_distribution_queue').update({ status: 'completed', assigned_corretor_id: attempt.corretor.id, completed_at: new Date().toISOString() }).eq('id', attempt.visit_distribution_queue.id);
 

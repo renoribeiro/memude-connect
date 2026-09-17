@@ -69,7 +69,7 @@ export function handleOptions(req: Request): Response | null {
     : null;
 }
 
-function timingSafeEqual(left: string | null, right: string | null): boolean {
+function timingSafeEqual(left: string | null | undefined, right: string | null | undefined): boolean {
   if (!left || !right) return false;
   const encoder = new TextEncoder();
   const a = encoder.encode(left);

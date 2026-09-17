@@ -78,6 +78,13 @@ Deno.serve(async (req) => {
     }
 
     const rateLimitSince = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const { data: cycle, error: cycleError } = await access.supabase.from('visit_cycles').select('visita_id').eq('visita_id', visita.id).maybeSingle();
+    if (cycleError) throw cycleError;
+    if (cycle) {
+      const { error } = await access.supabase.rpc('visit_lifecycle_remind', { p_visit: visita.id });
+      if (error) throw error;
+      return jsonResponse(req, { success: true, message: 'Lembretes incluídos na automação; perguntas existentes não serão duplicadas' }, 202);
+    }
     const { data: recentReminder, error: rateLimitError } = await access.supabase
       .from('communication_log')
       .select('id')

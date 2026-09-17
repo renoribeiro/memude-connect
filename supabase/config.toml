@@ -125,3 +125,12 @@ verify_jwt = false
 
 [functions.webhook-leads-visitas]
 verify_jwt = false
+
+[functions.visit-lifecycle]
+verify_jwt = false
+
+[functions.visit-intake-worker]
+verify_jwt = false
+
+[functions.visit-sheets-worker]
+verify_jwt = false

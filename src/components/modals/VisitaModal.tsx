@@ -37,7 +37,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId, isC
 
       const { data, error } = await supabase
         .from('visitas')
-        .select('id, lead_id, corretor_id, empreendimento_id, status, data_visita, horario_visita, avaliacao_lead, comentarios_lead, feedback_corretor, interesse')
+        .select('id, lead_id, corretor_id, empreendimento_id, status, data_visita, horario_visita, avaliacao_lead, comentarios_lead, feedback_corretor, interesse, meeting_address, meeting_neighborhood, customer_profile')
         .eq('id', visitaId)
         .abortSignal(signal)
         .single();
@@ -127,6 +127,9 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId, isC
         avaliacao_lead: data.avaliacao_lead || null,
         comentarios_lead: data.comentarios_lead || null,
         feedback_corretor: data.feedback_corretor || null,
+        meeting_address: data.meeting_address || null,
+        meeting_neighborhood: data.meeting_neighborhood || null,
+        customer_profile: data.customer_profile || null,
       };
 
       if (visitaId) {
@@ -293,6 +296,9 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId, isC
     avaliacao_lead: visita.avaliacao_lead || undefined,
     comentarios_lead: visita.comentarios_lead || '',
     feedback_corretor: visita.feedback_corretor || '',
+    meeting_address: visita.meeting_address || '',
+    meeting_neighborhood: visita.meeting_neighborhood || '',
+    customer_profile: visita.customer_profile || '',
     auto_assign_corretor: false,
   } : {
     lead_id: newlyCreatedLeadId || leadId,

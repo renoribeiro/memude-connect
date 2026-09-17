@@ -15,6 +15,8 @@ import { VisitaActions } from "@/components/actions/VisitaActions";
 import { VisitaDetails } from "@/components/modals/VisitaDetails";
 import VisitasCalendar from "@/components/calendar/VisitasCalendar";
 import { DistributionDashboard } from "@/components/automation/DistributionDashboard";
+import { VisitFollowup } from '@/components/visitas/VisitFollowup';
+import { VisitIntake } from '@/components/visitas/VisitIntake';
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -157,6 +159,8 @@ export default function Visitas() {
 
   return (
     <DashboardLayout>
+      <VisitFollowup />
+      <VisitIntake />
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

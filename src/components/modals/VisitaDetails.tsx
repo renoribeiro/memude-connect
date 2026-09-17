@@ -6,12 +6,16 @@ import { Calendar, Clock, User, Phone, MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { parseLocalDate } from "@/utils/dateHelpers";
+import { visitLifecycle } from '@/lib/visitLifecycle';
+import { useAuth } from '@/hooks/useAuth';
 
 interface VisitaDetailsProps {
   visitaId: string;
 }
 
 export function VisitaDetails({ visitaId }: { visitaId: string }) {
+  const {isAdmin}=useAuth();
+  const survey=useQuery({queryKey:['visit-survey',visitaId],queryFn:()=>visitLifecycle('cycle',{visita_id:visitaId}),enabled:isAdmin});
   const { data: visita, isLoading } = useQuery({
     queryKey: ['visita-details', visitaId],
     queryFn: async () => {
@@ -33,6 +37,7 @@ export function VisitaDetails({ visitaId }: { visitaId: string }) {
 
   if (isLoading) return <div className="p-4 flex justify-center items-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>;
   if (!visita) return <div className="p-4 text-center text-muted-foreground">Visita não encontrada</div>;
+  const meeting = visita as typeof visita & { meeting_address?: string; meeting_neighborhood?: string; customer_profile?: string };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -58,6 +63,10 @@ export function VisitaDetails({ visitaId }: { visitaId: string }) {
 
   return (
     <div className="space-y-6">
+      {meeting.meeting_address && <div className="rounded-lg border p-3"><Label>Local de encontro</Label><p>{meeting.meeting_address}</p><p>{meeting.meeting_neighborhood}</p></div>}
+      {meeting.customer_profile && <div><Label>Perfil informado para esta visita</Label><p>{meeting.customer_profile}</p></div>}
+      {survey.data?.cycle?.rating!=null && <div><Label>Nota do cliente para o corretor</Label><p>{survey.data.cycle.rating}/10</p></div>}
+      {survey.error && <p role="status">Não foi possível consultar a avaliação atual.</p>}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label className="text-sm font-medium text-muted-foreground">Status</Label>
@@ -147,7 +156,7 @@ export function VisitaDetails({ visitaId }: { visitaId: string }) {
 
       {visita.avaliacao_lead && (
         <div>
-          <Label className="text-sm font-medium text-muted-foreground">Avaliação do Lead</Label>
+          <Label className="text-sm font-medium text-muted-foreground">Avaliação histórica (escala de 1 a 5)</Label>
           <div className="mt-1 flex items-center gap-1">
             {[...Array(5)].map((_, i) => (
               <span key={i} className={`text-lg ${i < visita.avaliacao_lead ? 'text-yellow-400' : 'text-gray-300'}`}>

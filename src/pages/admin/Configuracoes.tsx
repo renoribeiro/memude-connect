@@ -21,6 +21,7 @@ import { VisitDistributionMonitor } from "@/components/automation/VisitDistribut
 import { VisitDistributionSettings } from "@/components/automation/VisitDistributionSettings";
 import { WebhookMonitor } from "@/components/automation/WebhookMonitor";
 import { EvolutionInstances } from "@/components/configuracoes/EvolutionInstances";
+import { VisitLifecycleSettings } from '@/components/configuracoes/VisitLifecycleSettings';
 import webhookConfigGuide from "@/assets/webhook-config-guide.png";
 
 interface SystemSetting {
@@ -1140,6 +1141,7 @@ export default function Configuracoes() {
           </TabsContent>
 
           <TabsContent value="automacao-visitas" className="space-y-6">
+            <VisitLifecycleSettings />
             <div className="grid gap-6 md:grid-cols-2">
               <VisitDistributionSettings />
               <VisitDistributionMonitor />

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { processIncomingMessage } from '../_shared/distribution-logic.ts';
+import { receiveVisitReply } from '../_shared/visit-lifecycle.ts';
 import { logIntegration } from '../_shared/integration-logger.ts';
 import { jsonResponse, verifyWebhook } from '../_shared/security.ts';
 
@@ -24,6 +25,7 @@ function isDuplicate(messageId: string): boolean {
 }
 
 serve(async (req) => {
+  let incomingMessageId: string | null = null;
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -71,6 +73,7 @@ serve(async (req) => {
 
     // Deduplication check
     const messageId = data.id || null;
+    incomingMessageId = messageId;
     if (messageId && isDuplicate(messageId)) {
       console.log(`⏭️ Duplicate WAHA message skipped: ${messageId}`);
       return new Response(
@@ -96,6 +99,9 @@ serve(async (req) => {
         }
 
         if (phone && text) {
+            if (await receiveVisitReply(supabase, data.from?.endsWith('@lid') || data.from?.endsWith('@g.us') ? '' : phone, text, data.id ? `waha:${data.id}` : '')) {
+              return new Response(JSON.stringify({ success: true, visit_workflow: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
             console.log('Webhook WAHA recebeu mensagem válida');
             const senderName = data.sender?.name || data.pushName || '';
 
@@ -280,6 +286,7 @@ serve(async (req) => {
     return new Response(JSON.stringify(finalRespBody), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
+    if (incomingMessageId) processedMessages.delete(incomingMessageId);
     console.error(
       'Falha no webhook WAHA:',
       error instanceof Error ? error.message : 'erro desconhecido',

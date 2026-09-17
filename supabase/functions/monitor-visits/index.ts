@@ -1,291 +1,35 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authorize, handleOptions, readJson } from '../_shared/security.ts';
+import { authorize, handleOptions, jsonResponse } from '../_shared/security.ts';
+import { runVisitLifecycle, visitGroups, visitInstance, checked } from '../_shared/visit-lifecycle.ts';
+import { inspectVisitSheet, sheetsConfigured, verifyVisitSheetWrite } from '../_shared/visit-sheets.ts';
+import { visitDashboard } from '../_shared/visit-dashboard.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  const optionsResponse = handleOptions(req);
-  if (optionsResponse) return optionsResponse;
-
-  const access = await authorize(req, 'internal');
-  if (access instanceof Response) return access;
-
-  // Security check: Verify x-cron-secret header to prevent unauthorized triggers
-  const cronSecret = req.headers.get('x-cron-secret');
-  const expectedSecret = cronSecret;
-  if (!cronSecret || !expectedSecret || cronSecret !== expectedSecret) {
-    console.warn('🚫 Cron authentication failed: invalid or missing secret');
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized: Invalid cron secret' }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
+Deno.serve(async req => {
+  const options = handleOptions(req); if (options) return options;
+  const access = await authorize(req, 'internal'); if (access instanceof Response) return access;
   try {
-    const { supabase } = access;
-
-    console.log('Iniciando monitoramento de visitas (Lembretes e Pós-Venda)...');
-
-    const results = {
-      reminders_24h: 0,
-      reminders_2h: 0,
-      post_visit: 0
-    };
-
-    // 1. Lembrete 24h Antes
-    // Buscamos visitas agendadas para AMANHÃ que ainda não receberam lembrete
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
-    results.reminders_24h = await processReminders(supabase, tomorrowStr, 'reminder_24h');
-
-    // 2. Lembrete 2h Antes
-    // Buscamos visitas agendadas para HOJE
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-
-    results.reminders_2h = await processReminders(supabase, todayStr, 'reminder_2h');
-
-    // 3. Pós-Visita (Feedback)
-    results.post_visit = await processPostVisitFeedback(supabase);
-
-    return new Response(JSON.stringify({ success: true, results }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-
-  } catch (error) {
-    console.error('Erro no monitor-visits:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    if (new URL(req.url).searchParams.get('check') === 'dashboard') {
+      const pending = await visitDashboard(access.supabase);
+      const all = await visitDashboard(access.supabase, false);
+      return jsonResponse(req, { dashboard_ok: true, pending: pending.count, total: all.count, failures: all.failures });
+    }
+    if (new URL(req.url).searchParams.get('check') === 'sheet') {
+      const { data, error } = await access.supabase.from('visit_automation_config').select('spreadsheet_id').eq('id', true).single();
+      if (error) throw error;
+      const headers = await inspectVisitSheet(data.spreadsheet_id);
+      const verifyWrite = new URL(req.url).searchParams.get('write') === '1';
+      if (verifyWrite) await verifyVisitSheetWrite(data.spreadsheet_id);
+      return jsonResponse(req, { sheets_configured: sheetsConfigured(), readable: true, write_verified: verifyWrite, tab: 'VISITAS', columns: headers.length });
+    }
+    if (new URL(req.url).searchParams.get('check') === 'groups') {
+      const instances = await checked(access.supabase.from('evolution_instances').select('id,instance_name').eq('is_active', true));
+      const results = [];
+      for (const instance of instances) {
+        try { results.push({ ...instance, groups: await visitGroups(await visitInstance(access.supabase, instance.id)) }); }
+        catch { results.push({ ...instance, error: 'Não foi possível consultar os grupos' }); }
+      }
+      return jsonResponse(req, { instances: results });
+    }
+    return jsonResponse(req, await runVisitLifecycle(access.supabase));
   }
+  catch (error) { console.error('Visit worker failed:', (error as Error).message); return jsonResponse(req, { error: 'Falha no processamento de visitas' }, 500); }
 });
-
-async function processReminders(supabase: any, dateStr: string, type: 'reminder_24h' | 'reminder_2h') {
-  console.log(`Processando ${type} para data ${dateStr}`);
-
-  // Buscar visitas confirmadas para a data
-  const { data: visitas, error } = await supabase
-    .from('visitas')
-    .select(`
-      id,
-      data_visita,
-      horario_visita,
-      lead:leads!inner (id, nome, telefone),
-      corretor:corretores!inner (id, whatsapp, profiles(first_name)),
-      empreendimento:empreendimentos!inner (nome)
-    `)
-    .eq('data_visita', dateStr)
-    .in('status', ['agendada', 'confirmada']); // Agendadas ou confirmadas
-
-  if (error) {
-    console.error(`Erro ao buscar visitas para ${type}:`, error);
-    return 0;
-  }
-
-  let count = 0;
-
-  for (const visita of visitas) {
-    if (type === 'reminder_2h') {
-      const now = new Date();
-      const [hours, minutes] = visita.horario_visita.split(':');
-      const visitDateTime = new Date(visita.data_visita);
-      visitDateTime.setHours(parseInt(hours), parseInt(minutes), 0);
-      
-      const diffMs = visitDateTime.getTime() - now.getTime();
-      const diffHours = diffMs / (1000 * 60 * 60);
-
-      if (diffHours < 1 || diffHours > 2) continue;
-    }
-
-    // Verificar se já enviamos este lembrete
-    const alreadySent = await checkCommunicationLog(supabase, visita.id, type);
-    if (alreadySent) continue;
-
-    // Enviar para Corretor e Cliente
-    await sendReminderMessages(supabase, visita, type);
-    count++;
-  }
-
-  return count;
-}
-
-async function processPostVisitFeedback(supabase: any) {
-  console.log('Processando feedbacks pós-visita...');
-
-  // Buscar visitas 'agendada' ou 'realizada' que já passaram do horário
-  // Nota: Idealmente o status muda para 'realizada' manualmente, mas vamos pegar pelo horário também
-  // para garantir automação.
-
-  const now = new Date();
-  const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000); // 3h atrás
-
-  // Vamos buscar visitas de hoje e ontem (para cobrir o caso de "dia seguinte 8h")
-  const todayStr = now.toISOString().split('T')[0];
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-  const { data: visitas, error } = await supabase
-    .from('visitas')
-    .select(`
-      id,
-      data_visita,
-      horario_visita,
-      status,
-      lead:leads!inner (id, nome, telefone),
-      corretor:corretores!inner (id, whatsapp, profiles(first_name)),
-      empreendimento:empreendimentos!inner (nome)
-    `)
-    .in('data_visita', [todayStr, yesterdayStr])
-    .neq('status', 'cancelada');
-
-  if (error) return 0;
-
-  let count = 0;
-
-  for (const visita of visitas) {
-    // Construir data/hora da visita
-    // horario_visita é string "HH:MM" ou "HH:MM:SS"
-    const [hours, minutes] = visita.horario_visita.split(':');
-    const visitDateTime = new Date(visita.data_visita);
-    visitDateTime.setHours(parseInt(hours), parseInt(minutes), 0);
-
-    // Calcular tempo decorrido
-    const diffMs = now.getTime() - visitDateTime.getTime();
-    const diffHours = diffMs / (1000 * 60 * 60);
-
-    // Regra: Enviar 3h depois. Se 3h depois for > 19h, enviar 8h do dia seguinte.
-    if (diffHours < 3) continue; // Ainda não passou 3h
-
-    // Verificar horário atual
-    const currentHour = now.getHours();
-
-    // Se a visita foi hoje e 3h depois cai após as 19h, só enviamos se agora for amanhã > 8h
-    // Simplificação: Se agora é > 19h e < 8h, não enviamos (janela de silêncio)
-    if (currentHour >= 19 || currentHour < 8) {
-      continue; // Esperar horário comercial
-    }
-
-    // Verificar se já enviamos
-    const alreadySent = await checkCommunicationLog(supabase, visita.id, 'post_visit_feedback');
-    if (alreadySent) continue;
-
-    // Enviar Feedback
-    await sendFeedbackRequest(supabase, visita);
-    count++;
-  }
-
-  return count;
-}
-
-async function checkCommunicationLog(supabase: any, visitaId: string, type: string) {
-  const { data } = await supabase
-    .from('communication_log')
-    .select('id')
-    .eq('metadata->visita_id', visitaId) // Assumindo que salvamos visita_id no metadata
-    .eq('metadata->type', type)
-    .limit(1);
-
-  return data && data.length > 0;
-}
-
-async function sendReminderMessages(supabase: any, visita: any, type: 'reminder_24h' | 'reminder_2h') {
-  const is2h = type === 'reminder_2h';
-  const timeText = is2h ? "Faltam menos de 2 horas para sua visita!" : "é AMANHÃ";
-
-  // Mensagem para Cliente — Pede confirmação SIM/NÃO
-  const msgClient = `⏰ *LEMBRETE DE VISITA*
-
-Olá ${visita.lead.nome}, ${is2h ? timeText : `sua visita ao *${visita.empreendimento.nome}* ${timeText}.`}
-
-🕒 Horário: ${visita.horario_visita}
-📍 Corretor: ${visita.corretor.profiles.first_name}
-
-⚠️ *Precisamos confirmar sua presença.*
-Responda *SIM* para confirmar ou *NÃO* para cancelar.`;
-
-  // Mensagem para Corretor — Agora também pede confirmação SIM/NÃO
-  const msgCorretor = `⏰ *LEMBRETE DE VISITA*
-
-Corretor(a) ${visita.corretor.profiles.first_name}, ${is2h ? timeText : `sua visita com o cliente *${visita.lead.nome}* ${timeText}.`}
-
-🏢 Empreendimento: ${visita.empreendimento.nome}
-🕒 Horário: ${visita.horario_visita}
-
-⚠️ *Precisamos confirmar sua presença.*
-Responda *SIM* para confirmar ou *NÃO* se não puder comparecer.`;
-
-  // Enviar com contexto de "visit_reminder" para que o webhook saiba rotear as respostas
-  await sendWhatsapp(supabase, visita.lead.telefone, msgClient, visita, type, 'client');
-  await sendWhatsapp(supabase, visita.corretor.whatsapp, msgCorretor, visita, type, 'corretor');
-}
-
-async function sendFeedbackRequest(supabase: any, visita: any) {
-  // Feedback Cliente
-  const msgClient = `👋 Olá ${visita.lead.nome}!
-
-Esperamos que sua visita ao *${visita.empreendimento.nome}* tenha sido ótima.
-
-Poderia nos responder rapidinho?
-1. O que achou do empreendimento? (Gostou?)
-2. De 0 a 10, qual sua nota para o atendimento do corretor ${visita.corretor.profiles.first_name}?
-
-Sua opinião é muito importante pra gente! 💙`;
-
-  // Feedback Corretor
-  const msgCorretor = `👋 Olá ${visita.corretor.profiles.first_name}, como foi a visita com *${visita.lead.nome}*?
-
-Por favor, nos envie um breve feedback (texto ou áudio) sobre:
-- O cliente demonstrou interesse real?
-- Qual a probabilidade de fechamento?
-- Próximos passos agendados?
-
-Isso ajuda a calibrar nossos leads! 🚀`;
-
-  await sendWhatsapp(supabase, visita.lead.telefone, msgClient, visita, 'post_visit_feedback', 'client');
-  await sendWhatsapp(supabase, visita.corretor.whatsapp, msgCorretor, visita, 'post_visit_feedback', 'corretor');
-}
-
-async function sendWhatsapp(supabase: any, phone: string, message: string, visita: any, type: string, target: string) {
-  try {
-    const isReminder = type === 'reminder_24h' || type === 'reminder_2h';
-
-    await supabase.functions.invoke('evolution-send-whatsapp-v2', {
-      body: {
-        phone_number: phone,
-        message: message,
-        metadata: {
-          visita_id: visita.id,
-          lead_id: visita.lead.id,
-          type: type,
-          target: target,
-          context: isReminder ? 'visit_reminder' : 'post_visit_feedback'
-        }
-      }
-    });
-
-    // Log local para o checkCommunicationLog funcionar
-    await supabase.from('communication_log').insert({
-      type: 'whatsapp',
-      direction: 'outbound',
-      phone_number: phone,
-      content: message,
-      status: 'sent',
-      metadata: {
-        visita_id: visita.id,
-        type: type,
-        target: target,
-        context: isReminder ? 'visit_reminder' : 'post_visit_feedback'
-      }
-    });
-
-  } catch (error) {
-    console.error(`Erro ao enviar ${type} para ${target}:`, error);
-  }
-}

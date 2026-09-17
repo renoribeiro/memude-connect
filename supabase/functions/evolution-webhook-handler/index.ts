@@ -4,6 +4,9 @@ import { processIncomingMessage } from '../_shared/distribution-logic.ts';
 import { logIntegration } from '../_shared/integration-logger.ts';
 import { jsonResponse, verifyWebhook } from '../_shared/security.ts';
 import { getEvolutionWebhookSecret } from '../_shared/evolution-webhook.ts';
+import { receiveVisitReply } from '../_shared/visit-lifecycle.ts';
+import { receiveVisitIntake } from '../_shared/visit-intake.ts';
+import { visitMessage, visitReceiptState } from '../_shared/visit-message.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
@@ -26,6 +29,7 @@ function isDuplicate(messageId: string): boolean {
 }
 
 Deno.serve(async (req) => {
+  let incomingMessageId: string | null = null;
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -70,7 +74,9 @@ Deno.serve(async (req) => {
 
     // EVO-02: Extract messageId for deduplication
     const messageId = data?.key?.id || data?.message?.key?.id || null;
-    if (messageId && isDuplicate(messageId)) {
+    const dedupKey = `${webhookData.instance}:${event}:${messageId}:${data?.status ?? data?.update?.status ?? ''}`;
+    incomingMessageId = dedupKey;
+    if (messageId && isDuplicate(dedupKey)) {
       console.log(`⏭️ Duplicate message skipped: ${messageId}`);
       return new Response(
         JSON.stringify({ success: true, skipped: true, reason: 'duplicate' }),
@@ -122,6 +128,11 @@ Deno.serve(async (req) => {
       // =============================================
       const rawRemoteJid = messageData?.key?.remoteJid || data?.key?.remoteJid || '';
       const isLidMessage = rawRemoteJid.includes('@lid');
+      // The top-level sender can identify our bot. Visit replies require the
+      // recipient JID or a verified LID mapping, never that top-level fallback.
+      const visitJid = [messageData?.key?.remoteJidAlt, data?.key?.remoteJidAlt, rawRemoteJid]
+        .find((jid: unknown) => typeof jid === 'string' && /^\d+@s\.whatsapp\.net$/.test(jid));
+      let verifiedVisitPhone = visitJid ? stripJidSuffix(visitJid) : '';
 
       if (isLidMessage && phone) {
         console.log('Resolvendo identificador LID');
@@ -138,6 +149,7 @@ Deno.serve(async (req) => {
         if (lidMapping?.phone) {
           console.log('Identificador LID resolvido');
           phone = lidMapping.phone;
+          verifiedVisitPhone = lidMapping.phone;
         } else {
           // Fallback: tentar pelo phone extraído do sender (pode ser a instância)
           // Verificar se o phone atual NÃO é a instância
@@ -177,9 +189,18 @@ Deno.serve(async (req) => {
         }
       }
 
+      const normalizedVisitMessage = visitMessage(data?.message || data);
+      text = normalizedVisitMessage.text || text;
       const fromMe = messageData?.key?.fromMe || data?.key?.fromMe;
 
+      if (await receiveVisitIntake(supabase, webhookData, text)) {
+        return jsonResponse(req, { success: true, group_handled: true });
+      }
+
       if (phone && text && !fromMe) {
+        if (await receiveVisitReply(supabase, rawRemoteJid.endsWith('@g.us') ? '' : verifiedVisitPhone, text, messageId ? `evolution:${webhookData.instance || ''}:${messageId}` : '', normalizedVisitMessage.quoted)) {
+          return jsonResponse(req, { success: true, visit_workflow: true });
+        }
         console.log('Webhook Evolution: mensagem recebida', {
           has_phone: Boolean(phone),
           text_length: text.length,
@@ -291,6 +312,13 @@ Deno.serve(async (req) => {
         });
       }
     } else if (eventLower === 'messages_update') {
+      const updates = Array.isArray(data) ? data : [data];
+      const { data: visitConfig } = await supabase.from('visit_automation_config').select('instance_id').eq('id', true).single();
+      const { data: visitInstance } = await supabase.from('evolution_instances').select('instance_name').eq('id', visitConfig?.instance_id).maybeSingle();
+      if (visitInstance?.instance_name === webhookData.instance) for (const update of updates) {
+        const state=visitReceiptState(update?.status ?? update?.update?.status);
+        if(state && update?.key?.id) { const {error}=await supabase.rpc('visit_delivery_receipt',{p_provider:update.key.id,p_state:state}); if(error)throw error; }
+      }
       const status = data?.status || data?.update?.status;
       const messageId = data?.key?.id;
       
@@ -410,6 +438,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify(finalRespBody), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
+    if (incomingMessageId) processedMessages.delete(incomingMessageId);
     console.error(
       'Falha no webhook Evolution:',
       error instanceof Error ? error.message : 'erro desconhecido',

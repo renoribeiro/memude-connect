@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+scratch/
+.agent/
+.gemini/
+.claude/
+.git/
+node_modules/
+dist/
+test-results/
+playwright-report/
+supabase/.temp/
+*.log

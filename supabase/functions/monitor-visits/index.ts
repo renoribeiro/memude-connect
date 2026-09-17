@@ -1,12 +1,13 @@
 import { authorize, handleOptions, jsonResponse } from '../_shared/security.ts';
 import { runVisitLifecycle, visitGroups, visitInstance, checked } from '../_shared/visit-lifecycle.ts';
 import { inspectVisitSheet, sheetsConfigured, verifyVisitSheetWrite } from '../_shared/visit-sheets.ts';
-import { visitDashboard } from '../_shared/visit-dashboard.ts';
+import { visitDashboard, visitMatchDashboard } from '../_shared/visit-dashboard.ts';
 
 Deno.serve(async req => {
   const options = handleOptions(req); if (options) return options;
   const access = await authorize(req, 'internal'); if (access instanceof Response) return access;
   try {
+    if(new URL(req.url).searchParams.get('check')==='match'){const result=await visitMatchDashboard(access.supabase);return jsonResponse(req,{match_dashboard_ok:true,count:result.count});}
     if (new URL(req.url).searchParams.get('check') === 'dashboard') {
       const pending = await visitDashboard(access.supabase);
       const all = await visitDashboard(access.supabase, false);

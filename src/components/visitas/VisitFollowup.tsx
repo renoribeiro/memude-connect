@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 
 const confirmation = (v: boolean | null) => v === null ? 'Pendente' : v ? 'Confirmou' : 'Não pode ir';
 const outcomes: Record<string,string> = { pending: 'Agendada', held: 'Realizada', not_held: 'Não realizada', cancelled: 'Cancelada', rescheduled: 'Reagendada', withdrawn: 'Desistência' };
-const eventNames: Record<string,string> = { scheduled: 'Visita agendada', changed: 'Agendamento alterado', missing_broker: 'Corretor não designado', client_confirmed: 'Cliente confirmou', broker_confirmed: 'Corretor confirmou', broker_declined: 'Corretor indisponível', confirmation_overdue: 'Confirmação pendente', attendance_overdue: 'Prazo de resposta excedido', held: 'Visita realizada', not_held: 'Visita não realizada', cancelled: 'Visita cancelada', reason: 'Motivo recebido', rating: 'Avaliação recebida', feedback: 'Feedback registrado', withdrawn: 'Desistência registrada', rescheduled: 'Visita reagendada', prompt_sent: 'Pergunta ou lembrete enviado' };
+const eventNames: Record<string,string> = { match_consulting:'Consulta a corretor',match_accepted:'Corretor aceitou a visita',match_exhausted:'Atribuição pelo Closer pendente',match_declined:'Consulta recusada',match_timeout:'Consulta encerrada por prazo ou falha',match_manual:'Closer indicou corretor',match_unavailable:'Corretor indisponível',post_visit_summary:'Resumo completo enviado', scheduled: 'Visita agendada', changed: 'Agendamento alterado', missing_broker: 'Corretor não designado', client_confirmed: 'Cliente confirmou', broker_confirmed: 'Corretor confirmou', broker_declined: 'Corretor indisponível', confirmation_overdue: 'Confirmação pendente', attendance_overdue: 'Prazo de resposta excedido', held: 'Visita realizada', not_held: 'Visita não realizada', cancelled: 'Visita cancelada', reason: 'Motivo recebido', rating: 'Avaliação recebida', feedback: 'Feedback registrado', withdrawn: 'Desistência registrada', rescheduled: 'Visita reagendada', prompt_sent: 'Pergunta ou lembrete enviado' };
 const deliveryNames: Record<string,string> = { client: 'Cliente', broker: 'Corretor', closer: 'Closer', group: 'Grupo', sheets: 'Planilha', pending: 'Aguardando envio', processing: 'Processando', sent: 'Aceito pelo destino', failed: 'Falhou', obsolete: 'Substituído ou cancelado' };
 
 export function VisitPendingBanner() {
@@ -45,7 +45,7 @@ function CycleActions({ cycle, onClose }: { cycle: VisitCycle; onClose: () => vo
   const [nextStep, setNextStep] = useState(cycle.feedback?.next_step || '');
   const [returnAt, setReturnAt] = useState(cycle.feedback?.return_at || '');
   const [brokerId, setBrokerId] = useState('');
-  const canReplace = cycle.outcome === 'pending' && cycle.broker_confirmed === false;
+  const canReplace = cycle.outcome === 'pending' && cycle.match_status === 'exhausted';
   const brokers = useQuery({ queryKey: ['visit-active-brokers'], queryFn: () => visitLifecycle('brokers'), enabled: canReplace });
   const history = useQuery({ queryKey: ['visit-history', cycle.visita_id], queryFn: () => visitLifecycle('history', { visita_id: cycle.visita_id }) });
   async function act(action: string, data: Record<string,unknown> = {}) {
@@ -54,10 +54,12 @@ function CycleActions({ cycle, onClose }: { cycle: VisitCycle; onClose: () => vo
     catch (error) { toast.error((error as Error).message); } finally { setBusy(false); }
   }
   return <div className="space-y-4">
+    <p>Corretor: {cycle.match_status==='accepted'?'aceitou a visita':cycle.match_status==='exhausted'?'atribuição pelo Closer pendente':'consulta em andamento'}</p>
+    {cycle.feedback?.text && <p>Feedback recebido do corretor: {cycle.feedback.text}</p>}
     <p>Cliente: {confirmation(cycle.client_confirmed)} · Corretor: {confirmation(cycle.broker_confirmed)}</p>
     {cycle.reason && <p>Motivo: {cycle.reason}</p>}
     {cycle.rating !== null && <p>Nota do cliente para o corretor: <strong>{cycle.rating}/10</strong></p>}
-    {canReplace && <fieldset disabled={busy} className="border rounded p-3 space-y-2"><legend>Providenciar cobertura</legend><Label htmlFor="replacement-broker">Novo corretor</Label><select id="replacement-broker" className="w-full border rounded p-2" value={brokerId} onChange={e => setBrokerId(e.target.value)}><option value="">Selecione outro corretor</option>{brokers.data?.brokers.filter((b: any) => b.id !== cycle.visita.corretor_id).map((b: any) => <option key={b.id} value={b.id}>{b.profiles?.first_name} {b.profiles?.last_name}</option>)}</select>{brokers.error && <p role="alert">{brokers.error.message}</p>}<Button disabled={!brokerId} onClick={() => act('replace_broker', { broker_id: brokerId })}>Substituir corretor e solicitar novas confirmações</Button></fieldset>}
+    {canReplace && <fieldset disabled={busy} className="border rounded p-3 space-y-2"><legend>Providenciar cobertura</legend><Label htmlFor="replacement-broker">Novo corretor</Label><select id="replacement-broker" className="w-full border rounded p-2" value={brokerId} onChange={e => setBrokerId(e.target.value)}><option value="">Selecione outro corretor</option>{brokers.data?.brokers.map((b: any) => <option key={b.id} value={b.id}>{b.profiles?.first_name} {b.profiles?.last_name}</option>)}</select>{brokers.error && <p role="alert">{brokers.error.message}</p>}<Button disabled={!brokerId} onClick={() => act('match_manual', { broker_id: brokerId })}>Consultar corretor indicado pelo Closer</Button></fieldset>}
     {cycle.recovery_open && <fieldset disabled={busy} className="space-y-3 border rounded p-3"><legend>Recuperar visita</legend>
       <p className="text-sm">O reagendamento cria uma nova visita vinculada à anterior. O corretor atual será mantido e poderá ser alterado no novo cadastro.</p>
       <Label htmlFor="followup-date">Nova data</Label><Input id="followup-date" type="date" value={date} onChange={e => setDate(e.target.value)} />
@@ -100,7 +102,7 @@ export function VisitFollowup() {
     {query.data?.failures ? <p className="text-destructive">{query.data.failures} envio(s) falharam. Abra o histórico da visita para verificar.</p> : null}
     {query.data?.failed_visits?.map((f,i)=><div className="border rounded p-2" key={f.visita_id+':'+i}><p>{f.destination}: {f.last_error}</p><Button variant="outline" onClick={async()=>{try{const result=await visitLifecycle('cycle',{visita_id:f.visita_id});setSelected(result.cycle);}catch(error){toast.error((error as Error).message);}}}>Abrir visita com falha</Button></div>)}
     {query.data?.cycles.map(c => <div key={c.visita_id} className={`rounded border p-3 flex flex-wrap items-center justify-between gap-3 ${c.recovery_open || c.attendance_overdue ? 'border-red-400 bg-red-50' : ''}`}>
-      <div><p className="font-semibold">{c.visita?.lead?.nome || 'Cliente'} — {outcomes[c.outcome]}</p><p className="text-sm">{new Date(c.scheduled_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p><p className="text-sm">{c.recovery_open ? 'Reagendamento ou desistência pendente' : c.attendance_overdue ? 'Resultado da visita não informado' : c.confirmation_overdue ? 'Confirmar presença com as partes' : c.outcome === 'held' && !c.feedback_at ? 'Feedback do Closer pendente' : 'Acompanhamento registrado'}</p></div>
+      <div><p className="font-semibold">{c.visita?.lead?.nome || 'Cliente'} — {outcomes[c.outcome]}</p><p className="text-sm">{new Date(c.scheduled_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p><p className="text-sm">{c.match_status==='exhausted' ? 'Nenhum corretor aceitou: indicar outro corretor' : c.match_status==='searching' ? 'Match consultando corretores' : c.recovery_open ? 'Reagendamento ou desistência pendente' : c.attendance_overdue ? 'Resultado da visita não informado' : c.confirmation_overdue ? 'Confirmar presença com as partes' : c.outcome === 'held' && !c.broker_feedback_at ? 'Feedback do corretor pendente' : c.outcome==='held' && c.rating===null ? 'Nota do cliente pendente' : 'Acompanhamento registrado'}</p></div>
       <Button onClick={() => setSelected(c)}>Acompanhar</Button>
     </div>)}
     {query.data?.count === 0 && <p>Nenhuma visita nesta lista.</p>}

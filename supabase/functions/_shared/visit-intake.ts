@@ -90,7 +90,7 @@ export async function inspectVisitIntake(db:any,draft:any) {
   ]);
   const brokerRows=brokers.map(r=>({id:r.id,name:[r.profiles?.first_name,r.profiles?.last_name].filter(Boolean).join(' '),phone:intakePhone(r.whatsapp||''),alternatePhone:intakePhone(r.telefone||'')}));
   const propertyRows=properties.map(r=>({id:r.id,name:r.nome,neighborhood:r.bairro?.nome}));
-  const broker=await resolveCandidate(db,'broker',fields.broker_name,fields.broker_phone,brokerRows,draft.choices?.broker,questions,'',draft.id);
+  const broker:any=(fields.broker_name||fields.broker_phone)?await resolveCandidate(db,'broker',fields.broker_name,fields.broker_phone,brokerRows,draft.choices?.broker,questions,'',draft.id):{choices:[]};
   const property=await resolveCandidate(db,'property',fields.property_name,undefined,propertyRows,draft.choices?.property,questions,`${fields.neighborhood||''} ${fields.address||''} ${fields.url||''}`,draft.id);
   if(broker.row){fields.broker_name=broker.row.name;fields.broker_phone=broker.row.phone||broker.row.alternatePhone;}
   if(broker.row&&!/^[1-9]\d{9,14}$/.test(fields.broker_phone||''))questions.push('Corretor: o cadastro precisa de um telefone válido para receber os avisos. Solicite correção ao administrador.');

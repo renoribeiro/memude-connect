@@ -4115,6 +4115,7 @@ export type Database = {
           id: boolean
           instance_id: string | null
           intake_enabled: boolean
+          match_max_attempts: number
           spreadsheet_id: string
           updated_at: string
         }
@@ -4125,6 +4126,7 @@ export type Database = {
           id?: boolean
           instance_id?: string | null
           intake_enabled?: boolean
+          match_max_attempts?: number
           spreadsheet_id?: string
           updated_at?: string
         }
@@ -4135,6 +4137,7 @@ export type Database = {
           id?: boolean
           instance_id?: string | null
           intake_enabled?: boolean
+          match_max_attempts?: number
           spreadsheet_id?: string
           updated_at?: string
         }
@@ -4152,11 +4155,15 @@ export type Database = {
         Row: {
           attendance_overdue: boolean
           broker_confirmed: boolean | null
+          broker_feedback_at: string | null
           client_confirmed: boolean | null
           confirmation_overdue: boolean
           created_at: string
           feedback: Json | null
           feedback_at: string | null
+          match_approved_conflicts: string[]
+          match_round: number
+          match_status: string
           outcome: string
           previous_visita_id: string | null
           rating: number | null
@@ -4164,17 +4171,22 @@ export type Database = {
           recovery_open: boolean
           revision: number
           scheduled_at: string
+          summary_sent_at: string | null
           updated_at: string
           visita_id: string
         }
         Insert: {
           attendance_overdue?: boolean
           broker_confirmed?: boolean | null
+          broker_feedback_at?: string | null
           client_confirmed?: boolean | null
           confirmation_overdue?: boolean
           created_at?: string
           feedback?: Json | null
           feedback_at?: string | null
+          match_approved_conflicts?: string[]
+          match_round?: number
+          match_status?: string
           outcome?: string
           previous_visita_id?: string | null
           rating?: number | null
@@ -4182,17 +4194,22 @@ export type Database = {
           recovery_open?: boolean
           revision?: number
           scheduled_at: string
+          summary_sent_at?: string | null
           updated_at?: string
           visita_id: string
         }
         Update: {
           attendance_overdue?: boolean
           broker_confirmed?: boolean | null
+          broker_feedback_at?: string | null
           client_confirmed?: boolean | null
           confirmation_overdue?: boolean
           created_at?: string
           feedback?: Json | null
           feedback_at?: string | null
+          match_approved_conflicts?: string[]
+          match_round?: number
+          match_status?: string
           outcome?: string
           previous_visita_id?: string | null
           rating?: number | null
@@ -4200,6 +4217,7 @@ export type Database = {
           recovery_open?: boolean
           revision?: number
           scheduled_at?: string
+          summary_sent_at?: string | null
           updated_at?: string
           visita_id?: string
         }
@@ -4607,6 +4625,74 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "visit_intake"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      visit_match_attempts: {
+        Row: {
+          answered_at: string | null
+          corretor_id: string
+          created_at: string
+          id: string
+          prompt_id: string | null
+          ranking: Json
+          revision: number
+          round: number
+          status: string
+          visita_id: string
+        }
+        Insert: {
+          answered_at?: string | null
+          corretor_id: string
+          created_at?: string
+          id?: string
+          prompt_id?: string | null
+          ranking?: Json
+          revision: number
+          round: number
+          status?: string
+          visita_id: string
+        }
+        Update: {
+          answered_at?: string | null
+          corretor_id?: string
+          created_at?: string
+          id?: string
+          prompt_id?: string | null
+          ranking?: Json
+          revision?: number
+          round?: number
+          status?: string
+          visita_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_match_attempts_corretor_id_fkey"
+            columns: ["corretor_id"]
+            isOneToOne: false
+            referencedRelation: "corretores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_match_attempts_corretor_id_fkey"
+            columns: ["corretor_id"]
+            isOneToOne: false
+            referencedRelation: "corretores_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_match_attempts_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: true
+            referencedRelation: "visit_prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_match_attempts_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: false
+            referencedRelation: "visit_cycles"
+            referencedColumns: ["visita_id"]
           },
         ]
       }
@@ -5621,7 +5707,21 @@ export type Database = {
         }
         Returns: boolean
       }
+      visit_lifecycle_reply_before_match: {
+        Args: {
+          p_answer: string
+          p_message: string
+          p_phone: string
+          p_prompt: string
+        }
+        Returns: boolean
+      }
       visit_lifecycle_tick: { Args: never; Returns: undefined }
+      visit_lifecycle_tick_before_match: { Args: never; Returns: undefined }
+      visit_match_manual: {
+        Args: { p_actor: string; p_broker: string; p_visit: string }
+        Returns: undefined
+      }
       write_audit_log: {
         Args: {
           p_action: string

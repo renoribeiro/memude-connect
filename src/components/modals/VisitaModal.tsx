@@ -156,7 +156,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId, isC
       }
     },
     onSuccess: async (responseData) => {
-      const { visita, autoAssign } = responseData;
+      const { visita } = responseData;
 
       queryClient.invalidateQueries({ queryKey: ['visitas'] });
       queryClient.invalidateQueries({ queryKey: ['my-visitas'] });
@@ -172,69 +172,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId, isC
           });
       }
 
-      // If auto-assign is enabled, trigger distribution
-      // Works for both new visits and rescheduled visits (edits with auto_assign)
-      const shouldDistribute = autoAssign && visita.id &&
-        (visita.status === 'agendada' || visita.status === 'reagendada');
-
-      if (shouldDistribute) {
-        console.log('Iniciando distribuição automática da visita');
-
-        toast({
-          title: visitaId ? "Visita reagendada!" : "Visita criada!",
-          description: "Buscando corretor disponível automaticamente...",
-        });
-
-        try {
-          const { data: distributionResult, error: distributionError } = await supabase.functions.invoke(
-            'distribute-visit',
-            {
-              body: { visita_id: visita.id }
-            }
-          );
-
-          if (distributionError) {
-            console.error('Erro na distribuição automática:', distributionError);
-
-            // Mensagens de erro específicas e acionáveis
-            let errorMessage = "Visita salva, mas houve erro na distribuição automática.";
-
-            if (distributionError.message?.includes('cleanPhone') ||
-              distributionError.message?.includes('not defined')) {
-              errorMessage = "Erro técnico no sistema de distribuição. Nossa equipe foi notificada.";
-            } else if (distributionError.message?.includes('telefone') ||
-              distributionError.message?.includes('phone')) {
-              errorMessage = "Corretor sem telefone válido cadastrado. Atribua manualmente.";
-            } else if (distributionError.message?.includes('WhatsApp')) {
-              errorMessage = "Erro ao enviar mensagem WhatsApp. Verifique as configurações da Evolution API.";
-            }
-
-            toast({
-              title: "Aviso",
-              description: errorMessage,
-              variant: "destructive",
-            });
-          } else {
-            console.log('Distribuição iniciada com sucesso');
-            toast({
-              title: "Distribuição iniciada!",
-              description: `Consultando ${distributionResult.total_eligible || 'vários'} corretores disponíveis...`,
-            });
-          }
-        } catch (error) {
-          console.error('Erro ao invocar distribute-visit:', error);
-          toast({
-            title: "Aviso",
-            description: "Visita salva, mas erro ao iniciar distribuição. Atribua manualmente.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({
-          title: "Sucesso",
-          description: visitaId ? "Visita atualizada com sucesso!" : "Visita agendada com sucesso!",
-        });
-      }
+      toast({title: visitaId ? 'Visita atualizada' : 'Solicitação de visita registrada', description: 'O sistema consulta o corretor informado primeiro e depois utiliza o Match. Acompanhe o aceite na página de visitas.'});
 
       onClose();
     },

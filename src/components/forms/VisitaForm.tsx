@@ -236,10 +236,10 @@ export function VisitaForm({
                   htmlFor="auto_assign_corretor" 
                   className="text-sm font-medium cursor-pointer"
                 >
-                  Escolha automática de corretores
+                  Deixar o Match escolher o primeiro corretor
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  O sistema irá distribuir automaticamente esta visita para corretores qualificados usando critérios de construtora, bairro, tipo de imóvel, nota e número de visitas. Quando ativado, o campo de corretor será desabilitado.
+                  O Match prioriza especialidade (tipo e construtora), região e nota; menos visitas desempata. Desmarque para consultar um corretor específico primeiro. Todos os agendamentos exigem aceite do corretor.
                 </p>
               </div>
             </div>

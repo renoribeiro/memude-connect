@@ -66,3 +66,28 @@ test('recovery stays visible after reading and closes only after linked reschedu
   await expect(page.getByText('Nenhuma visita nesta lista.')).toBeVisible();
   expect(calls.find(c => c.action === 'reschedule')).toMatchObject({ visita_id: visitId, data: { date: '2027-01-15', time: '14:00' } });
 });
+
+
+test('Closer starts a new consultation after Match exhaustion', async ({page})=>{
+  const calls:any[]=[];
+  await page.route('https://oxybasvtphosdmlmrfnb.supabase.co/**',async route=>{
+    const url=route.request().url();let data:any=[];
+    if(url.includes('/profiles?'))data={id:userId,user_id:userId,first_name:'Closer',last_name:'Teste'};
+    else if(url.includes('/user_roles?'))data={role:'admin'};
+    else if(url.includes('/auth/v1/user'))data={id:userId,aud:'authenticated'};
+    else if(url.includes('/functions/v1/visit-lifecycle')){
+      const body=route.request().postDataJSON();calls.push(body);
+      if(body.action==='dashboard')data={enabled:true,count:1,failures:0,cycles:[{visita_id:visitId,outcome:'pending',match_status:'exhausted',scheduled_at:'2099-01-01T16:00:00Z',recovery_open:true,rating:null,client_confirmed:null,broker_confirmed:null,visita:{id:visitId,corretor_id:null,lead:{nome:'Cliente Match'}}}]};
+      if(body.action==='history')data={events:[],deliveries:[]};
+      if(body.action==='brokers')data={brokers:[{id:'broker-test',profiles:{first_name:'Corretor',last_name:'Teste'}}]};
+      if(body.action==='intake_list')data={requests:[],count:0,failures:[],enabled:true};
+      if(body.action==='match_manual')data={success:true};
+    }
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
+  });
+  await page.goto('/visitas');await expect(page.getByText('Nenhum corretor aceitou: indicar outro corretor')).toBeVisible();
+  await page.getByRole('button',{name:'Acompanhar',exact:true}).click();
+  await page.getByLabel('Novo corretor',{exact:true}).selectOption('broker-test');
+  await page.getByRole('button',{name:'Consultar corretor indicado pelo Closer'}).click();
+  await expect.poll(()=>calls.find(c=>c.action==='match_manual')).toMatchObject({visita_id:visitId,data:{broker_id:'broker-test'}});
+});

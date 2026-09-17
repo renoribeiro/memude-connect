@@ -14,11 +14,12 @@ export async function visitLifecycle<T = any>(action: string, params: Record<str
 }
 
 export interface VisitCycle {
+  match_status?: 'searching'|'accepted'|'exhausted'|'closed'; match_round?:number; broker_feedback_at?:string|null;
   visita_id: string; outcome: string; scheduled_at: string;
   recovery_open: boolean; attendance_overdue: boolean; confirmation_overdue: boolean;
   client_confirmed: boolean | null; broker_confirmed: boolean | null;
   reason: string | null; rating: number | null; feedback_at: string | null;
-  feedback: { interest: boolean; objections: string; next_step: string; return_at: string } | null;
+  feedback: { text?:string; interest: boolean; objections: string; next_step: string; return_at: string } | null;
   visita: { id: string; data_visita: string; horario_visita: string; corretor_id: string | null; lead: { nome: string }; broker: { profiles: { first_name: string; last_name: string } } | null };
 }
 

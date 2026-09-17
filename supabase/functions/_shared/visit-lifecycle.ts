@@ -92,6 +92,7 @@ export async function runVisitLifecycle(db: any, channel = 'whatsapp') {
   let sent = 0;
   for (const item of items) {
     let transportStarted=false;
+    let assignment=false;
     try {
       const currentConfig = await visitConfig(db);
       if (!currentConfig.enabled) {
@@ -109,14 +110,20 @@ export async function runVisitLifecycle(db: any, channel = 'whatsapp') {
         const prompts = await checked(db.from('visit_prompts').select('kind,audience,revision,sent_at').eq('visita_id', v.id));
         await syncVisitSheet(currentConfig.spreadsheet_id, snapshot, prompts);
       } else {
-        const context = `📅 Visita ${v.id.slice(0, 8)}\nCliente: ${v.lead?.nome || 'Cliente'}\nImóvel: ${v.property?.nome || 'A definir'}\nData: ${v.data_visita.split('-').reverse().join('/')} às ${v.horario_visita}\nLocal: ${v.meeting_address || v.property?.endereco || 'A confirmar'}\nCorretor: ${v.broker?.profiles?.first_name || 'A designar'}`;
+        let context = `📅 Visita ${v.id.slice(0, 8)}\nCliente: ${v.lead?.nome || 'Cliente'}\nImóvel: ${v.property?.nome || 'A definir'}\nData: ${v.data_visita.split('-').reverse().join('/')} às ${v.horario_visita}\nLocal: ${v.meeting_address || v.property?.endereco || 'A confirmar'}\nCorretor: ${v.broker?.profiles?.first_name || 'A designar'}`;
         let text: string;
         let buttons: any[] | undefined;
         let phone: string;
         if (item.prompt_id) {
           const p = await checked(db.from('visit_prompts').select('*').eq('id', item.prompt_id).single());
-          const invalidOutcome = ['eve','h2','attendance'].includes(p.kind) ? c.outcome !== 'pending' : p.kind === 'rating' ? c.outcome !== 'held' : !c.recovery_open;
-          if (p.answered_at || new Date(p.expires_at).getTime() <= Date.now() || v.deleted_at || invalidOutcome || (p.audience === 'broker' && c.broker_confirmed === false && ['eve','h2'].includes(p.kind))) {
+          assignment=p.kind==='assignment';
+          if(assignment){
+            const attempt=await checked(db.from('visit_match_attempts').select('status,broker:corretores(profiles(first_name,last_name))').eq('prompt_id',p.id).single());
+            if(attempt.status!=='pending'){await checked(db.rpc('visit_lifecycle_finish',{p_id:item.id,p_lease:item.lease_token,p_status:'obsolete'}));continue;}
+            context=context.replace(/Corretor:.*$/,`Corretor consultado: ${[attempt.broker?.profiles?.first_name,attempt.broker?.profiles?.last_name].filter(Boolean).join(' ')}`);
+          }
+          const invalidOutcome = p.kind==='assignment' ? c.outcome!=='pending'||c.match_status!=='searching' : p.kind==='feedback' ? c.outcome!=='held'||!!c.broker_feedback_at : ['eve','h2','attendance'].includes(p.kind) ? c.outcome !== 'pending' : p.kind === 'rating' ? c.outcome !== 'held' : !c.recovery_open;
+          if (p.answered_at || new Date(p.expires_at).getTime() <= Date.now() || v.deleted_at || invalidOutcome || (p.audience === 'broker' && c.match_status !== 'accepted' && ['eve','h2','attendance'].includes(p.kind))) {
             await checked(db.rpc('visit_lifecycle_finish', { p_id: item.id, p_lease: item.lease_token, p_status: 'obsolete' }));
             continue;
           }
@@ -128,11 +135,20 @@ export async function runVisitLifecycle(db: any, channel = 'whatsapp') {
             await checked(db.rpc('visit_lifecycle_finish', { p_id: item.id, p_lease: item.lease_token, p_status: 'obsolete' }));
             continue;
           }
+          if(event.payload.broker_id){
+            const named=await checked(db.from('corretores').select('profiles(first_name,last_name)').eq('id',event.payload.broker_id).single());
+            context=context.replace(/Corretor:.*$/,`Corretor: ${[named.profiles?.first_name,named.profiles?.last_name].filter(Boolean).join(' ')}`);
+          }
+          if(['scheduled','changed'].includes(event.kind)&&c.match_status!=='accepted')context=context.replace(/Corretor:.*$/, 'Corretor: aguardando aceite');
           const label = event.kind === 'prompt_sent' ? `Pergunta/lembrete enviado: ${visitEventLabels[event.payload.kind] || event.payload.kind}` : visitEventLabels[event.kind] || event.kind;
           text = `${item.urgent ? '🚨' : '📋'} *${label}*\n${context}\nEvento: ${new Date(event.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`;
           if (['closer','group'].includes(item.destination)) text += `\nSituação atual: ${({ pending: 'agendada', held: 'realizada', not_held: 'não realizada', cancelled: 'cancelada', rescheduled: 'reagendada', withdrawn: 'desistência' } as Record<string,string>)[c.outcome]}`;
           if (event.payload.audience) text += `\nDestinatário: ${event.payload.audience === 'client' ? 'cliente' : 'corretor'}`;
           if (event.kind === 'reason') text += `\nMotivo: ${event.payload.reason}`;
+          if(event.kind==='scheduled'&&item.destination==='client')text=`📅 Recebemos seu agendamento! Estamos consultando um corretor para atender você. Avisaremos assim que ele aceitar.\n${context}`;
+          if(event.kind==='match_accepted')text+=`\nWhatsApp do corretor: ${v.broker?.whatsapp||v.broker?.telefone||'Consulte o Closer'}`;
+          if(event.kind==='post_visit_summary')text+=`\nNota do cliente: ${event.payload.rating}/10\nFeedback: ${event.payload.feedback?.text||v.feedback_corretor||''}`;
+          if(event.payload.attempt)text+=`\nTentativa: ${event.payload.attempt}`;
           if (event.kind === 'rating') text += `\nNota: ${event.payload.rating}/10`;
           if (event.kind === 'feedback') text += `\n${v.feedback_corretor || ''}`;
           text += '\nAcompanhe em https://core.memudecore.com.br/visitas';
@@ -162,6 +178,7 @@ export async function runVisitLifecycle(db: any, channel = 'whatsapp') {
       sent++;
     } catch (error) {
       if(transportStarted && deliveryUncertain(error)) await checked(db.from('visit_outbox').update({status:'failed',delivery_state:'unknown',leased_until:null,last_error:'Entrega incerta: confira o WhatsApp antes de reenviar. '+(error as Error).message}).eq('id',item.id).eq('lease_token',item.lease_token).in('delivery_state',['queued','accepted','unknown']));
+      else if(assignment&&transportStarted)await checked(db.from('visit_outbox').update({status:'failed',delivery_state:'failed',leased_until:null,last_error:(error as Error).message}).eq('id',item.id).eq('lease_token',item.lease_token).in('delivery_state',['queued','accepted']));
       else await checked(db.rpc('visit_lifecycle_finish', { p_id: item.id, p_lease: item.lease_token, p_status: 'failed', p_error: (error as Error).message }));
     }
   }

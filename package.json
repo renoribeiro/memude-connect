@@ -10,7 +10,7 @@
     "lint": "eslint . --max-warnings 0",
     "preview": "vite preview",
     "test": "vitest run --exclude src/e2e/routes.test.ts",
-    "test:visits:db": "node scripts/test-visit-lifecycle.mjs && node scripts/test-visit-intake.mjs && node scripts/test-visit-quality.mjs",
+    "test:visits:db": "node scripts/test-visit-lifecycle.mjs && node scripts/test-visit-intake.mjs && node scripts/test-visit-quality.mjs && node scripts/test-visit-match.mjs",
     "test:build": "npm run build && vitest run src/e2e/routes.test.ts",
     "test:e2e": "npm run build && playwright test e2e/smoke.spec.ts e2e/visit-followup.spec.ts",
     "test:e2e:authenticated": "node scripts/require-e2e-credentials.mjs && npm run build && playwright test e2e/authenticated.spec.ts",

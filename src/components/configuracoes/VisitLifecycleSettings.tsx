@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 
-interface Config { enabled: boolean; intake_enabled: boolean; closer_phone: string; group_jid: string; instance_id: string; updated_at: string }
+interface Config { match_max_attempts: number; enabled: boolean; intake_enabled: boolean; closer_phone: string; group_jid: string; instance_id: string; updated_at: string }
 interface SettingsData { config: Config; instances: { id: string; instance_name: string }[]; sheets_configured: boolean }
 
 function SettingsForm({ data }: { data: SettingsData }) {
@@ -23,6 +23,7 @@ function SettingsForm({ data }: { data: SettingsData }) {
   }
   return <div className="space-y-4">
     <p className="text-sm text-muted-foreground">Lembretes na véspera e 2h antes. Pergunta ao corretor 1h após o horário agendado; alerta após 2h sem resposta. Mensagens regulares das 7h às 20h (Brasília); urgências a qualquer hora.</p>
+    <div><Label htmlFor="visit-match-max">Máximo de corretores consultados por rodada</Label><Input id="visit-match-max" type="number" min={1} max={20} value={config.match_max_attempts ?? 5} onChange={e=>setConfig({...config,match_max_attempts:Number(e.target.value)})}/><p className="text-sm text-muted-foreground">15 minutos para cada aceite. Aviso inicial e consultas saem a qualquer hora. Ao esgotar, o Closer recebe uma pendência para indicar outro corretor.</p></div>
     <div><Label htmlFor="visit-closer">WhatsApp do Closer</Label><Input id="visit-closer" value={config.closer_phone} onChange={e => setConfig({ ...config, closer_phone: e.target.value })} placeholder="55 + DDD + número" /></div>
     <div><Label htmlFor="visit-instance">Instância WhatsApp</Label><select id="visit-instance" className="w-full border rounded-md p-2 bg-background" value={config.instance_id || ''} onChange={e => setConfig({ ...config, instance_id: e.target.value, group_jid: '' })}><option value="">Selecione</option>{data.instances.map(i => <option key={i.id} value={i.id}>{i.instance_name}</option>)}</select></div>
     <div><Label htmlFor="visit-group">Grupo da empresa</Label><select id="visit-group" className="w-full border rounded-md p-2 bg-background" value={config.group_jid} disabled={!config.instance_id || groups.isFetching} onChange={e => setConfig({ ...config, group_jid: e.target.value })}><option value="">Selecione</option>{groups.data?.groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select>{groups.error && <p role="alert" className="text-destructive text-sm">{groups.error.message}</p>}</div>

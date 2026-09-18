@@ -59,7 +59,7 @@ Deno.serve(async req => {
         const offset = Math.max(0, Number(body.offset) || 0);
         return jsonResponse(req, { ...await visitDashboard(db, body.pending_only !== false, offset), enabled: config.enabled });
       }
-      case 'cycle': return jsonResponse(req,{cycle:await checked(db.from('visit_cycles').select('*,visita:visitas!visit_cycles_visita_id_fkey(id,data_visita,horario_visita,corretor_id,lead:leads(nome),broker:corretores(profiles(first_name,last_name)))').eq('visita_id',body.visita_id).maybeSingle())});
+      case 'cycle': return jsonResponse(req,{cycle:await checked(db.from('visit_cycles').select('*,visita:visitas!visit_cycles_visita_id_fkey(id,visit_code,data_visita,horario_visita,corretor_id,lead:leads(nome),broker:corretores(profiles(first_name,last_name)))').eq('visita_id',body.visita_id).maybeSingle())});
       case 'match_list': {
         const offset=Math.max(0,Math.floor(Number(body.offset)||0));
         return jsonResponse(req,await visitMatchDashboard(db,offset));

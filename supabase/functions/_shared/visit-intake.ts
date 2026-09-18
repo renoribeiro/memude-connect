@@ -4,7 +4,7 @@ import { extractIntakeAI, rankIntakeAI } from './visit-intake-ai.ts';
 import { visitMessage, deliveryUncertain } from './visit-message.ts';
 
 export async function receiveVisitIntake(db:any,event:any,text:string) {
-  const normalized=visitMessage(event.data?.message||event.data);
+  const normalized=visitMessage(event.data);
   text=normalized.text||text;
   const key=event.data?.key || event.data?.message?.key || {};
   const remote=key.remoteJid||'';
@@ -59,14 +59,17 @@ async function catalog(db:any,table:string,select:string,filters:(q:any)=>any) {
   for(let offset=0;offset<10000;offset+=500){const part=await checked(filters(db.from(table).select(select)).order('id').range(offset,offset+499));rows.push(...part);if(part.length<500)return rows;}
   throw new Error('Catálogo muito grande; revisão da busca paginada necessária');
 }
-async function resolveCandidate(db:any,kind:string,value:string|undefined,phone:string|undefined,rows:any[],oldChoices:any[],questions:string[],context='',traceId?:string) {
+export async function resolveCandidate(db:any,kind:string,value:string|undefined,phone:string|undefined,rows:any[],oldChoices:any[],questions:string[],context='',traceId?:string) {
   const label=kind==='broker'?'Corretor':'Empreendimento';
   const choice=value?.match(/^op[cç][aã]o\s+(\d+)$/i);
   if(choice){const selected=oldChoices?.[Number(choice[1])-1];const row=rows.find(r=>r.id===selected?.id);if(row)return {row,choices:[]};questions.push(`${label}: a opção não está mais disponível.`);return {choices:[]};}
   const exact=rows.filter(r=>norm(r.name)===norm(value||''));
   const byPhone=phone?rows.filter(r=>r.phone===phone||r.alternatePhone===phone):[];
   if(kind==='broker'&&phone){
-    if(byPhone.length===1&&(!value||norm(byPhone[0].name)===norm(value)||norm(byPhone[0].name).split(' ').includes(norm(value))))return {row:byPhone[0],choices:[]};
+    const compatible=rows.filter(r=>r.phone===phone||r.alternatePhone===phone||legacyPhoneCandidate(r.phone||'',phone)||legacyPhoneCandidate(r.alternatePhone||'',phone));
+    // Accept only a unique full-name match corroborated by the Brazilian ninth-digit variant.
+    if(exact.length===1&&compatible.length===1&&compatible[0].id===exact[0].id)return {row:exact[0],choices:[]};
+    if(compatible.length===1&&byPhone.length===1&&(!value||norm(byPhone[0].name)===norm(value)||norm(byPhone[0].name).split(' ').includes(norm(value))))return {row:byPhone[0],choices:[]};
     if(byPhone.length!==1||value&&byPhone.length===1)questions.push('Corretor e telefone: não há correspondência única e consistente. Selecione uma opção abaixo ou corrija os campos.');
   }else if(exact.length===1)return {row:exact[0],choices:[]};
   const nearPhone=phone?rows.filter(r=>legacyPhoneCandidate(r.phone||'',phone)||legacyPhoneCandidate(r.alternatePhone||'',phone)):[];

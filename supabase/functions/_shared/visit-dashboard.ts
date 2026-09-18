@@ -1,6 +1,6 @@
 // Explicit FK distinguishes this visit from the previous visit in a reschedule.
 export async function visitDashboard(db: any, pendingOnly = true, offset = 0) {
-  let query = db.from('visit_cycles').select('*,visita:visitas!visit_cycles_visita_id_fkey(id,data_visita,horario_visita,corretor_id,lead:leads(nome),broker:corretores(profiles(first_name,last_name)))', { count: 'exact' });
+  let query = db.from('visit_cycles').select('*,visita:visitas!visit_cycles_visita_id_fkey(id,visit_code,data_visita,horario_visita,corretor_id,lead:leads(nome),broker:corretores(profiles(first_name,last_name)))', { count: 'exact' });
   if (pendingOnly) query = query.or('recovery_open.eq.true,attendance_overdue.eq.true,confirmation_overdue.eq.true,and(outcome.eq.held,or(broker_feedback_at.is.null,rating.is.null))');
   const { data, error, count } = await query.order('scheduled_at').range(offset, offset + 19);
   if (error) throw error;

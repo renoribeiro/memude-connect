@@ -20,7 +20,7 @@ export interface VisitCycle {
   client_confirmed: boolean | null; broker_confirmed: boolean | null;
   reason: string | null; rating: number | null; feedback_at: string | null;
   feedback: { text?:string; interest: boolean; objections: string; next_step: string; return_at: string } | null;
-  visita: { id: string; data_visita: string; horario_visita: string; corretor_id: string | null; lead: { nome: string }; broker: { profiles: { first_name: string; last_name: string } } | null };
+  visita: { id: string; visit_code?: string; data_visita: string; horario_visita: string; corretor_id: string | null; lead: { nome: string }; broker: { profiles: { first_name: string; last_name: string } } | null };
 }
 
 export interface VisitDashboardData { cycles: VisitCycle[]; count: number; failures: number; enabled: boolean; intake_pending?: number; intake_failures?:number; intake_stalled?:number; health?:Array<{name:string;last_completed:string}>; failed_visits?:Array<{visita_id:string;destination:string;last_error:string;delivery_state:string}> }

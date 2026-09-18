@@ -35,6 +35,7 @@ import {
 
 interface Visita {
   id: string;
+  visit_code?: string;
   lead_id: string;
   data_visita: string;
   horario_visita: string;
@@ -331,6 +332,7 @@ export default function Visitas() {
                         <div className="flex-1 space-y-1">
                           <div className="flex items-center gap-3">
                             <h3 className="font-semibold">{visita.leads?.nome || "Lead Desconhecido"}</h3>
+                            <p className="text-sm text-muted-foreground">{visita.visit_code}</p>
                             <Badge variant={statusVariants[visita.status as keyof typeof statusVariants] || 'default'}>
                               {statusLabels[visita.status as keyof typeof statusLabels] || visita.status}
                             </Badge>

@@ -50,7 +50,7 @@ export function similarity(a:string,b:string) {
 }
 export function intakeCommand(text:string) {
   if(/^\s*\*?AGENDAR VISITA\*?\s*(?:\r?\n|$)/i.test(text)) return {action:'create',protocol:null,revision:null};
-  const m=text.match(/^\s*(RESOLVER|LIBERAR|CANCELAR)\s+AG-([A-F0-9]{12})\s+V(\d+)(?:\s|$)/i);
+  const m=text.match(/^\s*(RESOLVER|LIBERAR|CANCELAR)\s+AG-(\d{8}-V[1-9]\d*)\s+R([1-9]\d*)(?:\s|$)/i) || text.match(/^\s*(RESOLVER|LIBERAR|CANCELAR)\s+AG-([A-F0-9]{12})\s+V(\d+)(?:\s|$)/i);
   return m?{action:({RESOLVER:'correct',LIBERAR:'approve',CANCELAR:'cancel'} as Record<string,string>)[m[1].toUpperCase()],protocol:m[2].toUpperCase(),revision:Number(m[3])}:null;
 }
 export function candidateSimilarity(name:string,input:string) {
@@ -58,6 +58,7 @@ export function candidateSimilarity(name:string,input:string) {
   return terms.length&&terms.every(t=>words.includes(t))?0.9:similarity(name,input);
 }
 export function legacyPhoneCandidate(stored:string,input:string) {
-  // A possible old Brazilian mobile number is a suggestion, never an automatic identity match.
-  return stored.startsWith('55')&&input.startsWith('55')&&stored.slice(0,4)===input.slice(0,4)&&Math.abs(stored.length-input.length)===1&&stored.slice(-8)===input.slice(-8);
+  // Only the ninth digit immediately after DDD may differ. Identity also requires a unique full name.
+  const [long,short]=stored.length>input.length?[stored,input]:[input,stored];
+  return /^55[1-9][1-9]9[6-9]\d{7}$/.test(long)&&/^55[1-9][1-9][6-9]\d{7}$/.test(short)&&long.slice(0,4)+long.slice(5)===short;
 }

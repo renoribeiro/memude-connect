@@ -50,7 +50,7 @@ export function sheetVisitRow(snapshot: any): Record<string, string | number | b
     perfil_cliente: v.customer_profile || '',
     Corretor: [v.broker?.profiles?.first_name, v.broker?.profiles?.last_name].filter(Boolean).join(' '),
     Feedback: v.feedback_corretor || '', Status: c.outcome === 'pending' ? (c.match_status==='accepted'?'Visita Agendada':'Aguardando corretor') : ({ held: 'Realizada', not_held: 'Não realizada', cancelled: 'Cancelada', rescheduled: 'Reagendada', withdrawn: 'Desistência' } as Record<string,string>)[c.outcome],
-    id_visita: v.id, match_status: c.match_status || '', match_round: c.match_round || 1, telefone_corretor_e164: visitPhone(v.broker?.whatsapp || v.broker?.telefone || ''),
+    id_visita: v.id, codigo_visita: v.visit_code || '', match_status: c.match_status || '', match_round: c.match_round || 1, telefone_corretor_e164: visitPhone(v.broker?.whatsapp || v.broker?.telefone || ''),
     confirmacao_lead: c.client_confirmed === null ? 'Pendente' : c.client_confirmed ? 'Sim' : 'Não',
     confirmacao_corretor: c.broker_confirmed === null ? 'Pendente' : c.broker_confirmed ? 'Sim' : 'Não',
     nota_corretor_0_10: c.rating ?? '', motivo_nao_realizacao: c.reason || '',

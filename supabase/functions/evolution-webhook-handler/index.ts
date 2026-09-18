@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      const normalizedVisitMessage = visitMessage(data?.message || data);
+      const normalizedVisitMessage = visitMessage(data);
       text = normalizedVisitMessage.text || text;
       const fromMe = messageData?.key?.fromMe || data?.key?.fromMe;
 

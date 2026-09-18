@@ -4461,6 +4461,7 @@ export type Database = {
           leased_until: string | null
           original_message: string
           protocol: string
+          protocol_aliases: string[]
           resolution_note: string | null
           revision: number
           status: string
@@ -4486,6 +4487,7 @@ export type Database = {
           leased_until?: string | null
           original_message: string
           protocol?: string
+          protocol_aliases?: string[]
           resolution_note?: string | null
           revision?: number
           status?: string
@@ -4511,6 +4513,7 @@ export type Database = {
           leased_until?: string | null
           original_message?: string
           protocol?: string
+          protocol_aliases?: string[]
           resolution_note?: string | null
           revision?: number
           status?: string
@@ -4868,6 +4871,7 @@ export type Database = {
           meeting_neighborhood: string | null
           status: string | null
           updated_at: string | null
+          visit_code: string
         }
         Insert: {
           avaliacao_lead?: number | null
@@ -4893,6 +4897,7 @@ export type Database = {
           meeting_neighborhood?: string | null
           status?: string | null
           updated_at?: string | null
+          visit_code?: string
         }
         Update: {
           avaliacao_lead?: number | null
@@ -4918,6 +4923,7 @@ export type Database = {
           meeting_neighborhood?: string | null
           status?: string | null
           updated_at?: string | null
+          visit_code?: string
         }
         Relationships: [
           {
@@ -5564,6 +5570,7 @@ export type Database = {
           leased_until: string | null
           original_message: string
           protocol: string
+          protocol_aliases: string[]
           resolution_note: string | null
           revision: number
           status: string

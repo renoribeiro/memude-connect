@@ -15,7 +15,7 @@ export async function visitConfig(db: any) {
 
 export async function visitSnapshot(db: any, id: string) {
   const [visit, cycle] = await Promise.all([
-    checked(db.from('visitas').select('id,lead_id,corretor_id,status,data_visita,horario_visita,deleted_at,feedback_corretor,meeting_address,meeting_neighborhood,customer_profile,lead:leads(nome,telefone,origem),broker:corretores(whatsapp,telefone,profiles(first_name,last_name)),property:empreendimentos(nome,endereco,bairro:bairros(nome))').eq('id', id).single()),
+    checked(db.from('visitas').select('id,visit_code,lead_id,corretor_id,status,data_visita,horario_visita,deleted_at,feedback_corretor,meeting_address,meeting_neighborhood,customer_profile,lead:leads(nome,telefone,origem),broker:corretores(whatsapp,telefone,profiles(first_name,last_name)),property:empreendimentos(nome,endereco,bairro:bairros(nome))').eq('id', id).single()),
     checked(db.from('visit_cycles').select('*').eq('visita_id', id).single()),
   ]);
   return { visit, cycle };
@@ -110,7 +110,7 @@ export async function runVisitLifecycle(db: any, channel = 'whatsapp') {
         const prompts = await checked(db.from('visit_prompts').select('kind,audience,revision,sent_at').eq('visita_id', v.id));
         await syncVisitSheet(currentConfig.spreadsheet_id, snapshot, prompts);
       } else {
-        let context = `📅 Visita ${v.id.slice(0, 8)}\nCliente: ${v.lead?.nome || 'Cliente'}\nImóvel: ${v.property?.nome || 'A definir'}\nData: ${v.data_visita.split('-').reverse().join('/')} às ${v.horario_visita}\nLocal: ${v.meeting_address || v.property?.endereco || 'A confirmar'}\nCorretor: ${v.broker?.profiles?.first_name || 'A designar'}`;
+        let context = `📅 Visita ${v.visit_code}\nCliente: ${v.lead?.nome || 'Cliente'}\nImóvel: ${v.property?.nome || 'A definir'}\nData: ${v.data_visita.split('-').reverse().join('/')} às ${v.horario_visita}\nLocal: ${v.meeting_address || v.property?.endereco || 'A confirmar'}\nCorretor: ${v.broker?.profiles?.first_name || 'A designar'}`;
         let text: string;
         let buttons: any[] | undefined;
         let phone: string;

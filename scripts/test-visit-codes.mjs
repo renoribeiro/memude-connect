@@ -1,0 +1,61 @@
+import { PGlite } from '@electric-sql/pglite';
+import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const db=new PGlite();
+await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS; CREATE SCHEMA private;
+CREATE TABLE evolution_instances(id uuid PRIMARY KEY);
+CREATE TABLE user_roles(user_id uuid,role text);
+CREATE TABLE leads(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),nome text,telefone text,origem text,observacoes text,status text,empreendimento_id uuid,deleted_at timestamptz);
+CREATE TABLE corretores(id uuid PRIMARY KEY,whatsapp text,status text,deleted_at timestamptz);
+CREATE TABLE empreendimentos(id uuid PRIMARY KEY,ativo boolean);
+CREATE TABLE visitas(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),lead_id uuid REFERENCES leads(id),corretor_id uuid REFERENCES corretores(id),empreendimento_id uuid,data_visita date,horario_visita time,status text,deleted_at timestamptz,lead_confirmou boolean,corretor_confirmou boolean,interesse boolean,feedback_corretor text);
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;`);
+for(const name of ['20260916004310_visit_lifecycle.sql','20260916223850_whatsapp_visit_intake.sql','20260916224736_visit_intake_active_conflicts.sql'])await db.exec(await readFile(new URL('../supabase/migrations/'+name,import.meta.url),'utf8'));
+const q=async(s,a=[])=> (await db.query(s,a)).rows;const one=async(s,a=[])=> (await q(s,a))[0];
+const instance='10000000-0000-4000-8000-000000000001',broker='20000000-0000-4000-8000-000000000001',property='30000000-0000-4000-8000-000000000001';
+await q('insert into evolution_instances values($1)',[instance]);await q("insert into corretores values($1,'5585999990002','ativo',null)",[broker]);await q('insert into empreendimentos values($1,true)',[property]);
+await q("update visit_automation_config set enabled=true,intake_enabled=true,instance_id=$1,group_jid='123@g.us',closer_phone='5585999990003'",[instance]);
+
+await db.exec('ALTER TABLE corretores ADD COLUMN telefone text');
+for(const name of ['20260917163809_visit_workflow_quality.sql','20260917163812_visit_delivery_quality.sql'])await db.exec(await readFile(new URL('../supabase/migrations/'+name,import.meta.url),'utf8'));
+
+await db.exec(`ALTER TABLE corretores ADD COLUMN tipo_imovel text,ADD COLUMN nota_media numeric;
+ALTER TABLE empreendimentos ADD COLUMN tipo_imovel text,ADD COLUMN construtora_id uuid,ADD COLUMN bairro_id uuid;
+ALTER TABLE visitas ADD COLUMN avaliacao_lead integer;
+CREATE TABLE bairros(id uuid PRIMARY KEY,nome text,cidade text,estado text);
+CREATE TABLE corretor_bairros(corretor_id uuid,bairro_id uuid);
+CREATE TABLE corretor_construtoras(corretor_id uuid,construtora_id uuid);`);
+await db.exec(await readFile(new URL('../supabase/migrations/20260917215110_visit_match_unified.sql',import.meta.url),'utf8'));
+
+await db.exec(await readFile(new URL('../supabase/migrations/20260917225657_visit_codes_and_intake_replies.sql',import.meta.url),'utf8'));
+
+let count=0;const pass=s=>{count++;console.log('PASS '+s);};
+const createIntake=async(key,day='18/09/2099')=>(await one("select visit_intake_receive($1,'123@g.us',$2,'author@lid','','AGENDAR VISITA'||chr(10)||'Data: '||$3) id",[key,instance,day])).id;
+const id=await createIntake('first');
+let request=await one('select * from visit_intake where id=$1',[id]);
+assert.equal(request.protocol,'18092099-V1');pass('request receives the visit date and first daily sequence');
+assert.equal((await one("select body from visit_intake_outbox where intake_id=$1 limit 1",[id])).body.startsWith('Pedido recebido: AG-18092099-V1 R1'),true);pass('receipt distinguishes visit number V1 from revision R1');
+const second=await createIntake('second');assert.equal((await one('select protocol from visit_intake where id=$1',[second])).protocol,'18092099-V2');pass('second request increments daily sequence');
+assert.equal(await createIntake('first'),id);pass('redelivery reserves no new code');
+const lead=(await one("insert into leads(nome,telefone,status) values('Teste Código','5585987654321','novo') returning id")).id;
+const manual=(await one("insert into visitas(lead_id,data_visita,horario_visita,status) values($1,'2099-09-18','12:00','agendada') returning *",[lead]));
+assert.equal(manual.visit_code,'AG-18092099-V3');pass('manual visit and WhatsApp share the daily counter');
+let draft=(await q('select * from visit_intake_claim()')).find(r=>r.id===id);
+const fields={client_name:'Teste Código',client_phone:'5585987654321',date:'2099-09-18',time:'16:00',address:'Stand'};
+assert.equal((await one("select visit_intake_finish($1,$2,$3,'{}','',null,$4) result",[id,draft.lease_token,JSON.stringify(fields),property])).result,'created');
+request=await one('select * from visit_intake where id=$1',[id]);assert.equal((await one('select visit_code from visitas where id=$1',[request.visita_id])).visit_code,'AG-'+request.protocol);pass('created visit inherits the reserved request code');
+const next=await createIntake('next-day','19/09/2099');assert.equal((await one('select protocol from visit_intake where id=$1',[next])).protocol,'19092099-V1');pass('next appointment date starts at V1');
+await q("update visit_intake set fields='{\"date\":\"2099-09-20\"}',status='needs_input' where id=$1",[next]);
+const revised=await one('select * from visit_intake where id=$1',[next]);assert.equal(revised.protocol,'20092099-V1');assert.ok(revised.protocol_aliases.includes('19092099-V1'));pass('correcting an uncreated appointment date preserves its old reference');
+assert.equal((await one("select visit_intake_receive('outsider','123@g.us',$1,'other@lid','','Corretor: opção 1',$2,1,'correct') id",[instance,revised.protocol])).id,null);pass('unrelated participant cannot resolve someone else request');
+assert.equal((await one("select visit_intake_receive('alias','123@g.us',$1,'author@lid','','Corretor: opção 1','19092099-V1',1,'correct') id",[instance])).id,next);pass('author can reply using the previous code alias');
+assert.equal((await one("select visit_intake_receive('stale','123@g.us',$1,'author@lid','','Corretor: opção 1',$2,1,'correct') id",[instance,revised.protocol])).id,null);pass('stale revision is rejected even for valid aliases');
+await q("update visitas set visit_code='AG-01012000-V999' where id=$1",[manual.id]);assert.equal((await one('select visit_code from visitas where id=$1',[manual.id])).visit_code,manual.visit_code);pass('code cannot be changed after visit creation');
+await q('update visit_automation_config set enabled=false');
+const batch=await Promise.all(Array.from({length:10},()=>one("insert into visitas(lead_id,data_visita,horario_visita,status) values($1,'2099-10-22','10:00','agendada') returning visit_code",[lead])));
+assert.equal(new Set(batch.map(v=>v.visit_code)).size,10);pass('batch scheduling cannot duplicate codes');
+await db.exec('SET ROLE authenticated');await assert.rejects(()=>q("select private.allocate_visit_code('2099-10-22')"),/permission denied/);await assert.rejects(()=>q('select * from private.visit_code_registry'),/permission denied/);await db.exec('RESET ROLE');pass('counter and reservations are inaccessible to clients');
+assert.equal((await one("select private.intake_code_day('{}','AGENDAR VISITA'||chr(10)||'Data: 31/02/2099') as result_day")).result_day,null);pass('invalid dates do not create impossible date codes');
+console.log(count+' visit code scenarios passed');await db.close();
+
+

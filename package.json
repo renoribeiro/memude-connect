@@ -19,8 +19,9 @@
     "audit:ui": "node scripts/audit-production-ui.mjs",
     "audit:distribution": "node scripts/audit-edge-distribution.mjs",
     "scan:secrets": "node scripts/scan-secrets.mjs",
-    "check": "npm run typecheck && npm run lint && npm run scan:secrets && npm run audit:ui && npm run audit:distribution && npm test && npm run test:crm:db && npm run test:build && npm run audit:security",
+    "check": "npm run typecheck && npm run lint && npm run scan:secrets && npm run audit:ui && npm run audit:distribution && npm test && npm run test:crm:db && npm run test:sales:db && npm run test:build && npm run audit:security",
     "test:crm:db": "node scripts/test-crm-sales.mjs",
+    "test:sales:db": "node scripts/test-sale-deletion.mjs",
     "test:e2e:crm": "npm run build && playwright test e2e/crm-sales.spec.ts"
   },
   "dependencies": {

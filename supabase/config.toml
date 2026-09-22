@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.finance-export]
 verify_jwt = false
+
+[functions.delete-sale]
+verify_jwt = false

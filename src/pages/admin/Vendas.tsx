@@ -1,11 +1,23 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
     Select,
     SelectContent,
@@ -29,9 +41,12 @@ import {
     Clock,
     CheckCircle2,
     AlertCircle,
+    Loader2,
+    Trash2,
 } from 'lucide-react';
 import VendaModal from '@/components/modals/VendaModal';
 import { formatCurrency } from '@/utils/formatters';
+import { toast } from 'sonner';
 
 interface Venda {
     id: string;
@@ -67,10 +82,13 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
 };
 
 const Vendas = () => {
+    const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedVendaId, setSelectedVendaId] = useState<string | null>(null);
+    const [vendaToDelete, setVendaToDelete] = useState<Venda | null>(null);
+    const [deleteFromFinance, setDeleteFromFinance] = useState(false);
 
     const { data: vendas = [], isLoading } = useQuery({
         queryKey: ['vendas', searchTerm, filterStatus],
@@ -125,6 +143,42 @@ const Vendas = () => {
     const handleCloseModal = () => {
         setModalOpen(false);
         setSelectedVendaId(null);
+    };
+
+    const deleteMutation = useMutation({
+        mutationFn: async () => {
+            if (!vendaToDelete) throw new Error('Venda não selecionada');
+            const { data, error } = await supabase.functions.invoke('delete-sale', {
+                body: {
+                    vendaId: vendaToDelete.id,
+                    deleteFromFinance,
+                },
+            });
+            if (error) throw error;
+            return data as { finance: 'not_requested' | 'deleted' | 'pending' };
+        },
+        onSuccess: async (result) => {
+            await queryClient.invalidateQueries({ queryKey: ['vendas'] });
+            setVendaToDelete(null);
+            setDeleteFromFinance(false);
+
+            if (result.finance === 'deleted') {
+                toast.success('Venda excluída do Core e do Finanças.');
+            } else if (result.finance === 'pending') {
+                toast.info('Venda excluída do Core. A exclusão no Finanças ficou na fila automática.');
+            } else {
+                toast.success('Venda excluída do Core.');
+            }
+        },
+        onError: (error: Error) => {
+            toast.error(error.message || 'Não foi possível excluir a venda.');
+        },
+    });
+
+    const openDeleteDialog = (event: React.MouseEvent, venda: Venda) => {
+        event.stopPropagation();
+        setDeleteFromFinance(false);
+        setVendaToDelete(venda);
     };
 
     return (
@@ -238,6 +292,7 @@ const Vendas = () => {
                                         <TableHead className="text-right">Valor MeMude</TableHead>
                                         <TableHead>Data Pgto</TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead className="w-16 text-right">Ações</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -280,6 +335,18 @@ const Vendas = () => {
                                                     {statusConfig[venda.status]?.label || venda.status}
                                                 </Badge>
                                             </TableCell>
+                                            <TableCell className="text-right">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                    aria-label={`Excluir venda de ${venda.leads?.nome || 'cliente'}`}
+                                                    onClick={(event) => openDeleteDialog(event, venda)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -294,6 +361,66 @@ const Vendas = () => {
                 onClose={handleCloseModal}
                 vendaId={selectedVendaId}
             />
+
+            <AlertDialog
+                open={Boolean(vendaToDelete)}
+                onOpenChange={(open) => {
+                    if (!open && !deleteMutation.isPending) {
+                        setVendaToDelete(null);
+                        setDeleteFromFinance(false);
+                    }
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir esta venda?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            A venda de <strong>{vendaToDelete?.leads?.nome || 'cliente não identificado'}</strong>, no valor de{' '}
+                            <strong>{formatCurrency(Number(vendaToDelete?.valor_imovel || 0))}</strong>, será removida permanentemente do Core.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <div className="rounded-lg border border-border bg-muted/40 p-4">
+                        <div className="flex items-start gap-3">
+                            <Checkbox
+                                id="delete-from-finance"
+                                checked={deleteFromFinance}
+                                onCheckedChange={(checked) => setDeleteFromFinance(checked === true)}
+                                disabled={deleteMutation.isPending}
+                            />
+                            <div className="space-y-1">
+                                <Label htmlFor="delete-from-finance" className="cursor-pointer font-medium">
+                                    Excluir também o espelho desta venda no Finanças
+                                </Label>
+                                <p className="text-sm text-muted-foreground">
+                                    Contas a Receber independentes serão preservadas. Se houver qualquer movimento financeiro vinculado à venda, o Finanças bloqueará a exclusão automaticamente.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700"
+                            disabled={deleteMutation.isPending}
+                            onClick={(event) => {
+                                event.preventDefault();
+                                deleteMutation.mutate();
+                            }}
+                        >
+                            {deleteMutation.isPending ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Excluindo...
+                                </>
+                            ) : (
+                                'Excluir venda'
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </DashboardLayout>
     );
 };

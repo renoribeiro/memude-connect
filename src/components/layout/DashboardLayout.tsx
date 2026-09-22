@@ -38,6 +38,7 @@ import { Link, useLocation } from 'react-router-dom';
 import Logo from '@/components/ui/logo';
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
 import ThemeToggle from '@/components/layout/ThemeToggle';
+import { VisitPendingBanner } from '@/components/visitas/VisitFollowup';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -238,6 +239,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {/* Main content */}
         <main className="flex-1 overflow-hidden">
           <div className="h-full overflow-y-auto p-6">
+            <VisitPendingBanner />
             {children}
           </div>
         </main>

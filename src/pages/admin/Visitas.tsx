@@ -15,6 +15,8 @@ import { VisitaActions } from "@/components/actions/VisitaActions";
 import { VisitaDetails } from "@/components/modals/VisitaDetails";
 import VisitasCalendar from "@/components/calendar/VisitasCalendar";
 import { DistributionDashboard } from "@/components/automation/DistributionDashboard";
+import { VisitFollowup } from '@/components/visitas/VisitFollowup';
+import { VisitIntake } from '@/components/visitas/VisitIntake';
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,6 +35,7 @@ import {
 
 interface Visita {
   id: string;
+  visit_code?: string;
   lead_id: string;
   data_visita: string;
   horario_visita: string;
@@ -157,6 +160,8 @@ export default function Visitas() {
 
   return (
     <DashboardLayout>
+      <VisitFollowup />
+      <VisitIntake />
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -324,6 +329,7 @@ export default function Visitas() {
                         <div className="flex-1 space-y-1">
                           <div className="flex items-center gap-3">
                             <h3 className="font-semibold">{visita.leads?.nome || "Lead Desconhecido"}</h3>
+                            <p className="text-sm text-muted-foreground">{visita.visit_code}</p>
                             <Badge variant={statusVariants[visita.status as keyof typeof statusVariants] || 'default'}>
                               {statusLabels[visita.status as keyof typeof statusLabels] || visita.status}
                             </Badge>

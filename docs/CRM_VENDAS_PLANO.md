@@ -27,3 +27,16 @@ O CRM administrativo usa crm_leads como oportunidades, inclusive com empreendime
 - Um cartão de setembro deixa o quadro ativo em outubro e permanece consultável; reordenar não renova a conclusão.
 - VGV reflete todas as oportunidades, incluindo mais de 500 registros, valores nulos e centavos.
 - Trabalho local preexistente permanece fora do commit desta entrega.
+
+## Revisão e evidências
+
+- Base de integração: origin/main aa2409f. A produção também continha telas de visitas do commit local 423d5b8; seus componentes frontend foram preservados em commit separado para não removê-los durante o deploy. As alterações não commitadas de templates permaneceram no workspace original.
+- Migrações aplicadas no projeto oxybasvtphosdmlmrfnb: 20260922224552_crm_sales_completion e 20260922225959_crm_sales_role_check. Os nomes locais correspondem às versões registradas pelo Supabase.
+- A função legada public.has_role é SECURITY INVOKER e referencia um schema privado sem USAGE para authenticated. As novas RPCs consultam a própria linha de user_roles, protegida por RLS, sem expandir permissões e sem utilizar profiles.role. Configuração validada em transação como authenticated/admin no banco real, seguida de ROLLBACK.
+- 19 cenários PostgreSQL local aprovados, incluindo rollback após falha no movimento, idempotência, autorização, mudança de coluna, cancelamento, exclusão e corte mensal no horário de São Paulo.
+- 53 testes unitários e 28 verificações de rotas aprovados. Typecheck, lint, varredura de segredos, auditorias de interface/distribuição, build e auditoria de dependências aprovados.
+- Testes Playwright com API controlada: venda preenche e fixa cliente, salva e move cartão, falha conserva formulário, configuração persiste ID, consulta arquivados e totalização de 501 oportunidades. Smoke tests de login/roteamento aprovados. Nenhuma venda de teste criada em produção.
+- Revisão visual do CRM aprovada. Corrigido reset dos seletores durante carregamento assíncrono de empreendimento/corretor; cancelamento do modal bloqueado enquanto salva.
+- RLS preservada nas tabelas envolvidas, novas RPCs SECURITY INVOKER sem execução anônima. Cron ativo e execuções succeeded verificadas. Advisors mantêm avisos preexistentes (visibilidade de schema GraphQL, funções legadas e proteção de senhas), sem novos achados associados a esta implementação.
+
+Limites de validação: as gravações comerciais foram testadas em banco local e via interface com API controlada; produção foi verificada por schema, permissões, transação de configuração revertida e execução do cron. Não foi efetuada uma venda real para teste, pois ela aciona integrações financeiras.

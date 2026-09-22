@@ -26,19 +26,10 @@ const visitaSchema = z.object({
   avaliacao_lead: z.number().min(0).max(5).optional(),
   comentarios_lead: z.string().optional(),
   feedback_corretor: z.string().optional(),
+  meeting_address: z.string().max(1500).optional(),
+  meeting_neighborhood: z.string().max(300).optional(),
+  customer_profile: z.string().max(1500).optional(),
   auto_assign_corretor: z.boolean().optional(),
-}).refine((data) => {
-  // Quando status é 'realizada', os campos de avaliação são obrigatórios
-  if (data.status === 'realizada') {
-    return data.avaliacao_lead !== undefined && 
-           data.avaliacao_lead > 0 &&
-           data.comentarios_lead !== undefined && 
-           data.comentarios_lead.trim().length > 0;
-  }
-  return true;
-}, {
-  message: "Quando a visita está realizada, avaliação e comentários são obrigatórios",
-  path: ["avaliacao_lead"],
 });
 
 export type VisitaFormData = z.infer<typeof visitaSchema>;
@@ -106,6 +97,9 @@ export function VisitaForm({
         avaliacao_lead: initialData.avaliacao_lead || 0,
         comentarios_lead: initialData.comentarios_lead || '',
         feedback_corretor: initialData.feedback_corretor || '',
+        meeting_address: initialData.meeting_address || '',
+        meeting_neighborhood: initialData.meeting_neighborhood || '',
+        customer_profile: initialData.customer_profile || '',
       };
       
       reset(formData);
@@ -242,10 +236,10 @@ export function VisitaForm({
                   htmlFor="auto_assign_corretor" 
                   className="text-sm font-medium cursor-pointer"
                 >
-                  Escolha automática de corretores
+                  Deixar o Match escolher o primeiro corretor
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  O sistema irá distribuir automaticamente esta visita para corretores qualificados usando critérios de construtora, bairro, tipo de imóvel, nota e número de visitas. Quando ativado, o campo de corretor será desabilitado.
+                  O Match prioriza especialidade (tipo e construtora), região e nota; menos visitas desempata. Desmarque para consultar um corretor específico primeiro. Todos os agendamentos exigem aceite do corretor.
                 </p>
               </div>
             </div>
@@ -286,7 +280,7 @@ export function VisitaForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="agendada">Agendada</SelectItem>
-              <SelectItem value="confirmada">Confirmada</SelectItem>
+              <SelectItem value="confirmada" disabled>Confirmada automaticamente pelas duas partes</SelectItem>
               <SelectItem value="realizada">Realizada</SelectItem>
               <SelectItem value="cancelada">Cancelada</SelectItem>
               <SelectItem value="reagendada">Reagendada</SelectItem>
@@ -354,11 +348,13 @@ export function VisitaForm({
         </div>
       </div>
 
-      {/* Avaliação do Lead - só aparece se status for realizada */}
+      <div className="space-y-2"><Label htmlFor="meeting-address">Local de encontro</Label><Input id="meeting-address" {...register('meeting_address')} placeholder="Endereço do stand ou encontro"/><Label htmlFor="meeting-neighborhood">Bairro do encontro</Label><Input id="meeting-neighborhood" {...register('meeting_neighborhood')}/><Label htmlFor="customer-profile">Perfil informado para a visita</Label><Textarea id="customer-profile" {...register('customer_profile')}/></div>
+      {/* Historical rating is separate from the customer's 0–10 survey. */}
       {status === 'realizada' && (
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Avaliação do Lead</Label>
+            <Label>Avaliação anterior (opcional, escala de 1 a 5)</Label>
+            <p className="text-sm text-muted-foreground">A nova pesquisa de atendimento usa nota de 0 a 10 e aparece no acompanhamento da visita.</p>
             <div className="flex items-center gap-2">
               <div className="flex gap-1">
                 {renderStars()}
@@ -379,9 +375,10 @@ export function VisitaForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="feedback_corretor">Feedback do Corretor</Label>
+            <Label htmlFor="feedback_corretor">Feedback registrado — edite no acompanhamento do Closer</Label>
             <Textarea
               {...register('feedback_corretor')}
+              readOnly
               placeholder="Seu feedback sobre a visita..."
               className="min-h-[80px]"
             />

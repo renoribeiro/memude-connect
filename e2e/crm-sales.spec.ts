@@ -54,23 +54,31 @@ test('VENDIDO preenche a venda, preserva cliente e atualiza cartão e VGV', asyn
   const calls = await mockCrm(page);
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/crm');
-  await page.getByRole('button', { name: 'VENDIDO', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'VENDIDO', exact: true })).toHaveCount(0);
+  await page.getByRole('heading', { name: 'Cliente CRM Teste', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Cliente CRM Teste', exact: true }).screenshot({ path: 'test-results/crm-lead-modal.png' });
+  await page.getByRole('dialog', { name: 'Cliente CRM Teste', exact: true }).getByRole('button', { name: 'VENDIDO', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Confirmar venda do lead' })).toBeVisible();
   await expect(page.getByLabel('Cliente *')).toBeDisabled();
   await expect(page.getByLabel('Valor do Imóvel (R$) *')).toHaveValue('1000.25');
   await page.getByLabel('Valor do Imóvel (R$) *').fill('450000.75');
   await page.getByRole('button', { name: 'Registrar Venda', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Ver venda', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Confirmar venda do lead' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Ver venda', exact: true })).toHaveCount(0);
   await expect(page.getByText('VGV R$ 450.000,75', { exact: true })).toBeVisible();
   expect(calls.filter(c => c.name === 'complete_crm_sale')).toHaveLength(1);
   expect(calls[0].body.p_sale.lead_id).toBe(leadId);
   expect(errors).toEqual([]);
   await page.screenshot({ path: 'test-results/crm-sales.png', fullPage: true });
+  await page.getByRole('heading', { name: 'Cliente CRM Teste', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Cliente CRM Teste', exact: true }).getByRole('button', { name: 'Ver venda', exact: true })).toBeVisible();
 });
 
 test('falha da venda mantém formulário e cartão sem venda', async ({ page }) => {
   await mockCrm(page, { failSale: true }); await page.goto('/crm');
-  await page.getByRole('button', { name: 'VENDIDO', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'VENDIDO', exact: true })).toHaveCount(0);
+  await page.getByRole('heading', { name: 'Cliente CRM Teste', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Cliente CRM Teste', exact: true }).getByRole('button', { name: 'VENDIDO', exact: true }).click();
   await page.getByRole('button', { name: 'Registrar Venda', exact: true }).click();
   await expect(page.getByText('Venda não registrada: teste de falha', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Confirmar venda do lead' })).toBeVisible();
@@ -93,5 +101,6 @@ test('configuração envia destino por ID e arquivados não oferecem nova venda'
 test('VGV inclui oportunidades além do antigo limite de 500', async ({ page }) => {
   await mockCrm(page, { count: 501 }); await page.goto('/crm');
   await expect(page.getByText('VGV R$ 501.125,25', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'VENDIDO', exact: true })).toHaveCount(501);
+  await expect(page.getByRole('heading', { name: 'Cliente CRM Teste', exact: true })).toHaveCount(501);
+  await expect(page.getByRole('button', { name: 'VENDIDO', exact: true })).toHaveCount(0);
 });

@@ -11,11 +11,10 @@ interface KanbanColumnProps {
     leads: CrmLead[];
     onCardClick?: (crmLead: CrmLead) => void;
     onRemoveLead?: (crmLeadId: string) => void;
-    onSold?: (crmLead: CrmLead) => void;
     isCompleted?: boolean;
 }
 
-export default function KanbanColumn({ stage, leads, onCardClick, onRemoveLead, onSold, isCompleted }: KanbanColumnProps) {
+export default function KanbanColumn({ stage, leads, onCardClick, onRemoveLead, isCompleted }: KanbanColumnProps) {
     const { setNodeRef, isOver } = useDroppable({
         id: stage.id,
         data: { type: 'column', stage },
@@ -57,7 +56,6 @@ export default function KanbanColumn({ stage, leads, onCardClick, onRemoveLead, 
                                     crmLead={crmLead}
                                     onClick={() => onCardClick?.(crmLead)}
                                     onRemove={onRemoveLead ? () => onRemoveLead(crmLead.id) : undefined}
-                                    onSold={onSold && (!crmLead.archived_at || crmLead.venda_id) ? () => onSold(crmLead) : undefined}
                                 />
                             ))}
                             {leads.length === 0 && (

@@ -20,10 +20,9 @@ interface KanbanCardProps {
     crmLead: CrmLead;
     onClick?: () => void;
     onRemove?: () => void;
-    onSold?: () => void;
 }
 
-export default function KanbanCard({ crmLead, onClick, onRemove, onSold }: KanbanCardProps) {
+export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: crmLead.id,
         data: { type: 'card', crmLead },
@@ -43,7 +42,17 @@ export default function KanbanCard({ crmLead, onClick, onRemove, onSold }: Kanba
     });
 
     return (
-        <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners}
+            aria-disabled={false}
+            onKeyDown={(event) => {
+                if (event.target !== event.currentTarget) return;
+                if (event.key === 'Enter' || (event.key === ' ' && (crmLead.archived_at || crmLead.venda_id))) {
+                    event.preventDefault();
+                    onClick?.();
+                    return;
+                }
+                listeners?.onKeyDown?.(event);
+            }}>
             <Card
                 className="p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow bg-card border border-border group"
                 onClick={onClick}
@@ -129,14 +138,6 @@ export default function KanbanCard({ crmLead, onClick, onRemove, onSold }: Kanba
                             </Badge>
                         )}
                     </div>
-                    {onSold && (
-                        <Button size="sm" variant={crmLead.venda_id ? 'outline' : 'default'}
-                            className="w-full" onPointerDown={e => e.stopPropagation()}
-                            onKeyDown={e => e.stopPropagation()}
-                            onClick={e => { e.stopPropagation(); onSold(); }}>
-                            {crmLead.venda_id ? 'Ver venda' : 'VENDIDO'}
-                        </Button>
-                    )}
                 </div>
             </Card>
         </div>

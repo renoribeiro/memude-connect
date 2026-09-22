@@ -285,7 +285,10 @@ export default function CRM() {
                             if (!archived) moveLeadToStage.mutate({ crmLeadId, newStageId, newPosition });
                         }}
                         onCardClick={(crmLead) => {
-                            if (archived) return;
+                            if (archived) {
+                                if (isAdmin && crmLead.venda_id) setSaleLead(crmLead);
+                                return;
+                            }
                             setDetailLead(crmLead);
                             setShowDetail(true);
                         }}
@@ -293,15 +296,6 @@ export default function CRM() {
                             removeLeadFromPipeline.mutate(crmLeadId);
                         } : undefined}
                         completedStageId={currentPipeline?.completed_stage_id}
-                        onSold={isAdmin ? (lead) => {
-                            if (lead.venda_id) { setSaleLead(lead); return; }
-                            if (archived) return;
-                            if (!currentPipeline?.completed_stage_id) {
-                                toast({ title: 'Configure a coluna de vendas concluídas', description: 'Selecione a coluna em Configurar Funil.', variant: 'destructive' });
-                                setShowSettings(true); return;
-                            }
-                            setSaleLead(lead);
-                        } : undefined}
                         onConfigureClick={() => setShowSettings(true)}
                     />
                 )}
@@ -393,6 +387,16 @@ export default function CRM() {
                     <CrmLeadDetailPanel
                         open={showDetail}
                         onOpenChange={setShowDetail}
+                        onSold={isAdmin ? (lead) => {
+                            setShowDetail(false);
+                            if (lead.venda_id) { setSaleLead(lead); return; }
+                            if (archived) return;
+                            if (!currentPipeline?.completed_stage_id) {
+                                toast({ title: 'Configure a coluna de vendas concluídas', description: 'Selecione a coluna em Configurar Funil.', variant: 'destructive' });
+                                setShowSettings(true); return;
+                            }
+                            setSaleLead(lead);
+                        } : undefined}
                         crmLead={detailLead}
                         currentStage={currentDetailStage}
                         pipelineId={activePipelineId}

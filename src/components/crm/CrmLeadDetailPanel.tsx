@@ -27,6 +27,7 @@ interface CrmLeadDetailPanelProps {
     crmLead: CrmLead | null;
     currentStage: CrmStage | null;
     pipelineId: string;
+    onSold?: (crmLead: CrmLead) => void;
 }
 
 const statusLabels: Record<string, string> = {
@@ -56,6 +57,7 @@ export default function CrmLeadDetailPanel({
     crmLead,
     currentStage,
     pipelineId,
+    onSold,
 }: CrmLeadDetailPanelProps) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
@@ -145,6 +147,16 @@ export default function CrmLeadDetailPanel({
                         </Badge>
                     </DialogDescription>
                 </DialogHeader>
+
+                {onSold && !crmLead.archived_at && (
+                    <div className="flex justify-end">
+                        <Button type="button" variant="outline" size="sm" disabled={isSaving}
+                            onClick={() => onSold(crmLead)}>
+                            <DollarSign className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                            {crmLead.venda_id ? 'Ver venda' : 'VENDIDO'}
+                        </Button>
+                    </div>
+                )}
 
                 <div className="space-y-5 mt-2">
                     {/* Contact Info */}

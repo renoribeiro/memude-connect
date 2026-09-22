@@ -204,8 +204,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       <div className="flex h-[calc(100vh-4rem)]">
         {/* Sidebar (Desktop) */}
-        <nav className="hidden md:flex w-64 bg-muted/50 border-r border-border">
-          <div className="flex h-full flex-col">
+        <nav className="hidden md:flex w-64 shrink-0 bg-muted/50 border-r border-border">
+          <div className="flex h-full w-full min-w-0 flex-col">
             <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
               <div className="flex flex-1 flex-col space-y-1 px-3">
                 {navItems.map((item) => {
@@ -237,7 +237,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </nav>
 
         {/* Main content */}
-        <main className="flex-1 overflow-hidden">
+        <main className="min-w-0 flex-1 overflow-hidden">
           <div className="h-full overflow-y-auto p-6">
             <VisitPendingBanner />
             {children}

@@ -10,6 +10,7 @@ export interface CrmPipeline {
     descricao: string | null;
     is_default: boolean;
     auto_add_visits: boolean;
+    completed_stage_id: string | null;
     created_at: string;
 }
 
@@ -31,6 +32,10 @@ export interface CrmLead {
     valor_estimado: number | null;
     empreendimento_id: string | null;
     visita_id: string | null;
+    venda_id: string | null;
+    completed_at: string | null;
+    archived_at: string | null;
+    vendas: { valor_imovel: number; status: string } | null;
     notas: string | null;
     google_drive_url: string | null;
     tag: string | null;
@@ -88,40 +93,7 @@ export interface CreateLeadOpportunityInput {
     notas?: string;
 }
 
-interface SavePipelineConfigurationInput {
-    id: string;
-    nome: string;
-    descricao: string;
-    auto_add_visits: boolean;
-    stages: Array<{
-        id?: string;
-        pipeline_id: string;
-        nome: string;
-        cor: string;
-        posicao: number;
-        is_final?: boolean;
-    }>;
-}
-
-interface PipelineConfigurationRpc {
-    rpc: (
-        name: 'save_crm_pipeline_configuration',
-        args: {
-            p_pipeline_id: string;
-            p_nome: string;
-            p_descricao: string;
-            p_auto_add_visits: boolean;
-            p_stages: Array<{
-                id?: string;
-                nome: string;
-                cor: string;
-                is_final: boolean;
-            }>;
-        },
-    ) => Promise<{ error: { message: string } | null }>;
-}
-
-export function useCrmPipeline(pipelineId?: string) {
+export function useCrmPipeline(pipelineId?: string, archived = false) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
@@ -130,7 +102,7 @@ export function useCrmPipeline(pipelineId?: string) {
         queryFn: async ({ signal }) => {
             const { data, error } = await db
                 .from('crm_pipelines')
-                .select('id, nome, descricao, is_default, auto_add_visits, created_at')
+                .select('id, nome, descricao, is_default, auto_add_visits, completed_stage_id, created_at')
                 .order('is_default', { ascending: false })
                 .order('created_at', { ascending: true })
                 .limit(100)
@@ -158,31 +130,41 @@ export function useCrmPipeline(pipelineId?: string) {
     });
 
     const crmLeads = useQuery({
-        queryKey: ['crm-leads', pipelineId],
+        queryKey: ['crm-leads', pipelineId, archived],
         queryFn: async ({ signal }) => {
             if (!pipelineId) return [];
-            const { data, error } = await db
-                .from('crm_leads')
-                .select(`
-          id, lead_id, pipeline_id, stage_id, posicao, valor_estimado,
-          empreendimento_id, visita_id,
-          notas, google_drive_url, tag, tag_cor, moved_at, created_at,
-          empreendimentos(id, nome),
-          leads (
-            id, nome, telefone, email, status, origem, observacoes,
-            empreendimento_id, corretor_designado_id,
-            empreendimentos(nome),
-            corretores(profiles(first_name, last_name))
-          )
-        `)
-                .eq('pipeline_id', pipelineId)
-                .order('posicao', { ascending: true })
-                .limit(500)
-                .abortSignal(signal);
-            if (error) throw error;
-            return data as CrmLead[];
+            const all: CrmLead[] = [];
+            for (let offset = 0; ; offset += 500) {
+                let query = db
+                    .from('crm_leads')
+                    .select(`
+              id, lead_id, pipeline_id, stage_id, posicao, valor_estimado,
+              empreendimento_id, visita_id,
+              notas, google_drive_url, tag, tag_cor, moved_at, created_at,
+              empreendimentos(id, nome),
+              venda_id, completed_at, archived_at,
+              vendas!crm_leads_venda_id_fkey(valor_imovel, status),
+              leads (
+                id, nome, telefone, email, status, origem, observacoes,
+                empreendimento_id, corretor_designado_id,
+                empreendimentos(nome),
+                corretores(profiles(first_name, last_name))
+              )
+            `)
+                    .eq('pipeline_id', pipelineId)
+                    .order('posicao', { ascending: true })
+                    .order('id', { ascending: true })
+                    .range(offset, offset + 499);
+                query = archived ? query.not('archived_at', 'is', null) : query.is('archived_at', null);
+                const { data, error } = await query.abortSignal(signal);
+                if (error) throw error;
+                all.push(...(data as CrmLead[]));
+                if (data.length < 500) break;
+            }
+            return all;
         },
         enabled: !!pipelineId,
+        refetchInterval: 30_000,
     });
 
     const automations = useQuery({
@@ -365,29 +347,17 @@ export function useCrmPipeline(pipelineId?: string) {
         },
     });
 
-    const savePipelineConfiguration = useMutation({
-        mutationFn: async (data: SavePipelineConfigurationInput) => {
-            if (!pipelineId || data.id !== pipelineId) {
-                throw new Error('Pipeline não selecionado');
-            }
-            if (data.stages.length === 0) {
-                throw new Error('O pipeline deve ter pelo menos uma etapa');
-            }
-
-            // O RPC é adicionado pela migração desta alteração. O cast local
-            // evita editar manualmente o arquivo de tipos gerado pelo Supabase.
-            const rpcClient = db as unknown as PipelineConfigurationRpc;
-            const { error } = await rpcClient.rpc('save_crm_pipeline_configuration', {
-                p_pipeline_id: data.id,
-                p_nome: data.nome,
-                p_descricao: data.descricao,
-                p_auto_add_visits: data.auto_add_visits,
-                p_stages: data.stages.map((stage) => ({
-                    ...(stage.id ? { id: stage.id } : {}),
-                    nome: stage.nome,
-                    cor: stage.cor,
-                    is_final: stage.is_final ?? false,
-                })),
+    const savePipelineSettings = useMutation({
+        mutationFn: async (settings: {
+            nome: string; descricao: string; auto_add_visits: boolean;
+            completed_stage_id: string | null;
+            stages: Array<{ id: string; pipeline_id: string; nome: string; cor: string; posicao: number; is_final?: boolean }>;
+        }) => {
+            if (!pipelineId) throw new Error('Pipeline não selecionado');
+            const { error } = await db.rpc('save_crm_pipeline_settings', {
+                p_pipeline_id: pipelineId, p_nome: settings.nome, p_descricao: settings.descricao,
+                p_auto_add_visits: settings.auto_add_visits, p_stages: settings.stages,
+                p_completed_stage_id: settings.completed_stage_id,
             });
             if (error) throw error;
         },
@@ -395,15 +365,9 @@ export function useCrmPipeline(pipelineId?: string) {
             queryClient.invalidateQueries({ queryKey: ['crm-pipelines'] });
             queryClient.invalidateQueries({ queryKey: ['crm-stages', pipelineId] });
             queryClient.invalidateQueries({ queryKey: ['crm-leads', pipelineId] });
-            toast({ title: 'Pipeline atualizado com sucesso' });
+            toast({ title: 'Funil atualizado' });
         },
-        onError: (error: Error) => {
-            toast({
-                title: 'Erro ao salvar pipeline',
-                description: error.message,
-                variant: 'destructive',
-            });
-        },
+        onError: (error: Error) => toast({ title: 'Erro ao salvar funil', description: error.message, variant: 'destructive' }),
     });
 
     const createAutomation = useMutation({
@@ -485,7 +449,7 @@ export function useCrmPipeline(pipelineId?: string) {
         removeLeadFromPipeline,
         createPipeline,
         deletePipeline,
-        savePipelineConfiguration,
+        savePipelineSettings,
         createAutomation,
         toggleAutomation,
         deleteAutomation,

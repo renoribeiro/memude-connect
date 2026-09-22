@@ -35,6 +35,7 @@ import {
     normalizeComprovantePath,
 } from '@/lib/comprovantes';
 import type { Database } from '@/integrations/supabase/types';
+import type { CrmLead } from '@/hooks/useCrmPipeline';
 
 type VendaStatus = NonNullable<Database['public']['Tables']['vendas']['Row']['status']>;
 
@@ -42,11 +43,12 @@ interface VendaModalProps {
     isOpen: boolean;
     onClose: () => void;
     vendaId: string | null;
+    crmLead?: CrmLead;
 }
 
 
 
-const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
+const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
     const { profile } = useAuth();
     const { toast } = useToast();
     const queryClient = useQueryClient();
@@ -69,6 +71,15 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
     const [isUploading, setIsUploading] = useState(false);
     const originalComprovantesRef = useRef<string[]>([]);
     const sessionUploadsRef = useRef<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (isOpen && crmLead && !vendaId) {
+            setLeadId(crmLead.lead_id);
+            setEmpreendimentoId(crmLead.empreendimento_id ?? crmLead.leads?.empreendimento_id ?? '');
+            setCorretorId(crmLead.leads?.corretor_designado_id ?? '');
+            setValorImovel(crmLead.valor_estimado == null ? '' : String(crmLead.valor_estimado));
+        }
+    }, [isOpen, crmLead, vendaId]);
 
     // Fetch system settings for defaults
     const { data: settings } = useQuery({
@@ -226,14 +237,14 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
 
     // Auto-fill empreendimento and corretor from lead
     useEffect(() => {
-        if (leadId && !isEditing) {
+        if (leadId && !isEditing && !crmLead) {
             const lead = leads.find(l => l.id === leadId);
             if (lead) {
                 if (lead.empreendimento_id) setEmpreendimentoId(lead.empreendimento_id);
                 if (lead.corretor_designado_id) setCorretorId(lead.corretor_designado_id);
             }
         }
-    }, [leadId, leads, isEditing]);
+    }, [leadId, leads, isEditing, crmLead]);
 
     // Real-time calculations
     const calculations = useMemo(() => {
@@ -269,6 +280,13 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                 comprovantes,
             };
 
+            if (crmLead && !isEditing) {
+                const { error } = await supabase.rpc('complete_crm_sale', {
+                    p_crm_lead_id: crmLead.id, p_sale: payload,
+                });
+                if (error) throw error;
+                return;
+            }
             if (isEditing) {
                 const { error } = await supabase
                     .from('vendas')
@@ -309,6 +327,8 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
             }
             originalComprovantesRef.current = [...comprovantes];
             sessionUploadsRef.current.clear();
+            queryClient.invalidateQueries({ queryKey: ['crm-leads'] });
+            queryClient.invalidateQueries({ queryKey: ['venda-detail'] });
             toast({
                 title: isEditing ? 'Venda atualizada' : 'Venda registrada',
                 description: isEditing ? 'Os dados da venda foram atualizados.' : 'A venda foi registrada com sucesso.',
@@ -389,6 +409,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
     };
 
     const handleClose = () => {
+        if (saveMutation.isPending) return;
         if (isUploading) {
             toast({
                 title: 'Aguarde o envio do comprovante',
@@ -428,25 +449,29 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && !saveMutation.isPending && handleClose()}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <DollarSign className="h-5 w-5 text-primary" />
-                        {isEditing ? 'Editar Venda' : 'Nova Venda'}
+                        {isEditing ? 'Editar Venda' : crmLead ? 'Confirmar venda do lead' : 'Nova Venda'}
                     </DialogTitle>
                 </DialogHeader>
 
+                {crmLead && !isEditing && <p className="text-sm text-muted-foreground">Ao salvar, a venda será registrada e o cartão irá para a coluna de vendas concluídas. O status abaixo se refere ao pagamento da comissão.</p>}
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Lead & Empreendimento */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="lead">Cliente *</Label>
-                            <Select value={leadId} onValueChange={setLeadId}>
-                                <SelectTrigger>
+                            <Select value={leadId} onValueChange={value => { if (value) setLeadId(value); }} disabled={!!crmLead}>
+                                <SelectTrigger id="lead">
                                     <SelectValue placeholder="Selecione o cliente" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    {crmLead?.leads && !leads.some(l => l.id === crmLead.lead_id) && (
+                                        <SelectItem value={crmLead.lead_id}>{crmLead.leads.nome}</SelectItem>
+                                    )}
                                     {leads.map(lead => (
                                         <SelectItem key={lead.id} value={lead.id}>
                                             {lead.nome} - {lead.telefone}
@@ -457,8 +482,8 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="empreendimento">Empreendimento *</Label>
-                            <Select value={empreendimentoId} onValueChange={setEmpreendimentoId}>
-                                <SelectTrigger>
+                            <Select value={empreendimentoId} onValueChange={value => { if (value) setEmpreendimentoId(value); }}>
+                                <SelectTrigger id="empreendimento">
                                     <SelectValue placeholder="Selecione o empreendimento" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -478,10 +503,10 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                             <Label htmlFor="corretor">Corretor</Label>
                             <Select
                                 value={corretorId}
-                                onValueChange={setCorretorId}
+                                onValueChange={value => { if (value) setCorretorId(value); }}
                                 disabled={vendaDireta}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger id="corretor">
                                     <SelectValue placeholder="Selecione o corretor" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -518,7 +543,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                                 type="number"
                                 step="0.01"
                                 placeholder="500000.00"
-                                value={valorImovel}
+                                id="valor" value={valorImovel}
                                 onChange={(e) => setValorImovel(e.target.value)}
                             />
                         </div>
@@ -527,7 +552,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                             <Input
                                 type="number"
                                 step="0.1"
-                                value={comissaoPercentual}
+                                id="comissao" value={comissaoPercentual}
                                 onChange={(e) => setComissaoPercentual(e.target.value)}
                             />
                         </div>
@@ -536,7 +561,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                             <Input
                                 type="number"
                                 step="0.1"
-                                value={impostoPercentual}
+                                id="imposto" value={impostoPercentual}
                                 onChange={(e) => setImpostoPercentual(e.target.value)}
                             />
                         </div>
@@ -641,7 +666,7 @@ const VendaModal = ({ isOpen, onClose, vendaId }: VendaModalProps) => {
                                     <SelectItem value="pendente">Pendente</SelectItem>
                                     <SelectItem value="aprovada">Aprovada</SelectItem>
                                     <SelectItem value="paga">Paga</SelectItem>
-                                    <SelectItem value="cancelada">Cancelada</SelectItem>
+                                    {(!crmLead || isEditing) && <SelectItem value="cancelada">Cancelada</SelectItem>}
                                 </SelectContent>
                             </Select>
                         </div>

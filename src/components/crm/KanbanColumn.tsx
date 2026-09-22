@@ -2,25 +2,26 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import KanbanCard from './KanbanCard';
+import { crmColumnVgv } from '@/utils/crmSales';
 import type { CrmStage, CrmLead } from '@/hooks/useCrmPipeline';
 import { formatCurrency } from '@/utils/formatters';
-import { sumEstimatedOpportunityValue } from '@/utils/crmPipeline';
 
 interface KanbanColumnProps {
     stage: CrmStage;
     leads: CrmLead[];
     onCardClick?: (crmLead: CrmLead) => void;
     onRemoveLead?: (crmLeadId: string) => void;
+    onSold?: (crmLead: CrmLead) => void;
+    isCompleted?: boolean;
 }
 
-export default function KanbanColumn({ stage, leads, onCardClick, onRemoveLead }: KanbanColumnProps) {
+export default function KanbanColumn({ stage, leads, onCardClick, onRemoveLead, onSold, isCompleted }: KanbanColumnProps) {
     const { setNodeRef, isOver } = useDroppable({
         id: stage.id,
         data: { type: 'column', stage },
     });
 
     const sortableIds = leads.map((l) => l.id);
-    const estimatedValue = sumEstimatedOpportunityValue(leads);
 
     return (
         <div
@@ -39,12 +40,10 @@ export default function KanbanColumn({ stage, leads, onCardClick, onRemoveLead }
                         {leads.length}
                     </span>
                 </div>
-                <div className="mt-2 flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Valor previsto</span>
-                    <span className="font-semibold tabular-nums text-foreground">
-                        {formatCurrency(estimatedValue)}
-                    </span>
-                </div>
+                <p className="mt-2 text-sm font-semibold tabular-nums" title="Valor real das vendas vinculadas; valor estimado das demais oportunidades.">
+                    VGV {formatCurrency(crmColumnVgv(leads))}
+                </p>
+                {isCompleted && <p className="mt-1 text-xs text-emerald-700">Vendas concluídas · arquivo mensal</p>}
             </div>
 
             {/* Column Body */}
@@ -57,7 +56,8 @@ export default function KanbanColumn({ stage, leads, onCardClick, onRemoveLead }
                                     key={crmLead.id}
                                     crmLead={crmLead}
                                     onClick={() => onCardClick?.(crmLead)}
-                                    onRemove={() => onRemoveLead?.(crmLead.id)}
+                                    onRemove={onRemoveLead ? () => onRemoveLead(crmLead.id) : undefined}
+                                    onSold={onSold && (!crmLead.archived_at || crmLead.venda_id) ? () => onSold(crmLead) : undefined}
                                 />
                             ))}
                             {leads.length === 0 && (

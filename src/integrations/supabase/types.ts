@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -1373,6 +1373,45 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs_y2027m01: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       bairros: {
         Row: {
           ativo: boolean | null
@@ -1886,6 +1925,8 @@ export type Database = {
       }
       crm_leads: {
         Row: {
+          archived_at: string | null
+          completed_at: string | null
           created_at: string | null
           empreendimento_id: string | null
           google_drive_url: string | null
@@ -1900,9 +1941,12 @@ export type Database = {
           tag_cor: string | null
           updated_at: string | null
           valor_estimado: number | null
+          venda_id: string | null
           visita_id: string | null
         }
         Insert: {
+          archived_at?: string | null
+          completed_at?: string | null
           created_at?: string | null
           empreendimento_id?: string | null
           google_drive_url?: string | null
@@ -1917,9 +1961,12 @@ export type Database = {
           tag_cor?: string | null
           updated_at?: string | null
           valor_estimado?: number | null
+          venda_id?: string | null
           visita_id?: string | null
         }
         Update: {
+          archived_at?: string | null
+          completed_at?: string | null
           created_at?: string | null
           empreendimento_id?: string | null
           google_drive_url?: string | null
@@ -1934,6 +1981,7 @@ export type Database = {
           tag_cor?: string | null
           updated_at?: string | null
           valor_estimado?: number | null
+          venda_id?: string | null
           visita_id?: string | null
         }
         Relationships: [
@@ -1966,6 +2014,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "crm_leads_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "crm_leads_visita_id_fkey"
             columns: ["visita_id"]
             isOneToOne: false
@@ -1977,6 +2032,7 @@ export type Database = {
       crm_pipelines: {
         Row: {
           auto_add_visits: boolean | null
+          completed_stage_id: string | null
           created_at: string | null
           created_by: string | null
           descricao: string | null
@@ -1987,6 +2043,7 @@ export type Database = {
         }
         Insert: {
           auto_add_visits?: boolean | null
+          completed_stage_id?: string | null
           created_at?: string | null
           created_by?: string | null
           descricao?: string | null
@@ -1997,6 +2054,7 @@ export type Database = {
         }
         Update: {
           auto_add_visits?: boolean | null
+          completed_stage_id?: string | null
           created_at?: string | null
           created_by?: string | null
           descricao?: string | null
@@ -2006,6 +2064,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "crm_pipeline_completed_stage_fk"
+            columns: ["id", "completed_stage_id"]
+            isOneToOne: false
+            referencedRelation: "crm_stages"
+            referencedColumns: ["pipeline_id", "id"]
+          },
           {
             foreignKeyName: "crm_pipelines_created_by_fkey"
             columns: ["created_by"]
@@ -2821,6 +2886,45 @@ export type Database = {
         Relationships: []
       }
       integration_logs_y2026m12: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          endpoint: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          request_payload: Json | null
+          response_body: Json | null
+          service: string
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service: string
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          service?: string
+          status_code?: number | null
+        }
+        Relationships: []
+      }
+      integration_logs_y2027m01: {
         Row: {
           created_at: string
           duration_ms: number | null
@@ -3990,6 +4094,194 @@ export type Database = {
           },
         ]
       }
+      visit_ai_runs: {
+        Row: {
+          created_at: string
+          evidence: Json
+          id: string
+          kind: string
+          latency_ms: number | null
+          model: string
+          prompt_version: string
+          status: string
+          tokens: number | null
+          trace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          evidence?: Json
+          id?: string
+          kind: string
+          latency_ms?: number | null
+          model: string
+          prompt_version?: string
+          status: string
+          tokens?: number | null
+          trace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          evidence?: Json
+          id?: string
+          kind?: string
+          latency_ms?: number | null
+          model?: string
+          prompt_version?: string
+          status?: string
+          tokens?: number | null
+          trace_id?: string | null
+        }
+        Relationships: []
+      }
+      visit_automation_config: {
+        Row: {
+          closer_phone: string
+          enabled: boolean
+          group_jid: string
+          id: boolean
+          instance_id: string | null
+          intake_enabled: boolean
+          match_max_attempts: number
+          spreadsheet_id: string
+          updated_at: string
+        }
+        Insert: {
+          closer_phone?: string
+          enabled?: boolean
+          group_jid?: string
+          id?: boolean
+          instance_id?: string | null
+          intake_enabled?: boolean
+          match_max_attempts?: number
+          spreadsheet_id?: string
+          updated_at?: string
+        }
+        Update: {
+          closer_phone?: string
+          enabled?: boolean
+          group_jid?: string
+          id?: boolean
+          instance_id?: string | null
+          intake_enabled?: boolean
+          match_max_attempts?: number
+          spreadsheet_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_automation_config_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "evolution_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visit_cycles: {
+        Row: {
+          attendance_overdue: boolean
+          broker_confirmed: boolean | null
+          broker_feedback_at: string | null
+          client_confirmed: boolean | null
+          confirmation_overdue: boolean
+          created_at: string
+          feedback: Json | null
+          feedback_at: string | null
+          match_approved_conflicts: string[]
+          match_round: number
+          match_status: string
+          outcome: string
+          previous_visita_id: string | null
+          rating: number | null
+          reason: string | null
+          recovery_open: boolean
+          revision: number
+          scheduled_at: string
+          summary_sent_at: string | null
+          updated_at: string
+          visita_id: string
+        }
+        Insert: {
+          attendance_overdue?: boolean
+          broker_confirmed?: boolean | null
+          broker_feedback_at?: string | null
+          client_confirmed?: boolean | null
+          confirmation_overdue?: boolean
+          created_at?: string
+          feedback?: Json | null
+          feedback_at?: string | null
+          match_approved_conflicts?: string[]
+          match_round?: number
+          match_status?: string
+          outcome?: string
+          previous_visita_id?: string | null
+          rating?: number | null
+          reason?: string | null
+          recovery_open?: boolean
+          revision?: number
+          scheduled_at: string
+          summary_sent_at?: string | null
+          updated_at?: string
+          visita_id: string
+        }
+        Update: {
+          attendance_overdue?: boolean
+          broker_confirmed?: boolean | null
+          broker_feedback_at?: string | null
+          client_confirmed?: boolean | null
+          confirmation_overdue?: boolean
+          created_at?: string
+          feedback?: Json | null
+          feedback_at?: string | null
+          match_approved_conflicts?: string[]
+          match_round?: number
+          match_status?: string
+          outcome?: string
+          previous_visita_id?: string | null
+          rating?: number | null
+          reason?: string | null
+          recovery_open?: boolean
+          revision?: number
+          scheduled_at?: string
+          summary_sent_at?: string | null
+          updated_at?: string
+          visita_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_cycles_previous_visita_id_fkey"
+            columns: ["previous_visita_id"]
+            isOneToOne: true
+            referencedRelation: "visitas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_cycles_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: true
+            referencedRelation: "visitas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visit_delivery_receipts: {
+        Row: {
+          provider_id: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          provider_id: string
+          state: string
+          updated_at?: string
+        }
+        Update: {
+          provider_id?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       visit_distribution_attempts: {
         Row: {
           attempt_order: number
@@ -4125,63 +4417,539 @@ export type Database = {
           },
         ]
       }
+      visit_events: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          payload: Json
+          revision: number
+          visita_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          payload?: Json
+          revision: number
+          visita_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          revision?: number
+          visita_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_events_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: false
+            referencedRelation: "visit_cycles"
+            referencedColumns: ["visita_id"]
+          },
+        ]
+      }
+      visit_inbound_receipts: {
+        Row: {
+          created_at: string
+          message_id: string
+        }
+        Insert: {
+          created_at?: string
+          message_id: string
+        }
+        Update: {
+          created_at?: string
+          message_id?: string
+        }
+        Relationships: []
+      }
+      visit_intake: {
+        Row: {
+          approved_conflicts: string[] | null
+          attempts: number
+          author_jid: string
+          author_phone: string
+          available_at: string
+          choices: Json
+          conflict_ids: string[] | null
+          created_at: string
+          fields: Json
+          group_jid: string
+          id: string
+          input_text: string
+          instance_id: string
+          last_error: string | null
+          lease_token: string | null
+          leased_until: string | null
+          original_message: string
+          protocol: string
+          protocol_aliases: string[]
+          resolution_note: string | null
+          revision: number
+          status: string
+          updated_at: string
+          visita_id: string | null
+        }
+        Insert: {
+          approved_conflicts?: string[] | null
+          attempts?: number
+          author_jid: string
+          author_phone?: string
+          available_at?: string
+          choices?: Json
+          conflict_ids?: string[] | null
+          created_at?: string
+          fields?: Json
+          group_jid: string
+          id?: string
+          input_text: string
+          instance_id: string
+          last_error?: string | null
+          lease_token?: string | null
+          leased_until?: string | null
+          original_message: string
+          protocol?: string
+          protocol_aliases?: string[]
+          resolution_note?: string | null
+          revision?: number
+          status?: string
+          updated_at?: string
+          visita_id?: string | null
+        }
+        Update: {
+          approved_conflicts?: string[] | null
+          attempts?: number
+          author_jid?: string
+          author_phone?: string
+          available_at?: string
+          choices?: Json
+          conflict_ids?: string[] | null
+          created_at?: string
+          fields?: Json
+          group_jid?: string
+          id?: string
+          input_text?: string
+          instance_id?: string
+          last_error?: string | null
+          lease_token?: string | null
+          leased_until?: string | null
+          original_message?: string
+          protocol?: string
+          protocol_aliases?: string[]
+          resolution_note?: string | null
+          revision?: number
+          status?: string
+          updated_at?: string
+          visita_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_intake_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "evolution_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_intake_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: false
+            referencedRelation: "visitas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visit_intake_messages: {
+        Row: {
+          author_jid: string
+          body: string
+          created_at: string
+          intake_id: string | null
+          message_key: string
+        }
+        Insert: {
+          author_jid: string
+          body: string
+          created_at?: string
+          intake_id?: string | null
+          message_key: string
+        }
+        Update: {
+          author_jid?: string
+          body?: string
+          created_at?: string
+          intake_id?: string | null
+          message_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_intake_messages_intake_id_fkey"
+            columns: ["intake_id"]
+            isOneToOne: false
+            referencedRelation: "visit_intake"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visit_intake_outbox: {
+        Row: {
+          attempts: number
+          available_at: string
+          body: string
+          created_at: string
+          delivery_state: string
+          destination: string
+          id: string
+          intake_id: string
+          last_error: string | null
+          lease_token: string | null
+          leased_until: string | null
+          notification_kind: string
+          provider_id: string | null
+          revision: number
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          available_at?: string
+          body: string
+          created_at?: string
+          delivery_state?: string
+          destination: string
+          id?: string
+          intake_id: string
+          last_error?: string | null
+          lease_token?: string | null
+          leased_until?: string | null
+          notification_kind?: string
+          provider_id?: string | null
+          revision: number
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          available_at?: string
+          body?: string
+          created_at?: string
+          delivery_state?: string
+          destination?: string
+          id?: string
+          intake_id?: string
+          last_error?: string | null
+          lease_token?: string | null
+          leased_until?: string | null
+          notification_kind?: string
+          provider_id?: string | null
+          revision?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_intake_outbox_intake_id_fkey"
+            columns: ["intake_id"]
+            isOneToOne: false
+            referencedRelation: "visit_intake"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visit_match_attempts: {
+        Row: {
+          answered_at: string | null
+          corretor_id: string
+          created_at: string
+          id: string
+          prompt_id: string | null
+          ranking: Json
+          revision: number
+          round: number
+          status: string
+          visita_id: string
+        }
+        Insert: {
+          answered_at?: string | null
+          corretor_id: string
+          created_at?: string
+          id?: string
+          prompt_id?: string | null
+          ranking?: Json
+          revision: number
+          round: number
+          status?: string
+          visita_id: string
+        }
+        Update: {
+          answered_at?: string | null
+          corretor_id?: string
+          created_at?: string
+          id?: string
+          prompt_id?: string | null
+          ranking?: Json
+          revision?: number
+          round?: number
+          status?: string
+          visita_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_match_attempts_corretor_id_fkey"
+            columns: ["corretor_id"]
+            isOneToOne: false
+            referencedRelation: "corretores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_match_attempts_corretor_id_fkey"
+            columns: ["corretor_id"]
+            isOneToOne: false
+            referencedRelation: "corretores_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_match_attempts_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: true
+            referencedRelation: "visit_prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_match_attempts_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: false
+            referencedRelation: "visit_cycles"
+            referencedColumns: ["visita_id"]
+          },
+        ]
+      }
+      visit_outbox: {
+        Row: {
+          attempts: number
+          available_at: string
+          created_at: string
+          delivery_state: string
+          destination: string
+          event_id: string | null
+          id: string
+          last_error: string | null
+          lease_token: string | null
+          leased_until: string | null
+          prompt_id: string | null
+          provider_id: string | null
+          revision: number
+          sent_at: string | null
+          status: string
+          urgent: boolean
+          visita_id: string
+        }
+        Insert: {
+          attempts?: number
+          available_at?: string
+          created_at?: string
+          delivery_state?: string
+          destination: string
+          event_id?: string | null
+          id?: string
+          last_error?: string | null
+          lease_token?: string | null
+          leased_until?: string | null
+          prompt_id?: string | null
+          provider_id?: string | null
+          revision: number
+          sent_at?: string | null
+          status?: string
+          urgent?: boolean
+          visita_id: string
+        }
+        Update: {
+          attempts?: number
+          available_at?: string
+          created_at?: string
+          delivery_state?: string
+          destination?: string
+          event_id?: string | null
+          id?: string
+          last_error?: string | null
+          lease_token?: string | null
+          leased_until?: string | null
+          prompt_id?: string | null
+          provider_id?: string | null
+          revision?: number
+          sent_at?: string | null
+          status?: string
+          urgent?: boolean
+          visita_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_outbox_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "visit_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_outbox_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "visit_prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_outbox_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: false
+            referencedRelation: "visit_cycles"
+            referencedColumns: ["visita_id"]
+          },
+        ]
+      }
+      visit_prompts: {
+        Row: {
+          answered_at: string | null
+          audience: string
+          expires_at: string
+          id: string
+          kind: string
+          phone: string
+          revision: number
+          sent_at: string | null
+          visita_id: string
+        }
+        Insert: {
+          answered_at?: string | null
+          audience: string
+          expires_at: string
+          id?: string
+          kind: string
+          phone: string
+          revision: number
+          sent_at?: string | null
+          visita_id: string
+        }
+        Update: {
+          answered_at?: string | null
+          audience?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          phone?: string
+          revision?: number
+          sent_at?: string | null
+          visita_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_prompts_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: false
+            referencedRelation: "visit_cycles"
+            referencedColumns: ["visita_id"]
+          },
+        ]
+      }
+      visit_worker_health: {
+        Row: {
+          last_completed: string | null
+          last_error: string | null
+          last_started: string | null
+          name: string
+        }
+        Insert: {
+          last_completed?: string | null
+          last_error?: string | null
+          last_started?: string | null
+          name: string
+        }
+        Update: {
+          last_completed?: string | null
+          last_error?: string | null
+          last_started?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
       visitas: {
         Row: {
           avaliacao_lead: number | null
+          buffer_minutes: number
           comentarios_lead: string | null
           confirmation_metadata: Json | null
           corretor_confirmou: boolean | null
           corretor_id: string | null
           created_at: string | null
+          customer_profile: string | null
           data_visita: string
           deleted_at: string | null
+          duration_minutes: number
           empreendimento_id: string | null
           feedback_corretor: string | null
           horario_visita: string
           id: string
+          intake_source: string | null
           interesse: boolean | null
           lead_confirmou: boolean | null
           lead_id: string
+          meeting_address: string | null
+          meeting_neighborhood: string | null
           status: string | null
           updated_at: string | null
+          visit_code: string
         }
         Insert: {
           avaliacao_lead?: number | null
+          buffer_minutes?: number
           comentarios_lead?: string | null
           confirmation_metadata?: Json | null
           corretor_confirmou?: boolean | null
           corretor_id?: string | null
           created_at?: string | null
+          customer_profile?: string | null
           data_visita: string
           deleted_at?: string | null
+          duration_minutes?: number
           empreendimento_id?: string | null
           feedback_corretor?: string | null
           horario_visita: string
           id?: string
+          intake_source?: string | null
           interesse?: boolean | null
           lead_confirmou?: boolean | null
           lead_id: string
+          meeting_address?: string | null
+          meeting_neighborhood?: string | null
           status?: string | null
           updated_at?: string | null
+          visit_code?: string
         }
         Update: {
           avaliacao_lead?: number | null
+          buffer_minutes?: number
           comentarios_lead?: string | null
           confirmation_metadata?: Json | null
           corretor_confirmou?: boolean | null
           corretor_id?: string | null
           created_at?: string | null
+          customer_profile?: string | null
           data_visita?: string
           deleted_at?: string | null
+          duration_minutes?: number
           empreendimento_id?: string | null
           feedback_corretor?: string | null
           horario_visita?: string
           id?: string
+          intake_source?: string | null
           interesse?: boolean | null
           lead_confirmou?: boolean | null
           lead_id?: string
+          meeting_address?: string | null
+          meeting_neighborhood?: string | null
           status?: string | null
           updated_at?: string | null
+          visit_code?: string
         }
         Relationships: [
           {
@@ -4570,6 +5338,10 @@ export type Database = {
           net_rows_preserved: number
         }[]
       }
+      complete_crm_sale: {
+        Args: { p_crm_lead_id: string; p_sale: Json }
+        Returns: string
+      }
       create_crm_opportunity: {
         Args: {
           p_empreendimento_id?: string
@@ -4786,6 +5558,17 @@ export type Database = {
         }
         Returns: undefined
       }
+      save_crm_pipeline_settings: {
+        Args: {
+          p_auto_add_visits: boolean
+          p_completed_stage_id: string
+          p_descricao: string
+          p_nome: string
+          p_pipeline_id: string
+          p_stages: Json
+        }
+        Returns: undefined
+      }
       set_cached_response: {
         Args: {
           p_agent_id: string
@@ -4802,6 +5585,190 @@ export type Database = {
       verify_internal_function_secret: {
         Args: { _candidate: string }
         Returns: boolean
+      }
+      visit_delivery_receipt: {
+        Args: { p_provider: string; p_state: string }
+        Returns: undefined
+      }
+      visit_intake_claim: {
+        Args: never
+        Returns: {
+          approved_conflicts: string[] | null
+          attempts: number
+          author_jid: string
+          author_phone: string
+          available_at: string
+          choices: Json
+          conflict_ids: string[] | null
+          created_at: string
+          fields: Json
+          group_jid: string
+          id: string
+          input_text: string
+          instance_id: string
+          last_error: string | null
+          lease_token: string | null
+          leased_until: string | null
+          original_message: string
+          protocol: string
+          protocol_aliases: string[]
+          resolution_note: string | null
+          revision: number
+          status: string
+          updated_at: string
+          visita_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "visit_intake"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      visit_intake_delivery_claim: {
+        Args: never
+        Returns: {
+          attempts: number
+          available_at: string
+          body: string
+          created_at: string
+          delivery_state: string
+          destination: string
+          id: string
+          intake_id: string
+          last_error: string | null
+          lease_token: string | null
+          leased_until: string | null
+          notification_kind: string
+          provider_id: string | null
+          revision: number
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "visit_intake_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      visit_intake_delivery_finish: {
+        Args: {
+          p_error?: string
+          p_id: string
+          p_lease: string
+          p_provider?: string
+        }
+        Returns: undefined
+      }
+      visit_intake_fail: {
+        Args: { p_error: string; p_id: string; p_lease: string }
+        Returns: undefined
+      }
+      visit_intake_find_leads: {
+        Args: { p_phone: string }
+        Returns: {
+          id: string
+          nome: string
+        }[]
+      }
+      visit_intake_finish: {
+        Args: {
+          p_broker?: string
+          p_choices: Json
+          p_fields: Json
+          p_id: string
+          p_lease: string
+          p_property?: string
+          p_questions: string
+        }
+        Returns: string
+      }
+      visit_intake_receive: {
+        Args: {
+          p_action?: string
+          p_admin?: string
+          p_author: string
+          p_group: string
+          p_instance: string
+          p_message: string
+          p_phone: string
+          p_protocol?: string
+          p_revision?: number
+          p_text: string
+        }
+        Returns: string
+      }
+      visit_lifecycle_action: {
+        Args: {
+          p_action: string
+          p_actor: string
+          p_data: Json
+          p_visit: string
+        }
+        Returns: string
+      }
+      visit_lifecycle_claim: {
+        Args: { p_channel?: string; p_limit?: number }
+        Returns: {
+          attempts: number
+          available_at: string
+          created_at: string
+          delivery_state: string
+          destination: string
+          event_id: string | null
+          id: string
+          last_error: string | null
+          lease_token: string | null
+          leased_until: string | null
+          prompt_id: string | null
+          provider_id: string | null
+          revision: number
+          sent_at: string | null
+          status: string
+          urgent: boolean
+          visita_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "visit_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      visit_lifecycle_finish: {
+        Args: {
+          p_error?: string
+          p_id: string
+          p_lease: string
+          p_provider?: string
+          p_status: string
+        }
+        Returns: undefined
+      }
+      visit_lifecycle_remind: { Args: { p_visit: string }; Returns: undefined }
+      visit_lifecycle_reply: {
+        Args: {
+          p_answer: string
+          p_message: string
+          p_phone: string
+          p_prompt: string
+        }
+        Returns: boolean
+      }
+      visit_lifecycle_reply_before_match: {
+        Args: {
+          p_answer: string
+          p_message: string
+          p_phone: string
+          p_prompt: string
+        }
+        Returns: boolean
+      }
+      visit_lifecycle_tick: { Args: never; Returns: undefined }
+      visit_lifecycle_tick_before_match: { Args: never; Returns: undefined }
+      visit_match_manual: {
+        Args: { p_actor: string; p_broker: string; p_visit: string }
+        Returns: undefined
       }
       write_audit_log: {
         Args: {
@@ -4911,12 +5878,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4940,11 +5907,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4965,11 +5932,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4990,11 +5957,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5007,11 +5974,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5108,4 +6075,3 @@ export const Constants = {
     },
   },
 } as const
-

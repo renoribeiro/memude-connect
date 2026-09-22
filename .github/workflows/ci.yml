@@ -27,9 +27,11 @@ jobs:
       - run: npm run lint
       - run: npm run scan:secrets
       - run: npm test
+      - run: npm run test:crm:db
       - run: npm run test:build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      - run: npx playwright test e2e/crm-sales.spec.ts
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:

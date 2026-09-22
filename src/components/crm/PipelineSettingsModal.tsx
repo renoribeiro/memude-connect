@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Plus, GripVertical, Trash2, Palette } from 'lucide-react';
 import type { CrmStage } from '@/hooks/useCrmPipeline';
@@ -26,13 +27,15 @@ interface PipelineSettingsModalProps {
     pipelineDescription: string;
     autoAddVisits: boolean;
     isDefault: boolean;
+    completedStageId: string | null;
     stages: CrmStage[];
     onSave: (data: {
         nome: string;
         descricao: string;
         auto_add_visits: boolean;
+        completed_stage_id: string | null;
         stages: Array<{
-            id?: string;
+            id: string;
             pipeline_id: string;
             nome: string;
             cor: string;
@@ -46,8 +49,7 @@ interface PipelineSettingsModalProps {
 }
 
 interface StageItem {
-    clientKey: string;
-    id?: string;
+    id: string;
     nome: string;
     cor: string;
     is_final: boolean;
@@ -55,7 +57,6 @@ interface StageItem {
 
 function toEditableStage(stage: CrmStage): StageItem {
     return {
-        clientKey: stage.id,
         id: stage.id,
         nome: stage.nome,
         cor: stage.cor,
@@ -70,6 +71,7 @@ export default function PipelineSettingsModal({
     pipelineDescription,
     autoAddVisits,
     isDefault,
+    completedStageId,
     stages: initialStages,
     onSave,
     onDelete,
@@ -79,6 +81,7 @@ export default function PipelineSettingsModal({
     const [nome, setNome] = useState(pipelineName);
     const [descricao, setDescricao] = useState(pipelineDescription);
     const [autoAdd, setAutoAdd] = useState(autoAddVisits);
+    const [completedStage, setCompletedStage] = useState(completedStageId ?? 'none');
     const [editStages, setEditStages] = useState<StageItem[]>(() =>
         initialStages.map(toEditableStage)
     );
@@ -94,6 +97,7 @@ export default function PipelineSettingsModal({
         setNome(pipelineName);
         setDescricao(pipelineDescription);
         setAutoAdd(autoAddVisits);
+        setCompletedStage(completedStageId ?? 'none');
         setEditStages(initialStages.map(toEditableStage));
         setColorPickerIndex(null);
         setValidationError('');
@@ -103,6 +107,7 @@ export default function PipelineSettingsModal({
         pipelineName,
         pipelineDescription,
         autoAddVisits,
+        completedStageId,
         initialStages,
     ]);
 
@@ -111,19 +116,14 @@ export default function PipelineSettingsModal({
     };
 
     const addStage = () => {
-        setValidationError('');
-        setEditStages((current) => [
-            ...current,
-            {
-                clientKey: crypto.randomUUID(),
-                nome: '',
-                cor: PRESET_COLORS[current.length % PRESET_COLORS.length],
-                is_final: false,
-            },
+        setEditStages([
+            ...editStages,
+            { id: crypto.randomUUID(), nome: '', cor: PRESET_COLORS[editStages.length % PRESET_COLORS.length], is_final: false },
         ]);
     };
 
     const removeStage = (index: number) => {
+        if (editStages[index].id === completedStage) setCompletedStage('none');
         setEditStages(editStages.filter((_, i) => i !== index));
     };
 
@@ -162,6 +162,7 @@ export default function PipelineSettingsModal({
             nome: nome.trim(),
             descricao: descricao.trim(),
             auto_add_visits: autoAdd,
+            completed_stage_id: completedStage === 'none' ? null : completedStage,
             stages: editStages.map((s, i) => ({
                 id: s.id,
                 pipeline_id: pipelineId,
@@ -212,6 +213,23 @@ export default function PipelineSettingsModal({
                         </div>
                     </div>
 
+                    <div className="space-y-2 rounded-lg border p-3">
+                        <Label htmlFor="completed-stage">Coluna de vendas concluídas</Label>
+                        <Select value={completedStage} onValueChange={setCompletedStage}>
+                            <SelectTrigger id="completed-stage"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Não configurada</SelectItem>
+                                {editStages.filter(s => s.nome.trim()).map(s => (
+                                    <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            Recebe os cartões marcados como VENDIDO. Na virada do mês, os cartões
+                            concluídos em meses anteriores são arquivados, sem excluir leads ou vendas.
+                            Horário de São Paulo. Ao trocar a coluna, seus cartões são transferidos.
+                        </p>
+                    </div>
                     {/* Stages */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
@@ -225,7 +243,7 @@ export default function PipelineSettingsModal({
                         <div className="space-y-2">
                             {editStages.map((stage, index) => (
                                 <div
-                                    key={stage.clientKey}
+                                    key={stage.id}
                                     className="flex items-center gap-2 p-2 border rounded-lg bg-card"
                                 >
                                     <div className="flex flex-col gap-0.5">

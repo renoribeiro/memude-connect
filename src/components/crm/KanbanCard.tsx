@@ -12,18 +12,22 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { crmCardValue } from '@/utils/crmSales';
+import { formatCurrency } from '@/utils/formatters';
 import type { CrmLead } from '@/hooks/useCrmPipeline';
 
 interface KanbanCardProps {
     crmLead: CrmLead;
     onClick?: () => void;
     onRemove?: () => void;
+    onSold?: () => void;
 }
 
-export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardProps) {
+export default function KanbanCard({ crmLead, onClick, onRemove, onSold }: KanbanCardProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: crmLead.id,
         data: { type: 'card', crmLead },
+        disabled: !!crmLead.archived_at || !!crmLead.venda_id,
     });
 
     const style = {
@@ -49,7 +53,7 @@ export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardPro
                         <h4 className="font-semibold text-sm leading-tight truncate flex-1 mr-2">
                             {lead?.nome || "Lead Desconhecido"}
                         </h4>
-                        <DropdownMenu>
+                        {onRemove && <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                                 <Button
                                     variant="ghost"
@@ -72,7 +76,7 @@ export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardPro
                                     Remover oportunidade
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
-                        </DropdownMenu>
+                        </DropdownMenu>}
                     </div>
 
                     {crmLead.tag && (
@@ -119,12 +123,20 @@ export default function KanbanCard({ crmLead, onClick, onRemove }: KanbanCardPro
                             <Clock className="h-2.5 w-2.5" />
                             {timeInStage}
                         </div>
-                        {crmLead.valor_estimado && (
+                        {crmCardValue(crmLead) > 0 && (
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                                R$ {crmLead.valor_estimado.toLocaleString('pt-BR')}
+                                {formatCurrency(crmCardValue(crmLead))}
                             </Badge>
                         )}
                     </div>
+                    {onSold && (
+                        <Button size="sm" variant={crmLead.venda_id ? 'outline' : 'default'}
+                            className="w-full" onPointerDown={e => e.stopPropagation()}
+                            onKeyDown={e => e.stopPropagation()}
+                            onClick={e => { e.stopPropagation(); onSold(); }}>
+                            {crmLead.venda_id ? 'Ver venda' : 'VENDIDO'}
+                        </Button>
+                    )}
                 </div>
             </Card>
         </div>

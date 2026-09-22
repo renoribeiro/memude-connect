@@ -158,6 +158,7 @@ Deno.serve(async (req: Request) => {
     const { data, error } = await db.rpc('request_sale_deletion', {
       _venda_id: body.vendaId,
       _delete_from_finance: body.deleteFromFinance === true,
+      _actor_id: access.userId,
     });
     if (error) {
       const status = error.code === 'P0002' ? 404 : error.code === '42501' ? 403 : 400;

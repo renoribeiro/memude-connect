@@ -43,18 +43,22 @@ await db.exec(await readFile(
   new URL('../supabase/migrations/20260922223625_sale_deletion_workflow.sql', import.meta.url),
   'utf8',
 ));
+await db.exec(await readFile(
+  new URL('../supabase/migrations/20260922230334_harden_sale_deletion_rpc.sql', import.meta.url),
+  'utf8',
+));
 
 await query("select set_config('request.jwt.claim.sub', $1, false)", [actorId]);
 await query("select set_config('request.jwt.claim.role', 'authenticated', false)");
 await query('insert into public.vendas values ($1, $2, $3)', [firstSaleId, 'Cliente Core', 500000]);
 
-const coreOnly = await one('select public.request_sale_deletion($1, false) result', [firstSaleId]);
+const coreOnly = await one('select public.request_sale_deletion($1, false, $2) result', [firstSaleId, actorId]);
 assert.equal(coreOnly.result.state, 'completed');
 assert.equal((await one('select count(*)::int count from public.vendas')).count, 0);
 assert.equal((await one('select venda_snapshot from public.sale_deletion_requests where venda_id=$1', [firstSaleId])).venda_snapshot.cliente, 'Cliente Core');
 
 await query('insert into public.vendas values ($1, $2, $3)', [secondSaleId, 'Cliente Integrado', 700000]);
-const integrated = await one('select public.request_sale_deletion($1, true) result', [secondSaleId]);
+const integrated = await one('select public.request_sale_deletion($1, true, $2) result', [secondSaleId, actorId]);
 assert.equal(integrated.result.state, 'pending');
 
 await query("select set_config('request.jwt.claim.role', 'service_role', false)");

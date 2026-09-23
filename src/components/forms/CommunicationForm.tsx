@@ -10,14 +10,21 @@ import { MessageSquare, Phone, Mail, User, Users } from "lucide-react";
 import { useState } from "react";
 
 const communicationSchema = z.object({
-  type: z.enum(['whatsapp', 'sms', 'email']),
+  type: z.literal('whatsapp'),
   recipient_type: z.enum(['lead', 'corretor', 'broadcast']),
   recipient_id: z.string().optional(),
   phone_number: z.string().optional(),
-  email: z.string().email().optional(),
+  email: z.string().optional(),
   subject: z.string().optional(),
   content: z.string().min(1, "Conteúdo é obrigatório"),
   scheduled_at: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.recipient_type === 'broadcast' && !data.phone_number?.trim()) {
+    ctx.addIssue({ code: 'custom', path: ['phone_number'], message: 'Telefone é obrigatório' });
+  }
+  if (data.recipient_type !== 'broadcast' && !data.recipient_id?.trim()) {
+    ctx.addIssue({ code: 'custom', path: ['recipient_id'], message: 'Selecione um destinatário' });
+  }
 });
 
 export type CommunicationFormData = z.infer<typeof communicationSchema>;
@@ -35,7 +42,6 @@ export function CommunicationForm({
   leads = [], 
   corretores = [] 
 }: CommunicationFormProps) {
-  const [selectedType, setSelectedType] = useState<'whatsapp' | 'sms' | 'email'>('whatsapp');
   const [recipientType, setRecipientType] = useState<'lead' | 'corretor' | 'broadcast'>('lead');
 
   const {
@@ -52,14 +58,6 @@ export function CommunicationForm({
       recipient_type: 'lead',
     }
   });
-
-  const watchType = watch('type');
-  const watchRecipientType = watch('recipient_type');
-
-  const handleTypeChange = (type: 'whatsapp' | 'sms' | 'email') => {
-    setSelectedType(type);
-    setValue('type', type);
-  };
 
   const handleRecipientTypeChange = (type: 'lead' | 'corretor' | 'broadcast') => {
     setRecipientType(type);
@@ -105,19 +103,20 @@ export function CommunicationForm({
       <div className="space-y-3">
         <Label>Tipo de Comunicação</Label>
         <div className="grid grid-cols-3 gap-2">
-          {['whatsapp', 'sms', 'email'].map((type) => (
-            <Button
-              key={type}
-              type="button"
-              variant={selectedType === type ? 'default' : 'outline'}
-              className="flex items-center gap-2"
-              onClick={() => handleTypeChange(type as any)}
-            >
-              {getTypeIcon(type)}
-              {type === 'whatsapp' ? 'WhatsApp' : type === 'sms' ? 'SMS' : 'Email'}
-            </Button>
-          ))}
+          <Button type="button" variant="default" className="flex items-center gap-2">
+            {getTypeIcon('whatsapp')}
+            WhatsApp
+          </Button>
+          <Button type="button" variant="outline" disabled title="Provedor de SMS não configurado">
+            SMS não configurado
+          </Button>
+          <Button type="button" variant="outline" disabled title="Envio avulso de e-mail não configurado">
+            E-mail não configurado
+          </Button>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Somente o canal WhatsApp está habilitado para envio avulso neste ambiente.
+        </p>
       </div>
 
       {/* Recipient Type */}
@@ -160,7 +159,7 @@ export function CommunicationForm({
           <Label htmlFor="recipient_id">
             {recipientType === 'lead' ? 'Selecionar Lead' : 'Selecionar Corretor'}
           </Label>
-          <Select onValueChange={(value) => setValue('recipient_id', value)}>
+          <Select onValueChange={(value) => setValue('recipient_id', value, { shouldValidate: true })}>
             <SelectTrigger>
               <SelectValue placeholder={`Selecione um ${recipientType}`} />
             </SelectTrigger>
@@ -179,13 +178,16 @@ export function CommunicationForm({
               }
             </SelectContent>
           </Select>
+          {errors.recipient_id && (
+            <p className="text-sm text-destructive">{errors.recipient_id.message}</p>
+          )}
         </div>
       )}
 
       {/* Manual Contact Info for Broadcast */}
       {recipientType === 'broadcast' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(selectedType === 'whatsapp' || selectedType === 'sms') && (
+          {(
             <div className="space-y-2">
               <Label htmlFor="phone_number">Número de Telefone</Label>
               <Input
@@ -199,32 +201,6 @@ export function CommunicationForm({
             </div>
           )}
           
-          {selectedType === 'email' && (
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                {...register('email')}
-                type="email"
-                placeholder="email@exemplo.com"
-                className="w-full"
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Subject for Email */}
-      {selectedType === 'email' && (
-        <div className="space-y-2">
-          <Label htmlFor="subject">Assunto</Label>
-          <Input
-            {...register('subject')}
-            placeholder="Assunto do email"
-            className="w-full"
-          />
         </div>
       )}
 
@@ -260,16 +236,6 @@ export function CommunicationForm({
         <p className="text-xs text-muted-foreground">
           Use {"{nome}"}, {"{data}"}, {"{horario}"} para personalizar a mensagem
         </p>
-      </div>
-
-      {/* Schedule */}
-      <div className="space-y-2">
-        <Label htmlFor="scheduled_at">Agendar Envio (Opcional)</Label>
-        <Input
-          {...register('scheduled_at')}
-          type="datetime-local"
-          className="w-full"
-        />
       </div>
 
       <div className="flex justify-end gap-4">

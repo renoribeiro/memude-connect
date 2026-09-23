@@ -46,7 +46,7 @@ export function VisitaDetails({ visitaId }: { visitaId: string }) {
       case 'realizada': return 'bg-teal-100 text-teal-800';
       case 'cancelada': return 'bg-red-100 text-red-800';
       case 'reagendada': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -159,7 +159,7 @@ export function VisitaDetails({ visitaId }: { visitaId: string }) {
           <Label className="text-sm font-medium text-muted-foreground">Avaliação histórica (escala de 1 a 5)</Label>
           <div className="mt-1 flex items-center gap-1">
             {[...Array(5)].map((_, i) => (
-              <span key={i} className={`text-lg ${i < visita.avaliacao_lead ? 'text-yellow-400' : 'text-gray-300'}`}>
+              <span key={i} className={`text-lg ${i < visita.avaliacao_lead ? 'text-yellow-400' : 'text-muted-foreground'}`}>
                 ⭐
               </span>
             ))}

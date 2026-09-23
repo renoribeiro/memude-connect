@@ -12,8 +12,24 @@
  * @param phone - Número em qualquer formato
  * @returns Número normalizado no formato 55DDXXXXXXXXX
  */
+/**
+ * Diz se o número é do exterior — chegou com "+" e DDI diferente de 55.
+ * O front guarda números estrangeiros em E.164 (+351912345678) justamente
+ * para que este passo consiga distingui-los de um número brasileiro.
+ */
+export function isInternationalPhone(phone: string | null | undefined): boolean {
+  if (!phone) return false;
+  return phone.trim().startsWith('+') && !phone.replace(/\D/g, '').startsWith('55');
+}
+
 export function normalizePhoneNumber(phone: string | null | undefined): string {
   if (!phone) return '';
+
+  // Número do exterior: mantém o DDI original e entrega só os dígitos, que é
+  // o que a Evolution espera. Injetar 55 aqui inutilizaria o contato.
+  if (isInternationalPhone(phone)) {
+    return phone.replace(/\D/g, '');
+  }
 
   // Remove tudo que não é dígito
   let digits = phone.replace(/\D/g, '');
@@ -83,4 +99,22 @@ export function isValidBrazilianPhone(phone: string): boolean {
   if (normalized[4] !== '9') return false;
 
   return true;
+}
+
+/**
+ * Valida número do exterior em E.164: DDI que não começa em zero, de 8 a 15
+ * dígitos. Regra de operadora varia por país e não é checada aqui.
+ */
+export function isValidInternationalPhone(phone: string): boolean {
+  if (!isInternationalPhone(phone)) return false;
+  return /^[1-9]\d{7,14}$/.test(phone.replace(/\D/g, ''));
+}
+
+/**
+ * Valida celular brasileiro OU número do exterior.
+ * Receba sempre o valor original: depois de normalizado o "+" se perde e o
+ * número estrangeiro deixa de ser reconhecível.
+ */
+export function isValidPhone(phone: string): boolean {
+  return isValidBrazilianPhone(phone) || isValidInternationalPhone(phone);
 }

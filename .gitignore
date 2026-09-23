@@ -33,9 +33,6 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
-
-# Local visit-workflow audit artifacts
-scratch/visit-db/
-scratch/visit-audit-dependencies.json
-scratch/visit-vercel-inputs.json
-deno.lock
+.vercel
+.env*
+!.env.example

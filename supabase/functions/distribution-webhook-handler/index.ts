@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { handleOptions, jsonResponse, verifyWebhook } from '../_shared/security.ts';
+import { analyzeDistributionResponse } from '../_shared/distribution-response.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
@@ -212,7 +213,7 @@ async function processDistributionResponse(supabase: any, phoneNumber: string, m
 // ==========================================
 
 async function handleVisitResponse(supabase: any, attempt: any, messageText: string, phoneNumber: string) {
-  const response = analyzeResponse(messageText);
+  const response = analyzeDistributionResponse(messageText);
   console.log('Resposta analisada (Visita):', response);
 
   if (response.type === 'accepted') {
@@ -265,7 +266,7 @@ async function handleVisitResponse(supabase: any, attempt: any, messageText: str
     await supabase
       .from('visit_distribution_attempts')
       .update({
-        status: 'responded',
+        status: 'rejected',
         response_type: response.type,
         response_message: messageText,
         response_received_at: new Date().toISOString()
@@ -361,41 +362,11 @@ Status: Confirmada ✅`;
 
 async function rejectVisit(supabase: any, attempt: any) {
   console.log('Visita rejeitada pelo corretor:', attempt.corretor.id);
-
-  const { data: settings } = await supabase
-    .from('distribution_settings')
-    .select('*')
-    .single();
-
-  const maxAttempts = settings?.max_attempts || 5;
-  const currentAttempt = attempt.visit_distribution_queue.current_attempt || 1; // Ajustado para pegar da queue correta
-
-  // Se temos fila, atualizamos a fila
-  // Nota: A lógica de tentar o próximo corretor é acionada pelo 'visit-distribution-timeout-checker'
-  // mas podemos acionar imediatamente aqui para agilizar.
-
-  if (currentAttempt >= maxAttempts) {
-    await supabase
-      .from('visit_distribution_queue')
-      .update({
-        status: 'failed',
-        failure_reason: 'Todos os corretores rejeitaram a visita',
-        completed_at: new Date().toISOString()
-      })
-      .eq('id', attempt.visit_distribution_queue.id);
-
-    // Notificar Admin
-    // ... (implementar notificação de falha se desejar)
-  } else {
-    // Incrementar tentativa na fila e Trigger next
-    await supabase
-      .from('visit_distribution_queue')
-      .update({ current_attempt: currentAttempt + 1 })
-      .eq('id', attempt.visit_distribution_queue.id);
-
-    // Chamar checker imediatamente para enviar para o próximo
-    await supabase.functions.invoke('visit-distribution-timeout-checker');
-  }
+  const { error } = await supabase.functions.invoke(
+    'visit-distribution-timeout-checker',
+    { body: { force_advance_visita_id: attempt.visita.id } }
+  );
+  if (error) throw error;
 }
 
 async function sendVisitConfirmation(supabase: any, attempt: any) {
@@ -436,7 +407,7 @@ ${calendarLink}`;
 
 // ==========================================
 async function handleLeadResponse(supabase: any, attempt: any, messageText: string, phoneNumber: string) {
-  const response = analyzeResponse(messageText);
+  const response = analyzeDistributionResponse(messageText);
   console.log('Resposta analisada (Lead):', response);
 
   if (response.type === 'accepted') {
@@ -511,19 +482,6 @@ async function handleLeadResponse(supabase: any, attempt: any, messageText: stri
 
 // ... (Funções acceptLead, rejectLead, sendLeadConfirmation originais mantidas ou levemente ajustadas abaixo)
 
-function analyzeResponse(message: string): { type: 'accepted' | 'rejected' | 'unclear', confidence: number } {
-  const text = message.toLowerCase().trim();
-  const acceptWords = ['sim', 'yes', 'aceito', 'quero', 'vou', 'posso', 'ok', 'pode', 'confirmo', 'topo'];
-  const rejectWords = ['não', 'nao', 'no', 'recuso', 'negativo', 'impossível', 'impossivel', 'ocupado', 'nem'];
-
-  const acceptScore = acceptWords.reduce((score, word) => text.includes(word) ? score + 1 : score, 0);
-  const rejectScore = rejectWords.reduce((score, word) => text.includes(word) ? score + 1 : score, 0);
-
-  if (acceptScore > rejectScore && acceptScore > 0) return { type: 'accepted', confidence: acceptScore };
-  else if (rejectScore > acceptScore && rejectScore > 0) return { type: 'rejected', confidence: rejectScore };
-  else return { type: 'unclear', confidence: 0 };
-}
-
 async function acceptLead(supabase: any, attempt: any) {
   console.log('Lead confirmado de forma atômica. Enviando notificações para cliente/admin.');
 
@@ -563,19 +521,11 @@ Acompanhe no dashboard.`;
 }
 
 async function rejectLead(supabase: any, attempt: any) {
-  // Lógica original de rejectLead
-  const { data: settings } = await supabase.from('distribution_settings').select('*').single();
-  const { data: currentQueue } = await supabase.from('distribution_queue').select('current_attempt').eq('lead_id', attempt.lead.id).single();
-  const maxAttempts = settings?.max_attempts || 5;
-  const currentAttempt = currentQueue?.current_attempt || 1;
-
-  if (currentAttempt >= maxAttempts) {
-    await supabase.from('distribution_queue').update({ status: 'failed', failure_reason: 'Todos rejeitaram', completed_at: new Date().toISOString() }).eq('lead_id', attempt.lead.id);
-    // Notify admin rejection...
-  } else {
-    await supabase.from('distribution_queue').update({ current_attempt: currentAttempt + 1 }).eq('lead_id', attempt.lead.id);
-    await supabase.functions.invoke('distribution-timeout-checker');
-  }
+  const { error } = await supabase.functions.invoke(
+    'distribution-timeout-checker',
+    { body: { force_advance_lead_id: attempt.lead.id } }
+  );
+  if (error) throw error;
 }
 
 async function sendLeadConfirmation(supabase: any, attempt: any) {

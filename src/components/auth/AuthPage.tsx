@@ -112,7 +112,7 @@ const AuthPage = () => {
           <p className="text-white/90 text-lg font-medium">Portal de Gestão Imobiliária</p>
         </div>
 
-        <Card className="backdrop-blur-xl bg-white/95 border border-white/30 shadow-2xl">
+        <Card className="backdrop-blur-xl bg-card/95 border border-white/30 shadow-2xl">
           <CardHeader className="space-y-3">
             <CardTitle className="text-2xl font-bold text-center text-foreground">
               Entrar na sua conta
@@ -135,7 +135,7 @@ const AuthPage = () => {
                           {...field}
                           type="email"
                           placeholder="seu@email.com"
-                          className="bg-white border-input text-foreground placeholder:text-muted-foreground"
+                          className="bg-background border-input text-foreground placeholder:text-muted-foreground"
                           disabled={isLoading}
                         />
                       </FormControl>
@@ -156,7 +156,7 @@ const AuthPage = () => {
                             type={showPassword ? 'text' : 'password'}
                             placeholder="Sua senha"
                             autoComplete="current-password"
-                            className="bg-white border-input pr-10 text-foreground placeholder:text-muted-foreground"
+                            className="bg-background border-input pr-10 text-foreground placeholder:text-muted-foreground"
                             disabled={isLoading}
                           />
                           <button

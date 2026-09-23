@@ -126,6 +126,7 @@ verify_jwt = false
 [functions.webhook-leads-visitas]
 verify_jwt = false
 
+
 [functions.visit-lifecycle]
 verify_jwt = false
 
@@ -134,3 +135,11 @@ verify_jwt = false
 
 [functions.visit-sheets-worker]
 verify_jwt = false
+
+[functions.finance-export]
+verify_jwt = false
+
+[functions.delete-sale]
+
+verify_jwt = false
+

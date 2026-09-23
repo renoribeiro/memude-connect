@@ -7,17 +7,18 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Phone, Mail, Building2, User, Calendar, MapPin, Clock, FileText, DollarSign, FolderOpen, ExternalLink } from 'lucide-react';
+import { Phone, Mail, Building2, User, Calendar, MapPin, Clock, FileText, DollarSign, FolderOpen, ExternalLink, Tag, Ban } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { CrmLead, CrmStage } from '@/hooks/useCrmPipeline';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 
 interface CrmLeadDetailPanelProps {
@@ -26,6 +27,7 @@ interface CrmLeadDetailPanelProps {
     crmLead: CrmLead | null;
     currentStage: CrmStage | null;
     pipelineId: string;
+    onSold?: (crmLead: CrmLead) => void;
 }
 
 const statusLabels: Record<string, string> = {
@@ -37,29 +39,65 @@ const statusLabels: Record<string, string> = {
     follow_up: 'Follow-up',
 };
 
+const NO_SELECTION = '__none__';
+
+// Mesmo limite da constraint crm_leads_tag_length no banco.
+const TAG_MAX_LENGTH = 40;
+
+// Paleta da etiqueta. Todas as cores têm contraste >= 5:1 com o texto branco do badge,
+// que no card do funil é exibido em 10px. Sem cor escolhida, o badge fica no cinza padrão.
+const TAG_COLORS = [
+    '#be123c', '#b45309', '#047857', '#0e7490',
+    '#1d4ed8', '#6d28d9', '#a21caf', '#475569',
+];
+
 export default function CrmLeadDetailPanel({
     open,
     onOpenChange,
     crmLead,
     currentStage,
     pipelineId,
+    onSold,
 }: CrmLeadDetailPanelProps) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
     const [notas, setNotas] = useState('');
     const [valorEstimado, setValorEstimado] = useState('');
+    const [empreendimentoId, setEmpreendimentoId] = useState('');
     const [googleDriveUrl, setGoogleDriveUrl] = useState('');
+    const [tag, setTag] = useState('');
+    const [tagCor, setTagCor] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
-    // Sync state when crmLead changes
     const lead = crmLead?.leads;
 
+    useEffect(() => {
+        if (!open || !crmLead) return;
+        setNotas(crmLead.notas || '');
+        setValorEstimado(crmLead.valor_estimado?.toString() || '');
+        setEmpreendimentoId(crmLead.empreendimento_id || '');
+        setGoogleDriveUrl(crmLead.google_drive_url || '');
+        setTag(crmLead.tag || '');
+        setTagCor(crmLead.tag_cor || '');
+    }, [crmLead, open]);
+
+    const { data: empreendimentos = [] } = useQuery({
+        queryKey: ['empreendimentos-select'],
+        queryFn: async ({ signal }) => {
+            const { data, error } = await supabase
+                .from('empreendimentos')
+                .select('id, nome')
+                .eq('ativo', true)
+                .order('nome')
+                .limit(500)
+                .abortSignal(signal);
+            if (error) throw error;
+            return data;
+        },
+        enabled: open,
+    });
+
     const handleOpen = (v: boolean) => {
-        if (v && crmLead) {
-            setNotas(crmLead.notas || '');
-            setValorEstimado(crmLead.valor_estimado?.toString() || '');
-            setGoogleDriveUrl(crmLead.google_drive_url || '');
-        }
         onOpenChange(v);
     };
 
@@ -67,12 +105,16 @@ export default function CrmLeadDetailPanel({
         if (!crmLead) return;
         setIsSaving(true);
         try {
-            const { error } = await (supabase as any)
+            const { error } = await supabase
                 .from('crm_leads')
                 .update({
                     notas: notas || null,
                     valor_estimado: valorEstimado ? parseFloat(valorEstimado) : null,
+                    empreendimento_id: empreendimentoId || null,
                     google_drive_url: googleDriveUrl || null,
+                    tag: tag.trim() || null,
+                    // Sem etiqueta não faz sentido guardar cor.
+                    tag_cor: tag.trim() ? tagCor || null : null,
                 })
                 .eq('id', crmLead.id);
             if (error) throw error;
@@ -106,6 +148,16 @@ export default function CrmLeadDetailPanel({
                     </DialogDescription>
                 </DialogHeader>
 
+                {onSold && !crmLead.archived_at && (
+                    <div className="flex justify-end">
+                        <Button type="button" variant="outline" size="sm" disabled={isSaving}
+                            onClick={() => onSold(crmLead)}>
+                            <DollarSign className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                            {crmLead.venda_id ? 'Ver venda' : 'VENDIDO'}
+                        </Button>
+                    </div>
+                )}
+
                 <div className="space-y-5 mt-2">
                     {/* Contact Info */}
                     <div className="space-y-2">
@@ -123,10 +175,10 @@ export default function CrmLeadDetailPanel({
                                     {lead.email}
                                 </div>
                             )}
-                            {lead.empreendimentos && (
+                            {crmLead.empreendimentos && (
                                 <div className="flex items-center gap-2 text-sm">
                                     <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                                    {lead.empreendimentos.nome}
+                                    {crmLead.empreendimentos.nome}
                                 </div>
                             )}
                             {lead.corretores && (
@@ -172,8 +224,82 @@ export default function CrmLeadDetailPanel({
                     {/* Editable Fields */}
                     <div className="space-y-3">
                         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                            Dados do Funil
+                            Dados da Oportunidade
                         </h4>
+                        <div className="space-y-1.5">
+                            <Label>Empreendimento negociado</Label>
+                            <Select
+                                value={empreendimentoId || NO_SELECTION}
+                                onValueChange={(value) => setEmpreendimentoId(value === NO_SELECTION ? '' : value)}
+                            >
+                                <SelectTrigger><SelectValue placeholder="Selecione o empreendimento" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={NO_SELECTION}>Sem empreendimento definido</SelectItem>
+                                    {empreendimentos.map((item) => (
+                                        <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="crm-tag" className="flex items-center gap-1.5">
+                                <Tag className="h-3.5 w-3.5" />
+                                Tag
+                            </Label>
+                            <Input
+                                id="crm-tag"
+                                value={tag}
+                                onChange={(e) => setTag(e.target.value)}
+                                placeholder="Ex.: AGO/26, Prioridade, Aguardando doc"
+                                maxLength={TAG_MAX_LENGTH}
+                            />
+                            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                <button
+                                    type="button"
+                                    onClick={() => setTagCor('')}
+                                    aria-label="Etiqueta sem cor"
+                                    aria-pressed={!tagCor}
+                                    title="Sem cor"
+                                    className="flex h-6 w-6 items-center justify-center rounded-full border border-input bg-background transition-transform hover:scale-110"
+                                    style={{
+                                        boxShadow: !tagCor ? '0 0 0 2px white, 0 0 0 4px hsl(var(--ring))' : 'none',
+                                    }}
+                                >
+                                    <Ban className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                                </button>
+                                {TAG_COLORS.map((color) => (
+                                    <button
+                                        key={color}
+                                        type="button"
+                                        onClick={() => setTagCor(color)}
+                                        aria-label={`Usar a cor ${color} na etiqueta`}
+                                        aria-pressed={tagCor === color}
+                                        className="h-6 w-6 rounded-full transition-transform hover:scale-110"
+                                        style={{
+                                            backgroundColor: color,
+                                            boxShadow: tagCor === color ? `0 0 0 2px white, 0 0 0 4px ${color}` : 'none',
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                            {tag.trim() && (
+                                <div className="flex items-center gap-2 pt-0.5">
+                                    <span className="text-xs text-muted-foreground">No card:</span>
+                                    <Badge
+                                        variant="secondary"
+                                        className="max-w-full gap-1 px-1.5 py-0 text-[10px] font-medium"
+                                        style={tagCor ? { backgroundColor: tagCor, color: '#fff' } : undefined}
+                                    >
+                                        <Tag className="h-2.5 w-2.5 flex-shrink-0" aria-hidden="true" />
+                                        <span className="truncate">{tag.trim()}</span>
+                                    </Badge>
+                                </div>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                                Aparece no card do funil. Use para marcar o mês da oportunidade ou
+                                qualquer outra situação (origem, prioridade, pendência).
+                            </p>
+                        </div>
                         <div className="space-y-1.5">
                             <Label htmlFor="crm-valor" className="flex items-center gap-1.5">
                                 <DollarSign className="h-3.5 w-3.5" />
@@ -206,7 +332,7 @@ export default function CrmLeadDetailPanel({
                                         variant="outline"
                                         size="icon"
                                         className="shrink-0"
-                                        onClick={() => window.open(googleDriveUrl, '_blank')}
+                                        onClick={() => window.open(googleDriveUrl, '_blank', 'noopener,noreferrer')}
                                         title="Abrir no Google Drive"
                                     >
                                         <ExternalLink className="h-4 w-4" />

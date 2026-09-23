@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Plus, GripVertical, Trash2, Palette } from 'lucide-react';
 import type { CrmStage } from '@/hooks/useCrmPipeline';
@@ -26,13 +27,15 @@ interface PipelineSettingsModalProps {
     pipelineDescription: string;
     autoAddVisits: boolean;
     isDefault: boolean;
+    completedStageId: string | null;
     stages: CrmStage[];
     onSave: (data: {
         nome: string;
         descricao: string;
         auto_add_visits: boolean;
+        completed_stage_id: string | null;
         stages: Array<{
-            id?: string;
+            id: string;
             pipeline_id: string;
             nome: string;
             cor: string;
@@ -46,10 +49,19 @@ interface PipelineSettingsModalProps {
 }
 
 interface StageItem {
-    id?: string;
+    id: string;
     nome: string;
     cor: string;
     is_final: boolean;
+}
+
+function toEditableStage(stage: CrmStage): StageItem {
+    return {
+        id: stage.id,
+        nome: stage.nome,
+        cor: stage.cor,
+        is_final: stage.is_final,
+    };
 }
 
 export default function PipelineSettingsModal({
@@ -59,6 +71,7 @@ export default function PipelineSettingsModal({
     pipelineDescription,
     autoAddVisits,
     isDefault,
+    completedStageId,
     stages: initialStages,
     onSave,
     onDelete,
@@ -68,42 +81,49 @@ export default function PipelineSettingsModal({
     const [nome, setNome] = useState(pipelineName);
     const [descricao, setDescricao] = useState(pipelineDescription);
     const [autoAdd, setAutoAdd] = useState(autoAddVisits);
+    const [completedStage, setCompletedStage] = useState(completedStageId ?? 'none');
     const [editStages, setEditStages] = useState<StageItem[]>(() =>
-        initialStages.map((s) => ({
-            id: s.id,
-            nome: s.nome,
-            cor: s.cor,
-            is_final: s.is_final,
-        }))
+        initialStages.map(toEditableStage)
     );
     const [colorPickerIndex, setColorPickerIndex] = useState<number | null>(null);
+    const [validationError, setValidationError] = useState('');
 
-    // Reset state when modal opens
+    // O Dialog é controlado pelo componente pai. Portanto, abrir por meio da
+    // prop `open` não dispara necessariamente onOpenChange(true). Hidratamos o
+    // estado aqui, inclusive quando a consulta de etapas termina após a abertura.
+    useEffect(() => {
+        if (!open) return;
+
+        setNome(pipelineName);
+        setDescricao(pipelineDescription);
+        setAutoAdd(autoAddVisits);
+        setCompletedStage(completedStageId ?? 'none');
+        setEditStages(initialStages.map(toEditableStage));
+        setColorPickerIndex(null);
+        setValidationError('');
+    }, [
+        open,
+        pipelineId,
+        pipelineName,
+        pipelineDescription,
+        autoAddVisits,
+        completedStageId,
+        initialStages,
+    ]);
+
     const handleOpenChange = (v: boolean) => {
-        if (v) {
-            setNome(pipelineName);
-            setDescricao(pipelineDescription);
-            setAutoAdd(autoAddVisits);
-            setEditStages(
-                initialStages.map((s) => ({
-                    id: s.id,
-                    nome: s.nome,
-                    cor: s.cor,
-                    is_final: s.is_final,
-                }))
-            );
-        }
         onOpenChange(v);
     };
 
     const addStage = () => {
         setEditStages([
             ...editStages,
-            { nome: '', cor: PRESET_COLORS[editStages.length % PRESET_COLORS.length], is_final: false },
+            { id: crypto.randomUUID(), nome: '', cor: PRESET_COLORS[editStages.length % PRESET_COLORS.length], is_final: false },
         ]);
     };
 
     const removeStage = (index: number) => {
+        if (editStages[index].id === completedStage) setCompletedStage('none');
         setEditStages(editStages.filter((_, i) => i !== index));
     };
 
@@ -122,12 +142,28 @@ export default function PipelineSettingsModal({
     };
 
     const handleSave = () => {
-        const validStages = editStages.filter((s) => s.nome.trim());
+        if (!nome.trim()) {
+            setValidationError('Informe o nome do pipeline.');
+            return;
+        }
+
+        if (editStages.length === 0) {
+            setValidationError('O pipeline deve ter pelo menos uma etapa.');
+            return;
+        }
+
+        if (editStages.some((stage) => !stage.nome.trim())) {
+            setValidationError('Preencha o nome de todas as etapas antes de salvar.');
+            return;
+        }
+
+        setValidationError('');
         onSave({
-            nome,
-            descricao,
+            nome: nome.trim(),
+            descricao: descricao.trim(),
             auto_add_visits: autoAdd,
-            stages: validStages.map((s, i) => ({
+            completed_stage_id: completedStage === 'none' ? null : completedStage,
+            stages: editStages.map((s, i) => ({
                 id: s.id,
                 pipeline_id: pipelineId,
                 nome: s.nome.trim(),
@@ -177,11 +213,28 @@ export default function PipelineSettingsModal({
                         </div>
                     </div>
 
+                    <div className="space-y-2 rounded-lg border p-3">
+                        <Label htmlFor="completed-stage">Coluna de vendas concluídas</Label>
+                        <Select value={completedStage} onValueChange={setCompletedStage}>
+                            <SelectTrigger id="completed-stage"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Não configurada</SelectItem>
+                                {editStages.filter(s => s.nome.trim()).map(s => (
+                                    <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            Recebe os cartões marcados como VENDIDO. Na virada do mês, os cartões
+                            concluídos em meses anteriores são arquivados, sem excluir leads ou vendas.
+                            Horário de São Paulo. Ao trocar a coluna, seus cartões são transferidos.
+                        </p>
+                    </div>
                     {/* Stages */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <Label>Etapas do Funil</Label>
-                            <Button variant="ghost" size="sm" onClick={addStage}>
+                            <Button type="button" variant="ghost" size="sm" onClick={addStage}>
                                 <Plus className="h-3.5 w-3.5 mr-1" />
                                 Adicionar
                             </Button>
@@ -190,14 +243,16 @@ export default function PipelineSettingsModal({
                         <div className="space-y-2">
                             {editStages.map((stage, index) => (
                                 <div
-                                    key={index}
-                                    className="flex items-center gap-2 p-2 border rounded-lg bg-white"
+                                    key={stage.id}
+                                    className="flex items-center gap-2 p-2 border rounded-lg bg-card"
                                 >
                                     <div className="flex flex-col gap-0.5">
                                         <button
+                                            type="button"
                                             onClick={() => moveStage(index, index - 1)}
                                             disabled={index === 0}
-                                            className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                                            aria-label={`Mover ${stage.nome || `etapa ${index + 1}`} para cima`}
+                                            className="text-muted-foreground hover:text-muted-foreground disabled:opacity-30"
                                         >
                                             <GripVertical className="h-3.5 w-3" />
                                         </button>
@@ -205,6 +260,8 @@ export default function PipelineSettingsModal({
 
                                     <div className="relative flex-shrink-0">
                                         <button
+                                            type="button"
+                                            aria-label={`Escolher cor de ${stage.nome || `etapa ${index + 1}`}`}
                                             className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
                                             style={{ backgroundColor: stage.cor }}
                                             onClick={() =>
@@ -214,10 +271,12 @@ export default function PipelineSettingsModal({
                                             <Palette className="h-3 w-3 text-white/70 mx-auto" />
                                         </button>
                                         {colorPickerIndex === index && (
-                                            <div className="absolute top-full left-0 mt-2 z-[100] bg-white border border-gray-200 rounded-xl shadow-xl p-3 grid grid-cols-5 gap-2 w-max animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95">
+                                            <div className="absolute top-full left-0 mt-2 z-[100] bg-card border border-border rounded-xl shadow-xl p-3 grid grid-cols-5 gap-2 w-max animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95">
                                                 {PRESET_COLORS.map((color) => (
                                                     <button
+                                                        type="button"
                                                         key={color}
+                                                        aria-label={`Usar a cor ${color}`}
                                                         className="w-6 h-6 rounded-full transition-transform hover:scale-110"
                                                         style={{
                                                             backgroundColor: color,
@@ -241,17 +300,24 @@ export default function PipelineSettingsModal({
                                     />
 
                                     <Button
+                                        type="button"
                                         variant="ghost"
                                         size="icon"
                                         className="h-7 w-7 text-destructive hover:text-destructive"
                                         onClick={() => removeStage(index)}
                                         disabled={editStages.length <= 1}
+                                        aria-label={`Remover ${stage.nome || `etapa ${index + 1}`}`}
                                     >
                                         <Trash2 className="h-3.5 w-3.5" />
                                     </Button>
                                 </div>
                             ))}
                         </div>
+                        {validationError && (
+                            <p role="alert" className="mt-2 text-sm text-destructive">
+                                {validationError}
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -274,10 +340,14 @@ export default function PipelineSettingsModal({
                             )}
                         </div>
                         <div className="flex gap-2">
-                            <Button variant="outline" onClick={() => handleOpenChange(false)}>
+                            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                                 Cancelar
                             </Button>
-                            <Button onClick={handleSave} disabled={isSaving || !nome.trim()}>
+                            <Button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={isSaving || !nome.trim() || editStages.length === 0}
+                            >
                                 {isSaving ? 'Salvando...' : 'Salvar'}
                             </Button>
                         </div>

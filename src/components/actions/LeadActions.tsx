@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Trash2, RotateCcw, Ban } from "lucide-react";
+import { Trash2, RotateCcw, Ban, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -86,26 +86,28 @@ export default function LeadActions({ lead }: LeadActionsProps) {
   // Permanent Delete Mutation
   const permanentDeleteMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from('leads')
-        .delete()
-        .eq('id', lead.id);
+      const { error } = await supabase.rpc('permanently_delete_lead', {
+        p_lead_id: lead.id,
+      });
       
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-leads'] });
+      queryClient.invalidateQueries({ queryKey: ['visitas'] });
+      queryClient.invalidateQueries({ queryKey: ['vendas'] });
       toast({
         title: "Lead excluído permanentemente",
         description: "Esta ação não pode ser desfeita.",
       });
       setShowPermanentDeleteDialog(false);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error(error);
       toast({
         title: "Erro na exclusão",
-        description: "Pode haver registros vinculados (visitas, logs). Exclua-os primeiro ou contate o suporte.",
+        description: error.message || "Não foi possível excluir o lead definitivamente.",
         variant: "destructive",
       });
     }
@@ -155,12 +157,21 @@ export default function LeadActions({ lead }: LeadActionsProps) {
             <AlertDialogHeader>
               <AlertDialogTitle>Excluir Permanentemente?</AlertDialogTitle>
               <AlertDialogDescription>
-                Esta ação apagará <strong>{lead.nome}</strong> do banco de dados para sempre e não pode ser desfeita.
+                Esta ação apagará <strong>{lead.nome}</strong> e todos os registros vinculados — oportunidades,
+                visitas, vendas, distribuições, conversas e logs — para sempre. Não pode ser desfeita.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={() => permanentDeleteMutation.mutate()} className="bg-red-600 hover:bg-red-700">
+              <AlertDialogAction
+                onClick={(event) => {
+                  event.preventDefault();
+                  permanentDeleteMutation.mutate();
+                }}
+                disabled={permanentDeleteMutation.isPending}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {permanentDeleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Excluir Definitivamente
               </AlertDialogAction>
             </AlertDialogFooter>

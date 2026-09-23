@@ -102,7 +102,7 @@ export default function ResetPasswordPage() {
         <div className="flex justify-center">
           <Logo size="lg" variant="white" />
         </div>
-        <Card className="border-white/30 bg-white/95 shadow-2xl">
+        <Card className="border-white/30 bg-card/95 shadow-2xl">
           <CardHeader>
             <CardTitle>Redefinir senha</CardTitle>
             <CardDescription>

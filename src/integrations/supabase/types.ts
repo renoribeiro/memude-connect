@@ -1925,6 +1925,8 @@ export type Database = {
       }
       crm_leads: {
         Row: {
+          archived_at: string | null
+          completed_at: string | null
           created_at: string | null
           empreendimento_id: string | null
           google_drive_url: string | null
@@ -1939,9 +1941,12 @@ export type Database = {
           tag_cor: string | null
           updated_at: string | null
           valor_estimado: number | null
+          venda_id: string | null
           visita_id: string | null
         }
         Insert: {
+          archived_at?: string | null
+          completed_at?: string | null
           created_at?: string | null
           empreendimento_id?: string | null
           google_drive_url?: string | null
@@ -1956,9 +1961,12 @@ export type Database = {
           tag_cor?: string | null
           updated_at?: string | null
           valor_estimado?: number | null
+          venda_id?: string | null
           visita_id?: string | null
         }
         Update: {
+          archived_at?: string | null
+          completed_at?: string | null
           created_at?: string | null
           empreendimento_id?: string | null
           google_drive_url?: string | null
@@ -1973,6 +1981,7 @@ export type Database = {
           tag_cor?: string | null
           updated_at?: string | null
           valor_estimado?: number | null
+          venda_id?: string | null
           visita_id?: string | null
         }
         Relationships: [
@@ -2005,6 +2014,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "crm_leads_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "crm_leads_visita_id_fkey"
             columns: ["visita_id"]
             isOneToOne: false
@@ -2016,6 +2032,7 @@ export type Database = {
       crm_pipelines: {
         Row: {
           auto_add_visits: boolean | null
+          completed_stage_id: string | null
           created_at: string | null
           created_by: string | null
           descricao: string | null
@@ -2026,6 +2043,7 @@ export type Database = {
         }
         Insert: {
           auto_add_visits?: boolean | null
+          completed_stage_id?: string | null
           created_at?: string | null
           created_by?: string | null
           descricao?: string | null
@@ -2036,6 +2054,7 @@ export type Database = {
         }
         Update: {
           auto_add_visits?: boolean | null
+          completed_stage_id?: string | null
           created_at?: string | null
           created_by?: string | null
           descricao?: string | null
@@ -2045,6 +2064,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "crm_pipeline_completed_stage_fk"
+            columns: ["id", "completed_stage_id"]
+            isOneToOne: false
+            referencedRelation: "crm_stages"
+            referencedColumns: ["pipeline_id", "id"]
+          },
           {
             foreignKeyName: "crm_pipelines_created_by_fkey"
             columns: ["created_by"]
@@ -5312,6 +5338,10 @@ export type Database = {
           net_rows_preserved: number
         }[]
       }
+      complete_crm_sale: {
+        Args: { p_crm_lead_id: string; p_sale: Json }
+        Returns: string
+      }
       create_crm_opportunity: {
         Args: {
           p_empreendimento_id?: string
@@ -5521,6 +5551,17 @@ export type Database = {
       save_crm_pipeline_configuration: {
         Args: {
           p_auto_add_visits: boolean
+          p_descricao: string
+          p_nome: string
+          p_pipeline_id: string
+          p_stages: Json
+        }
+        Returns: undefined
+      }
+      save_crm_pipeline_settings: {
+        Args: {
+          p_auto_add_visits: boolean
+          p_completed_stage_id: string
           p_descricao: string
           p_nome: string
           p_pipeline_id: string
@@ -6034,4 +6075,3 @@ export const Constants = {
     },
   },
 } as const
-

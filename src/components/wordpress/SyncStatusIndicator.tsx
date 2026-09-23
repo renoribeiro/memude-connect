@@ -37,7 +37,7 @@ export function SyncStatusIndicator() {
       case 'error':
         return <AlertTriangle className="w-4 h-4 text-red-500" />;
       default:
-        return <Clock className="w-4 h-4 text-gray-400" />;
+        return <Clock className="w-4 h-4 text-muted-foreground" />;
     }
   };
 

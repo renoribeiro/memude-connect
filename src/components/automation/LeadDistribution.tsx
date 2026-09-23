@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,47 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Settings, Users, Zap, Clock, Target, ArrowRight, Play, Pause, Save, Loader2 } from "lucide-react";
+import { Settings, Users, Zap, Clock, Target, ArrowRight, Play, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-interface DistributionRule {
-  id: string;
-  name: string;
-  active: boolean;
-  criteria: {
-    bairro?: string[];
-    empreendimento?: string[];
-    valor_min?: number;
-    valor_max?: number;
-    source?: string[];
-  };
-  assignment_method: 'round-robin' | 'weighted' | 'availability' | 'performance';
-  corretores: string[];
-  priority: number;
-}
 
 interface CorretorAvailability {
   corretor_id: string;
   name: string;
   available: boolean;
   current_leads: number;
-  max_leads: number;
   performance_score: number;
-  weight: number;
+  total_accepts: number;
+  total_rejects: number;
 }
 
 export function LeadDistribution() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedRule, setSelectedRule] = useState<string | null>(null);
-  const [autoDistribution, setAutoDistribution] = useState(true);
-  const [isSavingWeights, setIsSavingWeights] = useState(false);
 
   // Fetch distribution settings (weights)
   const { data: distributionSettings, refetch: refetchSettings } = useQuery({
@@ -54,7 +32,7 @@ export function LeadDistribution() {
     queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('distribution_settings')
-        .select('id, score_match_bairro, score_match_construtora, score_nota_multiplier, score_visitas_multiplier')
+        .select('id, auto_distribution_enabled, timeout_minutes, max_attempts, score_match_bairro, score_match_construtora, score_nota_multiplier, score_visitas_multiplier')
         .abortSignal(signal)
         .single();
       if (error) throw error;
@@ -65,7 +43,7 @@ export function LeadDistribution() {
   // Update weights mutation
   const updateWeightsMutation = useMutation({
     mutationFn: async (newSettings: any) => {
-      setIsSavingWeights(true);
+      if (!distributionSettings?.id) throw new Error('Configuração de distribuição não encontrada.');
       const { error } = await supabase
         .from('distribution_settings')
         .update(newSettings)
@@ -76,8 +54,8 @@ export function LeadDistribution() {
     onSuccess: () => {
       refetchSettings();
       toast({
-        title: "Pesos atualizados",
-        description: "As configurações de pontuação foram salvas com sucesso.",
+        title: "Configuração atualizada",
+        description: "As regras operacionais foram salvas com sucesso.",
       });
     },
     onError: (error: any) => {
@@ -87,47 +65,46 @@ export function LeadDistribution() {
         variant: "destructive",
       });
     },
-    onSettled: () => {
-      setIsSavingWeights(false);
-    }
   });
 
   const handleSaveWeight = (key: string, value: string) => {
-    const numValue = parseInt(value) || 0;
+    const numValue = Number.parseInt(value, 10);
+    if (!Number.isFinite(numValue) || numValue < 0 || numValue > 1_000_000) {
+      toast({ title: 'Valor inválido', description: 'Informe um inteiro entre 0 e 1.000.000.', variant: 'destructive' });
+      return;
+    }
     updateWeightsMutation.mutate({ [key]: numValue });
   };
 
-  // Fetch distribution rules
-  const { data: rules = [], isLoading: isLoadingRules } = useQuery({
-    queryKey: ['distribution-rules'],
-    queryFn: async () => {
-      // Simulating distribution rules since we don't have this table yet
-      return [
-        {
-          id: '1',
-          name: 'Centro - Empreendimentos Premium',
-          active: true,
-          criteria: {
-            bairro: ['Centro', 'Aldeota'],
-            valor_min: 500000,
-          },
-          assignment_method: 'performance' as const,
-          corretores: ['corretor-1', 'corretor-2'],
-          priority: 1,
-        },
-        {
-          id: '2',
-          name: 'Fortaleza - Geral',
-          active: true,
-          criteria: {
-            bairro: ['Meireles', 'Papicu', 'Cocó'],
-          },
-          assignment_method: 'round-robin' as const,
-          corretores: ['corretor-1', 'corretor-2', 'corretor-3'],
-          priority: 2,
-        },
-      ] as DistributionRule[];
-    }
+  const { data: stats } = useQuery({
+    queryKey: ['lead-distribution-live-stats'],
+    queryFn: async ({ signal }) => {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const [pendingResult, metricsResult] = await Promise.all([
+        supabase
+          .from('leads')
+          .select('id', { count: 'exact', head: true })
+          .in('status', ['novo', 'buscando_corretor'])
+          .is('corretor_designado_id', null)
+          .abortSignal(signal),
+        supabase
+          .from('distribution_metrics')
+          .select('total_distributions, total_attempts, total_accepts, total_rejects, total_timeouts, avg_response_time_minutes')
+          .eq('date', today)
+          .abortSignal(signal)
+          .maybeSingle(),
+      ]);
+      if (pendingResult.error) throw pendingResult.error;
+      if (metricsResult.error) throw metricsResult.error;
+      const metrics = metricsResult.data;
+      const resolvedResponses = (metrics?.total_accepts || 0) + (metrics?.total_rejects || 0);
+      return {
+        pending: pendingResult.count || 0,
+        distributed: metrics?.total_distributions || 0,
+        acceptanceRate: resolvedResponses > 0 ? ((metrics?.total_accepts || 0) / resolvedResponses) * 100 : 0,
+        averageMinutes: Number(metrics?.avg_response_time_minutes || 0),
+      };
+    },
   });
 
   // Fetch corretor availability
@@ -141,6 +118,8 @@ export function LeadDistribution() {
           status,
           total_visitas,
           nota_media,
+          total_accepts,
+          total_rejects,
           profiles(first_name, last_name)
         `)
         .eq('status', 'ativo');
@@ -167,50 +146,10 @@ export function LeadDistribution() {
         name: `${corretor.profiles.first_name} ${corretor.profiles.last_name}`,
         available: corretor.status === 'ativo',
         current_leads: leadCountMap[corretor.id] || 0,
-        max_leads: 10, // Default max leads
         performance_score: corretor.nota_media || 0,
-        weight: 1, // Default weight
+        total_accepts: corretor.total_accepts || 0,
+        total_rejects: corretor.total_rejects || 0,
       })) as CorretorAvailability[];
-    }
-  });
-
-  // Manual distribution mutation
-  const distributeLeadMutation = useMutation({
-    mutationFn: async ({ leadId, corretorId }: { leadId: string; corretorId: string }) => {
-      const { error } = await supabase
-        .from('leads')
-        .update({
-          corretor_designado_id: corretorId,
-          status: 'corretor_designado'
-        })
-        .eq('id', leadId);
-
-      if (error) throw error;
-
-      // Log the distribution
-      await supabase
-        .from('lead_distribution_log')
-        .insert({
-          lead_id: leadId,
-          corretor_id: corretorId,
-          ordem_prioridade: 1,
-          data_envio: new Date().toISOString(),
-        });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
-      queryClient.invalidateQueries({ queryKey: ['corretor-availability'] });
-      toast({
-        title: "Sucesso",
-        description: "Lead distribuído com sucesso!",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao distribuir lead",
-        variant: "destructive",
-      });
     }
   });
 
@@ -223,68 +162,45 @@ export function LeadDistribution() {
         .select('id')
         .in('status', ['novo', 'buscando_corretor'])
         .is('corretor_designado_id', null)
-        .limit(1000);
+        .limit(10);
 
       if (error) throw error;
 
-      const distributions = [];
-
-      for (const lead of pendingLeads) {
-        // Find available corretor using round-robin
-        const availableCorretores = availability.filter(c =>
-          c.available && c.current_leads < c.max_leads
-        );
-
-        if (availableCorretores.length > 0) {
-          // Simple round-robin assignment
-          const selectedCorretor = availableCorretores[
-            distributions.length % availableCorretores.length
-          ];
-
-          distributions.push({
-            leadId: lead.id,
-            corretorId: selectedCorretor.corretor_id
-          });
+      let successful = 0;
+      const failures: string[] = [];
+      for (const lead of pendingLeads || []) {
+        const { data, error: invokeError } = await supabase.functions.invoke('distribute-lead', {
+          body: { lead_id: lead.id },
+        });
+        if (invokeError || data?.error) {
+          failures.push(data?.error || invokeError?.message || `Falha no lead ${lead.id}`);
+        } else {
+          successful += 1;
         }
       }
 
-      // Execute all distributions
-      for (const dist of distributions) {
-        await distributeLeadMutation.mutateAsync(dist);
-      }
-
-      return distributions.length;
+      return { successful, failed: failures.length, firstFailure: failures[0] };
     },
-    onSuccess: (count) => {
+    onSuccess: ({ successful, failed, firstFailure }) => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['corretor-availability'] });
+      queryClient.invalidateQueries({ queryKey: ['lead-distribution-live-stats'] });
       toast({
-        title: "Distribuição Automática",
-        description: `${count} leads foram distribuídos automaticamente`,
+        title: failed ? "Distribuição concluída com ressalvas" : "Distribuição concluída",
+        description: `${successful} lead(s) iniciado(s)${failed ? `; ${failed} falharam. ${firstFailure}` : '.'}`,
+        variant: failed ? 'destructive' : 'default',
       });
-    }
+    },
+    onError: (error: Error) => toast({
+      title: 'Erro na distribuição',
+      description: error.message,
+      variant: 'destructive',
+    }),
   });
 
-  const getMethodLabel = (method: string) => {
-    switch (method) {
-      case 'round-robin':
-        return 'Rodízio';
-      case 'weighted':
-        return 'Por Peso';
-      case 'availability':
-        return 'Por Disponibilidade';
-      case 'performance':
-        return 'Por Performance';
-      default:
-        return method;
-    }
-  };
-
   const getAvailabilityStatus = (corretor: CorretorAvailability) => {
-    const percentage = (corretor.current_leads / corretor.max_leads) * 100;
-
-    if (percentage >= 100) return { status: 'Lotado', variant: 'destructive' as const, color: 'text-red-600' };
-    if (percentage >= 80) return { status: 'Quase Lotado', variant: 'secondary' as const, color: 'text-yellow-600' };
-    if (percentage >= 50) return { status: 'Moderado', variant: 'outline' as const, color: 'text-blue-600' };
-    return { status: 'Disponível', variant: 'default' as const, color: 'text-green-600' };
+    if (corretor.current_leads >= 5) return { status: `${corretor.current_leads} leads ativos`, variant: 'secondary' as const };
+    return { status: `${corretor.current_leads} lead(s) ativo(s)`, variant: 'default' as const };
   };
 
   return (
@@ -305,8 +221,9 @@ export function LeadDistribution() {
           <div className="flex items-center space-x-2">
             <Switch
               id="auto-distribution"
-              checked={autoDistribution}
-              onCheckedChange={setAutoDistribution}
+              checked={Boolean(distributionSettings?.auto_distribution_enabled)}
+              onCheckedChange={(checked) => updateWeightsMutation.mutate({ auto_distribution_enabled: checked })}
+              disabled={!distributionSettings || updateWeightsMutation.isPending}
             />
             <Label htmlFor="auto-distribution">Distribuição Automática</Label>
           </div>
@@ -322,7 +239,7 @@ export function LeadDistribution() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Distribuir Leads Pendentes</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Deseja executar a distribuição automática para todos os leads pendentes?
+                  Serão processados até 10 leads pendentes usando o motor oficial de score, fila e notificações. Deseja continuar?
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -340,71 +257,23 @@ export function LeadDistribution() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Distribution Rules */}
+        {/* Operational rules */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Settings className="w-5 h-5" />
-              Regras de Distribuição
+              Regras Operacionais Ativas
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {rules.map((rule) => (
-              <div
-                key={rule.id}
-                className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <h3 className="font-semibold">{rule.name}</h3>
-                    <Badge variant={rule.active ? 'default' : 'secondary'}>
-                      {rule.active ? 'Ativa' : 'Inativa'}
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedRule(rule.id)}
-                    >
-                      Configurar
-                    </Button>
-                    <Switch
-                      checked={rule.active}
-                      disabled
-                      aria-label="Regra demonstrativa; edição ainda indisponível"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Método:</span>
-                    <div className="font-medium">{getMethodLabel(rule.assignment_method)}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Prioridade:</span>
-                    <div className="font-medium">{rule.priority}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Corretores:</span>
-                    <div className="font-medium">{rule.corretores.length}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Critérios:</span>
-                    <div className="font-medium">
-                      {Object.keys(rule.criteria).length} definidos
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            <Button variant="outline" className="w-full">
-              <Settings className="w-4 h-4 mr-2" />
-              Nova Regra
-            </Button>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="rounded-lg border p-4"><span className="text-muted-foreground">Motor</span><p className="font-medium">Score por bairro, construtora, nota e carga</p></div>
+              <div className="rounded-lg border p-4"><span className="text-muted-foreground">Timeout</span><p className="font-medium">{distributionSettings?.timeout_minutes ?? '—'} minuto(s)</p></div>
+              <div className="rounded-lg border p-4"><span className="text-muted-foreground">Máximo de tentativas</span><p className="font-medium">{distributionSettings?.max_attempts ?? '—'}</p></div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              O botão “Distribuir Agora” utiliza a mesma Edge Function do fluxo automático; não altera leads diretamente pelo navegador.
+            </p>
           </CardContent>
         </Card>
 
@@ -417,6 +286,8 @@ export function LeadDistribution() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {isLoadingAvailability && <Loader2 className="h-5 w-5 animate-spin" />}
+            {!isLoadingAvailability && availability.length === 0 && <p className="text-sm text-muted-foreground">Nenhum corretor ativo encontrado.</p>}
             {availability.map((corretor) => {
               const status = getAvailabilityStatus(corretor);
               return (
@@ -429,28 +300,15 @@ export function LeadDistribution() {
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Leads Atuais</span>
-                      <span>{corretor.current_leads}/{corretor.max_leads}</span>
-                    </div>
-
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all ${status.variant === 'destructive' ? 'bg-red-500' :
-                          status.variant === 'secondary' ? 'bg-yellow-500' :
-                            'bg-green-500'
-                          }`}
-                        style={{
-                          width: `${Math.min((corretor.current_leads / corretor.max_leads) * 100, 100)}%`
-                        }}
-                      />
-                    </div>
-
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Performance:</span>
                       <span className="font-medium">
                         {corretor.performance_score.toFixed(1)}/5.0
                       </span>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Aceites / recusas:</span>
+                      <span>{corretor.total_accepts} / {corretor.total_rejects}</span>
                     </div>
                   </div>
                 </div>
@@ -479,7 +337,7 @@ export function LeadDistribution() {
                     defaultValue={distributionSettings?.score_match_bairro ?? 10000}
                     onBlur={(e) => handleSaveWeight('score_match_bairro', e.target.value)}
                   />
-                  {isSavingWeights && <Loader2 className="w-4 h-4 animate-spin my-auto" />}
+                  {updateWeightsMutation.isPending && <Loader2 className="w-4 h-4 animate-spin my-auto" />}
                 </div>
                 <p className="text-xs text-muted-foreground">Pontos se corretor atende o bairro</p>
               </div>
@@ -492,7 +350,7 @@ export function LeadDistribution() {
                     defaultValue={distributionSettings?.score_match_construtora ?? 10000}
                     onBlur={(e) => handleSaveWeight('score_match_construtora', e.target.value)}
                   />
-                  {isSavingWeights && <Loader2 className="w-4 h-4 animate-spin my-auto" />}
+                  {updateWeightsMutation.isPending && <Loader2 className="w-4 h-4 animate-spin my-auto" />}
                 </div>
                 <p className="text-xs text-muted-foreground">Pontos se corretor atende construtora</p>
               </div>
@@ -505,7 +363,7 @@ export function LeadDistribution() {
                     defaultValue={distributionSettings?.score_nota_multiplier ?? 100}
                     onBlur={(e) => handleSaveWeight('score_nota_multiplier', e.target.value)}
                   />
-                  {isSavingWeights && <Loader2 className="w-4 h-4 animate-spin my-auto" />}
+                  {updateWeightsMutation.isPending && <Loader2 className="w-4 h-4 animate-spin my-auto" />}
                 </div>
                 <p className="text-xs text-muted-foreground">Nota (0-5) multiplicada por X</p>
               </div>
@@ -518,7 +376,7 @@ export function LeadDistribution() {
                     defaultValue={distributionSettings?.score_visitas_multiplier ?? 10}
                     onBlur={(e) => handleSaveWeight('score_visitas_multiplier', e.target.value)}
                   />
-                  {isSavingWeights && <Loader2 className="w-4 h-4 animate-spin my-auto" />}
+                  {updateWeightsMutation.isPending && <Loader2 className="w-4 h-4 animate-spin my-auto" />}
                 </div>
                 <p className="text-xs text-muted-foreground">Pontos reduzidos por visita atual</p>
               </div>
@@ -534,7 +392,7 @@ export function LeadDistribution() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Leads Pendentes</p>
-                <p className="text-2xl font-bold">12</p>
+                <p className="text-2xl font-bold">{stats?.pending ?? '—'}</p>
               </div>
               <Clock className="w-8 h-8 text-muted-foreground" />
             </div>
@@ -546,7 +404,7 @@ export function LeadDistribution() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Distribuídos Hoje</p>
-                <p className="text-2xl font-bold">28</p>
+                <p className="text-2xl font-bold">{stats?.distributed ?? '—'}</p>
               </div>
               <Target className="w-8 h-8 text-muted-foreground" />
             </div>
@@ -557,8 +415,8 @@ export function LeadDistribution() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Taxa de Resposta</p>
-                <p className="text-2xl font-bold">85%</p>
+                <p className="text-sm font-medium text-muted-foreground">Taxa de Aceite</p>
+                <p className="text-2xl font-bold">{stats ? `${stats.acceptanceRate.toFixed(1)}%` : '—'}</p>
               </div>
               <ArrowRight className="w-8 h-8 text-muted-foreground" />
             </div>
@@ -570,7 +428,7 @@ export function LeadDistribution() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Tempo Médio</p>
-                <p className="text-2xl font-bold">3.2min</p>
+                <p className="text-2xl font-bold">{stats ? `${stats.averageMinutes.toFixed(1)} min` : '—'}</p>
               </div>
               <Zap className="w-8 h-8 text-muted-foreground" />
             </div>

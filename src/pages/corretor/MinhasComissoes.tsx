@@ -131,8 +131,8 @@ const MinhasComissoes = () => {
             <div className="space-y-6">
                 {/* Header */}
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Minhas Comissões</h1>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <h1 className="text-2xl font-bold text-foreground">Minhas Comissões</h1>
+                    <p className="text-sm text-muted-foreground mt-1">
                         Acompanhe suas vendas e comissões
                     </p>
                 </div>
@@ -194,7 +194,7 @@ const MinhasComissoes = () => {
                                 <Loader2 className="animate-spin h-8 w-8 text-primary" />
                             </div>
                         ) : vendas.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-48 text-gray-500">
+                            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                                 <AlertCircle className="h-8 w-8 mb-2" />
                                 <p>Nenhuma venda registrada</p>
                             </div>
@@ -247,7 +247,7 @@ const MinhasComissoes = () => {
                                                                     href={signedUrl}
                                                                     target="_blank" 
                                                                     rel="noopener noreferrer"
-                                                                    className="inline-flex items-center gap-1.5 text-xs py-0.5 px-2.5 bg-slate-100 hover:bg-slate-200 rounded-full text-muted-foreground hover:text-foreground transition-colors font-medium"
+                                                                    className="inline-flex items-center gap-1.5 text-xs py-0.5 px-2.5 bg-muted hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors font-medium"
                                                                 >
                                                                     <Paperclip className="h-3 w-3" />
                                                                     {displayName}
@@ -322,7 +322,7 @@ const MinhasComissoes = () => {
                                                                                          href={signedUrl}
                                                                                          target="_blank"
                                                                                          rel="noopener noreferrer"
-                                                                                         className="text-xs text-foreground hover:text-primary hover:bg-slate-50 rounded px-2 py-1.5 flex items-center gap-1.5 truncate transition-colors font-medium"
+                                                                                         className="text-xs text-foreground hover:text-primary hover:bg-muted rounded px-2 py-1.5 flex items-center gap-1.5 truncate transition-colors font-medium"
                                                                                      >
                                                                                          <Paperclip className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
                                                                                          <span className="truncate w-full">{fileName}</span>

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { parseLocalDate } from '@/utils/dateHelpers';
+import { useNavigate } from 'react-router-dom';
 
 interface CorretorStats {
   totalLeads: number;
@@ -42,6 +43,7 @@ interface VisitaProxima {
 }
 
 const CorretorDashboard = () => {
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const [hasNoProfile, setHasNoProfile] = useState(false);
   const [stats, setStats] = useState<CorretorStats>({
@@ -142,10 +144,10 @@ const CorretorDashboard = () => {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="h-8 bg-muted rounded w-1/4"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+              <div key={i} className="h-32 bg-muted rounded"></div>
             ))}
           </div>
         </div>
@@ -252,7 +254,7 @@ const CorretorDashboard = () => {
                 proximasVisitas.map((visita) => (
                   <div
                     key={visita.id}
-                    className="flex items-center justify-between p-4 bg-white/50 rounded-lg border border-white/20"
+                    className="flex items-center justify-between p-4 bg-card/50 rounded-lg border border-white/20"
                   >
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
@@ -318,7 +320,7 @@ const CorretorDashboard = () => {
                     className={`h-5 w-5 ${
                       star <= Math.round(stats.notaMedia)
                         ? 'text-yellow-400 fill-current'
-                        : 'text-gray-300'
+                        : 'text-muted-foreground'
                     }`}
                   />
                 ))}
@@ -337,8 +339,8 @@ const CorretorDashboard = () => {
               </div>
             </div>
 
-            <Button className="w-full" variant="outline">
-              Ver Histórico Completo
+            <Button className="w-full" variant="outline" onClick={() => navigate('/minhas-visitas')}>
+              Ver Histórico de Visitas
             </Button>
           </CardContent>
         </Card>

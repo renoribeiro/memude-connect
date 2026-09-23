@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { lazy, Suspense } from "react";
+import { ThemeProvider } from "next-themes";
 
 const Index = lazy(() => import("./pages/Index"));
 const AuthPage = lazy(() => import("./components/auth/AuthPage"));
@@ -36,6 +37,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <ErrorBoundary>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
@@ -63,12 +65,12 @@ const App = () => (
                   </ProtectedRoute>
                 } />
                 <Route path="/leads" element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <Leads />
                   </ProtectedRoute>
                 } />
                 <Route path="/crm" element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <CRM />
                   </ProtectedRoute>
                 } />
@@ -83,7 +85,7 @@ const App = () => (
                   </ProtectedRoute>
                 } />
                 <Route path="/visitas" element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <Visitas />
                   </ProtectedRoute>
                 } />
@@ -93,12 +95,12 @@ const App = () => (
                   </ProtectedRoute>
                 } />
                 <Route path="/comunicacoes" element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <Comunicacoes />
                   </ProtectedRoute>
                 } />
                 <Route path="/relatorios" element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <Relatorios />
                   </ProtectedRoute>
                 } />
@@ -162,6 +164,7 @@ const App = () => (
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
+    </ThemeProvider>
   </ErrorBoundary>
 );
 

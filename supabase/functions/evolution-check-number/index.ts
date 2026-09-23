@@ -1,6 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
-import { normalizePhoneNumber, isValidBrazilianPhone } from '../_shared/phoneHelpers.ts';
+import { normalizePhoneNumber, isValidPhone } from '../_shared/phoneHelpers.ts';
 import {
   authorize,
   corsHeaders as buildCorsHeaders,
@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
 
     console.log('Verificando disponibilidade de número no WhatsApp');
 
-    if (!isValidBrazilianPhone(normalizedPhone)) {
+    if (!isValidPhone(phone_number)) {
       return new Response(
         JSON.stringify({
           success: false,

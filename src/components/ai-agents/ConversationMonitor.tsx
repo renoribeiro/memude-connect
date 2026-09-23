@@ -110,7 +110,7 @@ export function ConversationMonitor({ agentId }: ConversationMonitorProps) {
 
         const sentimentConfig: Record<string, { emoji: string; className: string; label: string }> = {
             positive: { emoji: '😊', className: 'bg-green-500/20 text-green-700 border-green-300', label: 'Positivo' },
-            neutral: { emoji: '😐', className: 'bg-gray-500/20 text-gray-700 border-gray-300', label: 'Neutro' },
+            neutral: { emoji: '😐', className: 'bg-muted text-foreground border-border', label: 'Neutro' },
             negative: { emoji: '😞', className: 'bg-red-500/20 text-red-700 border-red-300', label: 'Negativo' },
             urgent: { emoji: '⚡', className: 'bg-orange-500/20 text-orange-700 border-orange-300', label: 'Urgente' },
             frustrated: { emoji: '😤', className: 'bg-red-600/20 text-red-800 border-red-400', label: 'Frustrado' }

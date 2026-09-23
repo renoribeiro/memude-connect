@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Filter, MessageSquare, Phone, Mail, Calendar, User, ArrowUpRight, ArrowDownLeft, FileText } from "lucide-react";
+import { Plus, Search, MessageSquare, Phone, Mail, Calendar, User, ArrowUpRight, ArrowDownLeft, FileText } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { TableSkeleton } from "@/components/ui/loading-skeleton";
@@ -27,6 +27,8 @@ import {
 
 interface CommunicationLog {
   id: string;
+  lead_id?: string | null;
+  corretor_id?: string | null;
   type: string;
   direction: string;
   status: string;
@@ -77,8 +79,9 @@ const statusLabels = {
 };
 
 export default function Comunicacoes() {
-  const { profile } = useAuth();
+  const { profile, isAdmin } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -142,9 +145,35 @@ export default function Comunicacoes() {
       <ArrowDownLeft className="w-3 h-3" />;
   };
 
-  // Reset page when filters change
-  useState(() => {
+  useEffect(() => {
     setCurrentPage(1);
+  }, [debouncedSearchTerm, filterType, filterStatus]);
+
+  const resendMutation = useMutation({
+    mutationFn: async (communication: CommunicationLog) => {
+      if (!communication.phone_number) throw new Error('O log não possui telefone para reenvio.');
+      const { data, error } = await supabase.functions.invoke('evolution-send-whatsapp-v2', {
+        body: {
+          phone_number: communication.phone_number,
+          message: communication.content,
+          lead_id: communication.lead_id || undefined,
+          corretor_id: communication.corretor_id || undefined,
+          metadata: { source: 'communications-retry', retried_from: communication.id },
+        },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'O provedor não confirmou o reenvio.');
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['communications'] });
+      toast({ title: 'Mensagem reenviada', description: 'O provedor confirmou o reenvio.' });
+    },
+    onError: (error: Error) => toast({
+      title: 'Erro ao reenviar',
+      description: error.message,
+      variant: 'destructive',
+    }),
   });
 
   if (!profile) return null;
@@ -163,7 +192,7 @@ export default function Comunicacoes() {
               Gerencie comunicações e templates do sistema
             </p>
           </div>
-          {activeTab === "comunicacoes" && (
+          {activeTab === "comunicacoes" && isAdmin && (
             <Button
               className="flex items-center gap-2"
               onClick={() => setIsModalOpen(true)}
@@ -276,9 +305,6 @@ export default function Comunicacoes() {
                         <option key={value} value={value}>{label}</option>
                       ))}
                     </select>
-                    <Button variant="outline" size="icon">
-                      <Filter className="w-4 h-4" />
-                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -365,15 +391,13 @@ export default function Comunicacoes() {
                           >
                             Detalhes
                           </Button>
-                          {comm.type === 'whatsapp' && comm.status === 'failed' && (
+                          {isAdmin && comm.type === 'whatsapp' && comm.status === 'failed' && (
                             <Button
                               variant="outline"
                               size="sm"
                               className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                              onClick={() => toast({
-                                title: "Reenviar Mensagem",
-                                description: "O fluxo de reenvio será processado em background."
-                              })}
+                              onClick={() => resendMutation.mutate(comm)}
+                              disabled={resendMutation.isPending}
                             >
                               Reenviar
                             </Button>

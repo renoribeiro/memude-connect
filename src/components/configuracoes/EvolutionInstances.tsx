@@ -373,7 +373,7 @@ export function EvolutionInstances() {
                                                     }
                                                 }}
                                             >
-                                                <LogOut className="w-4 h-4 text-gray-500" />
+                                                <LogOut className="w-4 h-4 text-muted-foreground" />
                                             </Button>
                                             <Button
                                                 variant="ghost"

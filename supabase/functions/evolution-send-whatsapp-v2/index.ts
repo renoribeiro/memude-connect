@@ -1,6 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
-import { normalizePhoneNumber, isValidBrazilianPhone } from '../_shared/phoneHelpers.ts';
+import { normalizePhoneNumber, isValidPhone } from '../_shared/phoneHelpers.ts';
 import { logIntegration } from '../_shared/integration-logger.ts';
 import {
   authorize,
@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
 
     console.log('Iniciando envio WhatsApp');
 
-    if (!isValidBrazilianPhone(normalizedPhone)) {
+    if (!isValidPhone(phone_number)) {
       throw new Error('Número de telefone inválido');
     }
 
@@ -579,8 +579,12 @@ Deno.serve(async (req) => {
           const remoteJid = responseBody.key.remoteJid as string;
           const jidPhone = remoteJid.replace('@s.whatsapp.net', '').replace('@lid', '');
 
-          // Only map if remoteJid contains a real phone (not already a LID)
-          if (remoteJid.includes('@s.whatsapp.net') && /^\d{10,15}$/.test(jidPhone)) {
+          // A resposta de envio pode retornar tanto o telefone quanto um LID.
+          // Em ambos os casos a chave do JID identifica o destinatário real.
+          if (
+            (remoteJid.includes('@s.whatsapp.net') || remoteJid.includes('@lid'))
+            && /^\d{10,20}$/.test(jidPhone)
+          ) {
             await supabase.from('lid_phone_map').upsert({
               lid: jidPhone,
               phone: normalizedPhone,

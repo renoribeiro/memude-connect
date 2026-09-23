@@ -10,6 +10,7 @@ export interface CrmPipeline {
     descricao: string | null;
     is_default: boolean;
     auto_add_visits: boolean;
+    completed_stage_id: string | null;
     created_at: string;
 }
 
@@ -29,10 +30,19 @@ export interface CrmLead {
     stage_id: string | null;
     posicao: number;
     valor_estimado: number | null;
+    empreendimento_id: string | null;
+    visita_id: string | null;
+    venda_id: string | null;
+    completed_at: string | null;
+    archived_at: string | null;
+    vendas: { valor_imovel: number; status: string } | null;
     notas: string | null;
     google_drive_url: string | null;
+    tag: string | null;
+    tag_cor: string | null;
     moved_at: string;
     created_at: string;
+    empreendimentos: { id: string; nome: string } | null;
     leads: {
         id: string;
         nome: string;
@@ -62,7 +72,28 @@ export interface CrmAutomation {
     crm_stages?: { nome: string } | null;
 }
 
-export function useCrmPipeline(pipelineId?: string) {
+export interface CreateOpportunityInput {
+    leadId: string;
+    stageId: string;
+    empreendimentoId?: string;
+    valorEstimado?: number;
+    notas?: string;
+}
+
+export interface CreateLeadOpportunityInput {
+    nome: string;
+    telefone: string;
+    email?: string;
+    origem: string;
+    observacoes?: string;
+    corretorDesignadoId?: string;
+    stageId: string;
+    empreendimentoId?: string;
+    valorEstimado?: number;
+    notas?: string;
+}
+
+export function useCrmPipeline(pipelineId?: string, archived = false) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
@@ -71,7 +102,7 @@ export function useCrmPipeline(pipelineId?: string) {
         queryFn: async ({ signal }) => {
             const { data, error } = await db
                 .from('crm_pipelines')
-                .select('id, nome, descricao, is_default, auto_add_visits, created_at')
+                .select('id, nome, descricao, is_default, auto_add_visits, completed_stage_id, created_at')
                 .order('is_default', { ascending: false })
                 .order('created_at', { ascending: true })
                 .limit(100)
@@ -99,29 +130,41 @@ export function useCrmPipeline(pipelineId?: string) {
     });
 
     const crmLeads = useQuery({
-        queryKey: ['crm-leads', pipelineId],
+        queryKey: ['crm-leads', pipelineId, archived],
         queryFn: async ({ signal }) => {
             if (!pipelineId) return [];
-            const { data, error } = await db
-                .from('crm_leads')
-                .select(`
-          id, lead_id, pipeline_id, stage_id, posicao, valor_estimado,
-          notas, google_drive_url, moved_at, created_at,
-          leads (
-            id, nome, telefone, email, status, origem, observacoes,
-            empreendimento_id, corretor_designado_id,
-            empreendimentos(nome),
-            corretores(profiles(first_name, last_name))
-          )
-        `)
-                .eq('pipeline_id', pipelineId)
-                .order('posicao', { ascending: true })
-                .limit(500)
-                .abortSignal(signal);
-            if (error) throw error;
-            return data as CrmLead[];
+            const all: CrmLead[] = [];
+            for (let offset = 0; ; offset += 500) {
+                let query = db
+                    .from('crm_leads')
+                    .select(`
+              id, lead_id, pipeline_id, stage_id, posicao, valor_estimado,
+              empreendimento_id, visita_id,
+              notas, google_drive_url, tag, tag_cor, moved_at, created_at,
+              empreendimentos(id, nome),
+              venda_id, completed_at, archived_at,
+              vendas!crm_leads_venda_id_fkey(valor_imovel, status),
+              leads (
+                id, nome, telefone, email, status, origem, observacoes,
+                empreendimento_id, corretor_designado_id,
+                empreendimentos(nome),
+                corretores(profiles(first_name, last_name))
+              )
+            `)
+                    .eq('pipeline_id', pipelineId)
+                    .order('posicao', { ascending: true })
+                    .order('id', { ascending: true })
+                    .range(offset, offset + 499);
+                query = archived ? query.not('archived_at', 'is', null) : query.is('archived_at', null);
+                const { data, error } = await query.abortSignal(signal);
+                if (error) throw error;
+                all.push(...(data as CrmLead[]));
+                if (data.length < 500) break;
+            }
+            return all;
         },
         enabled: !!pipelineId,
+        refetchInterval: 30_000,
     });
 
     const automations = useQuery({
@@ -165,42 +208,85 @@ export function useCrmPipeline(pipelineId?: string) {
             queryClient.invalidateQueries({ queryKey: ['crm-leads', pipelineId] });
         },
         onError: () => {
-            toast({ title: 'Erro ao mover lead', variant: 'destructive' });
+            toast({ title: 'Erro ao mover oportunidade', variant: 'destructive' });
         },
     });
 
-    const addLeadToPipeline = useMutation({
-        mutationFn: async ({
-            leadId,
-            stageId,
-            valorEstimado,
-            notas,
-        }: {
-            leadId: string;
-            stageId: string;
-            valorEstimado?: number;
-            notas?: string;
-        }) => {
+    const createOpportunity = useMutation({
+        mutationFn: async ({ leadId, stageId, empreendimentoId, valorEstimado, notas }: CreateOpportunityInput) => {
             if (!pipelineId) throw new Error('Pipeline não selecionado');
-            const { error } = await db.from('crm_leads').insert({
-                lead_id: leadId,
-                pipeline_id: pipelineId,
-                stage_id: stageId,
-                valor_estimado: valorEstimado || null,
-                notas: notas || null,
-                posicao: 0,
+            const { data, error } = await db.rpc('create_crm_opportunity', {
+                p_lead_id: leadId,
+                p_pipeline_id: pipelineId,
+                p_stage_id: stageId,
+                p_empreendimento_id: empreendimentoId || undefined,
+                p_valor_estimado: valorEstimado,
+                p_notas: notas || undefined,
             });
             if (error) throw error;
+            return data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['crm-leads', pipelineId] });
-            toast({ title: 'Lead adicionado ao funil' });
+            toast({ title: 'Oportunidade criada com sucesso' });
         },
-        onError: (error: any) => {
-            const msg = error?.message?.includes('duplicate')
-                ? 'Este lead já está no funil'
-                : 'Erro ao adicionar lead';
-            toast({ title: msg, variant: 'destructive' });
+        onError: (error: Error) => {
+            toast({
+                title: 'Erro ao criar oportunidade',
+                description: error.message,
+                variant: 'destructive',
+            });
+        },
+    });
+
+    const createLeadWithOpportunity = useMutation({
+        mutationFn: async (input: CreateLeadOpportunityInput) => {
+            if (!pipelineId) throw new Error('Pipeline não selecionado');
+            const { data, error } = await db.rpc('create_lead_with_crm_opportunity', {
+                p_input: {
+                    nome: input.nome,
+                    telefone: input.telefone,
+                    email: input.email || null,
+                    origem: input.origem,
+                    observacoes: input.observacoes || null,
+                    corretor_designado_id: input.corretorDesignadoId || null,
+                    pipeline_id: pipelineId,
+                    stage_id: input.stageId,
+                    empreendimento_id: input.empreendimentoId || null,
+                    valor_estimado: input.valorEstimado ?? null,
+                    notas: input.notas || null,
+                },
+            });
+            if (error) throw error;
+
+            const result = data as { lead_id: string; opportunity_id: string };
+            let distributionFailed = false;
+            if (!input.corretorDesignadoId) {
+                const { error: distributionError } = await supabase.functions.invoke('distribute-lead', {
+                    body: { lead_id: result.lead_id },
+                });
+                distributionFailed = Boolean(distributionError);
+            }
+
+            return { ...result, distributionFailed };
+        },
+        onSuccess: (result) => {
+            queryClient.invalidateQueries({ queryKey: ['leads'] });
+            queryClient.invalidateQueries({ queryKey: ['crm-leads', pipelineId] });
+            toast({
+                title: 'Lead e oportunidade criados',
+                description: result.distributionFailed
+                    ? 'Os registros foram salvos, mas a distribuição automática deverá ser iniciada novamente.'
+                    : 'O novo atendimento já está disponível no funil.',
+                variant: result.distributionFailed ? 'destructive' : 'default',
+            });
+        },
+        onError: (error: Error) => {
+            toast({
+                title: 'Erro ao cadastrar lead no funil',
+                description: error.message,
+                variant: 'destructive',
+            });
         },
     });
 
@@ -214,10 +300,10 @@ export function useCrmPipeline(pipelineId?: string) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['crm-leads', pipelineId] });
-            toast({ title: 'Lead removido do funil' });
+            toast({ title: 'Oportunidade removida do funil' });
         },
         onError: () => {
-            toast({ title: 'Erro ao remover lead', variant: 'destructive' });
+            toast({ title: 'Erro ao remover oportunidade', variant: 'destructive' });
         },
     });
 
@@ -244,32 +330,6 @@ export function useCrmPipeline(pipelineId?: string) {
         },
     });
 
-    const updatePipeline = useMutation({
-        mutationFn: async ({
-            id,
-            ...data
-        }: {
-            id: string;
-            nome?: string;
-            descricao?: string;
-            auto_add_visits?: boolean;
-            is_default?: boolean;
-        }) => {
-            const { error } = await db
-                .from('crm_pipelines')
-                .update(data)
-                .eq('id', id);
-            if (error) throw error;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['crm-pipelines'] });
-            toast({ title: 'Pipeline atualizado' });
-        },
-        onError: () => {
-            toast({ title: 'Erro ao atualizar pipeline', variant: 'destructive' });
-        },
-    });
-
     const deletePipeline = useMutation({
         mutationFn: async (id: string) => {
             const { error } = await db
@@ -287,69 +347,27 @@ export function useCrmPipeline(pipelineId?: string) {
         },
     });
 
-    const upsertStages = useMutation({
-        mutationFn: async (
-            stagesData: Array<{
-                id?: string;
-                pipeline_id: string;
-                nome: string;
-                cor: string;
-                posicao: number;
-                is_final?: boolean;
-            }>
-        ) => {
+    const savePipelineSettings = useMutation({
+        mutationFn: async (settings: {
+            nome: string; descricao: string; auto_add_visits: boolean;
+            completed_stage_id: string | null;
+            stages: Array<{ id: string; pipeline_id: string; nome: string; cor: string; posicao: number; is_final?: boolean }>;
+        }) => {
             if (!pipelineId) throw new Error('Pipeline não selecionado');
-
-            // Delete stages not in the new list
-            const existingIds = stagesData
-                .filter((s) => s.id)
-                .map((s) => s.id as string);
-
-            if (existingIds.length > 0) {
-                const { error: delError } = await db
-                    .from('crm_stages')
-                    .delete()
-                    .eq('pipeline_id', pipelineId)
-                    .not('id', 'in', `(${existingIds.join(',')})`);
-                if (delError) throw delError;
-            } else {
-                const { error: delError } = await db
-                    .from('crm_stages')
-                    .delete()
-                    .eq('pipeline_id', pipelineId);
-                if (delError) throw delError;
-            }
-
-            // Upsert remaining
-            if (stagesData.length > 0) {
-                const payload = stagesData.map((stage) => {
-                    const item: any = {
-                        pipeline_id: pipelineId,
-                        nome: stage.nome,
-                        cor: stage.cor,
-                        posicao: stage.posicao,
-                        is_final: stage.is_final ?? false,
-                    };
-                    if (stage.id) {
-                        item.id = stage.id;
-                    }
-                    return item;
-                });
-
-                const { error: upsertError } = await db
-                    .from('crm_stages')
-                    .upsert(payload);
-                if (upsertError) throw upsertError;
-            }
+            const { error } = await db.rpc('save_crm_pipeline_settings', {
+                p_pipeline_id: pipelineId, p_nome: settings.nome, p_descricao: settings.descricao,
+                p_auto_add_visits: settings.auto_add_visits, p_stages: settings.stages,
+                p_completed_stage_id: settings.completed_stage_id,
+            });
+            if (error) throw error;
         },
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['crm-pipelines'] });
             queryClient.invalidateQueries({ queryKey: ['crm-stages', pipelineId] });
             queryClient.invalidateQueries({ queryKey: ['crm-leads', pipelineId] });
-            toast({ title: 'Etapas atualizadas' });
+            toast({ title: 'Funil atualizado' });
         },
-        onError: () => {
-            toast({ title: 'Erro ao salvar etapas', variant: 'destructive' });
-        },
+        onError: (error: Error) => toast({ title: 'Erro ao salvar funil', description: error.message, variant: 'destructive' }),
     });
 
     const createAutomation = useMutation({
@@ -426,12 +444,12 @@ export function useCrmPipeline(pipelineId?: string) {
         crmLeads,
         automations,
         moveLeadToStage,
-        addLeadToPipeline,
+        createOpportunity,
+        createLeadWithOpportunity,
         removeLeadFromPipeline,
         createPipeline,
-        updatePipeline,
         deletePipeline,
-        upsertStages,
+        savePipelineSettings,
         createAutomation,
         toggleAutomation,
         deleteAutomation,

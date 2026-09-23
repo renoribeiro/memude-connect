@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PhoneInput } from "@/components/ui/phone-input";
+import { isValidPhone } from "@/utils/phoneHelpers";
 import { PhoneVerification } from "@/components/ui/phone-verification";
 import { Switch } from "@/components/ui/switch";
 import { CalendarIcon, Loader2 } from "lucide-react";
@@ -281,10 +282,10 @@ export default function LeadForm({ initialData, onSuccess, onCancel }: LeadFormP
 
   const onSubmit = (data: LeadFormData) => {
     // Validação extra de telefone antes de submeter
-    if (!data.telefone || data.telefone.length < 13) {
+    if (!data.telefone || !isValidPhone(data.telefone)) {
       toast({
         title: "Telefone inválido",
-        description: "Por favor, insira um número de telefone completo e válido. Exemplo: (85) 99999-9999",
+        description: "Informe um número completo. Brasil: (85) 99999-9999. Exterior: use o botão \"Exterior\" e inclua o DDI, ex. +351 912345678.",
         variant: "destructive",
       });
       return;
@@ -365,7 +366,7 @@ export default function LeadForm({ initialData, onSuccess, onCancel }: LeadFormP
 
       {/* Cadastro de Visita Toggle - Somente na Criação */}
       {!initialData?.id && (
-        <div className="flex items-center space-x-2 bg-slate-50 p-4 rounded-lg border border-slate-100 mb-2">
+        <div className="flex items-center space-x-2 bg-muted p-4 rounded-lg border border-border mb-2">
           <Switch
             id="cadastrar_sem_visita"
             checked={watch("cadastrar_sem_visita")}

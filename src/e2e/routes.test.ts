@@ -174,13 +174,17 @@ describe('Source File Verification', () => {
     }
   });
 
-  it('all admin pages are wrapped with ProtectedRoute', () => {
+  it('all admin pages require the admin role', () => {
     const appPath = join(ROOT, 'src', 'App.tsx');
     const content = readFileSync(appPath, 'utf-8');
 
     for (const route of ADMIN_ROUTES) {
-      const componentTag = `<${route.component}`;
-      expect(content, `Component not in JSX: ${route.component}`).toContain(componentTag);
+      const escapedPath = route.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const routeBlock = content.match(
+        new RegExp(`<Route\\s+path="${escapedPath}"[\\s\\S]*?<\\/ProtectedRoute>[\\s\\S]*?\\}\\s*\\/>`),
+      )?.[0];
+      expect(routeBlock, `Missing route block: ${route.path}`).toBeDefined();
+      expect(routeBlock, `Admin role not required: ${route.path}`).toContain('<ProtectedRoute requireAdmin>');
     }
   });
 

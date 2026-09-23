@@ -181,7 +181,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
               <Separator />
               <div className="space-y-3">
                 <h4 className="font-medium">Dados de Exemplo Utilizados</h4>
-                <div className="bg-gray-50 p-3 rounded text-xs">
+                <div className="bg-muted p-3 rounded text-xs">
                   <pre className="whitespace-pre-wrap">
                     {JSON.stringify(sampleVariables, null, 2)}
                   </pre>

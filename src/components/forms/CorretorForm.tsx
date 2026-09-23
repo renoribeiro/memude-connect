@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
@@ -17,13 +18,25 @@ import { toast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { corretorSchema, type CorretorFormData } from "@/lib/validations";
 import { useFormValidations } from "@/hooks/useFormValidations";
-import { Loader2, MapPin, Building, User, Phone, Mail, Search, CheckCircle, XCircle, Star } from "lucide-react";
+import { Loader2, MapPin, Building, User, Phone, Mail, Search, CheckCircle, XCircle, Star, MailCheck, MailX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CorretorFormProps {
   initialData?: any;
   onSuccess: () => void;
   onCancel: () => void;
+}
+
+async function getFunctionErrorMessage(error: any, fallback: string): Promise<string> {
+  try {
+    const payload = await error?.context?.json?.();
+    if (payload?.error) return payload.error;
+    if (payload?.message) return payload.message;
+  } catch {
+    // A resposta pode já ter sido consumida ou não conter JSON.
+  }
+
+  return error?.message || fallback;
 }
 
 const ESTADOS_BRASIL = [
@@ -74,6 +87,7 @@ const STATUS_OPTIONS = [
 export default function CorretorForm({ initialData, onSuccess, onCancel }: CorretorFormProps) {
   const queryClient = useQueryClient();
   const [userMode, setUserMode] = useState<'novo' | 'existente'>('novo');
+  const [enviarConvite, setEnviarConvite] = useState(true);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const [selectedBairros, setSelectedBairros] = useState<string[]>([]);
   const [selectedConstrutoras, setSelectedConstrutoras] = useState<string[]>([]);
@@ -195,8 +209,14 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
 
   // Sincronizar estados com o formulário para validação
   useEffect(() => {
-    form.setValue('bairros', selectedBairros);
-    form.setValue('construtoras', selectedConstrutoras);
+    form.setValue('bairros', selectedBairros, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    form.setValue('construtoras', selectedConstrutoras, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
   }, [selectedBairros, selectedConstrutoras, form]);
 
   // Função para lidar com "Todas as Construtoras"
@@ -254,11 +274,17 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
               first_name: firstName,
               last_name: lastName,
               role: 'corretor',
-              phone: telefone
+              phone: telefone,
+              send_invite: enviarConvite
             }
           });
 
-          if (userError) throw userError;
+          if (userError) {
+            throw new Error(await getFunctionErrorMessage(
+              userError,
+              'Não foi possível criar o convite de usuário',
+            ));
+          }
           if (!userData?.user?.id) throw new Error('Falha ao criar usuário');
 
           const userId = userData.user.id;
@@ -398,7 +424,9 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
       if (userMode === 'novo') {
         toast({
           title: "Corretor cadastrado com sucesso!",
-          description: `Um convite seguro para definir a senha foi enviado para ${variables.email}.`,
+          description: enviarConvite
+            ? `Um convite seguro para definir a senha foi enviado para ${variables.email}.`
+            : `Conta criada sem envio de email. Quando quiser liberar o acesso, ${variables.email} deve usar "Esqueci minha senha" na tela de login.`,
         });
       } else {
         toast({
@@ -544,6 +572,14 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
     }
   };
 
+  const onInvalidSubmit = () => {
+    toast({
+      title: "Revise os campos obrigatórios",
+      description: "Corrija os campos destacados antes de cadastrar o corretor.",
+      variant: "destructive",
+    });
+  };
+
   const toggleBairro = (bairroId: string) => {
     setSelectedBairros(prev =>
       prev.includes(bairroId)
@@ -561,7 +597,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
   };
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)} className="space-y-6">
       {/* Dados Pessoais */}
       <Card>
         <CardHeader>
@@ -572,7 +608,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
         </CardHeader>
         <CardContent className="space-y-4">
           {!initialData?.id && (
-            <div className="flex flex-col space-y-2 pb-4 border-b border-gray-100">
+            <div className="flex flex-col space-y-2 pb-4 border-b border-border">
               <Label className="text-sm font-semibold text-muted-foreground">Configuração de Conta do Corretor</Label>
               <div className="flex gap-2">
                 <Button
@@ -606,6 +642,30 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
                   Vincular a Usuário Existente
                 </Button>
               </div>
+
+              {userMode === 'novo' && (
+                <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-3 mt-2">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="enviar-convite" className="flex items-center gap-1.5 text-sm font-medium">
+                      {enviarConvite
+                        ? <MailCheck className="h-4 w-4" aria-hidden="true" />
+                        : <MailX className="h-4 w-4" aria-hidden="true" />}
+                      Enviar convite por email
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {enviarConvite
+                        ? 'O corretor recebe um email para definir a senha e já entra sozinho.'
+                        : 'A conta é criada sem disparar email. Para liberar o acesso depois, o corretor usa "Esqueci minha senha" na tela de login.'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="enviar-convite"
+                    checked={enviarConvite}
+                    onCheckedChange={setEnviarConvite}
+                    aria-label="Enviar convite por email para o corretor"
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -656,7 +716,10 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
                   <Label htmlFor="telefone">Telefone *</Label>
                   <PhoneInput
                     value={form.watch("telefone")}
-                    onChange={(value) => form.setValue("telefone", value)}
+                    onChange={(value) => form.setValue("telefone", value, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })}
                     placeholder="(85) 99999-9999"
                   />
                   {form.formState.errors.telefone && (
@@ -749,7 +812,10 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
                   <Label htmlFor="telefone">Telefone *</Label>
                   <PhoneInput
                     value={form.watch("telefone")}
-                    onChange={(value) => form.setValue("telefone", value)}
+                    onChange={(value) => form.setValue("telefone", value, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })}
                     placeholder="(85) 99999-9999"
                   />
                   <PhoneVerification phoneNumber={form.watch("telefone")} />

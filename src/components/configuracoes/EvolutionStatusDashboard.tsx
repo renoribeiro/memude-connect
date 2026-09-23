@@ -61,7 +61,7 @@ export function EvolutionStatusDashboard({ instanceId }: EvolutionStatusDashboar
 
     const statusColor = instance.connection_status === 'open' ? 'text-green-500' :
         instance.connection_status === 'close' ? 'text-red-500' :
-            instance.connection_status === 'connecting' ? 'text-yellow-500' : 'text-gray-500';
+            instance.connection_status === 'connecting' ? 'text-yellow-500' : 'text-muted-foreground';
 
     const StatusIcon = instance.connection_status === 'open' ? CheckCircle :
         instance.connection_status === 'close' ? XCircle :

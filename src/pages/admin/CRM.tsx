@@ -5,23 +5,30 @@ import { useCrmPipeline } from '@/hooks/useCrmPipeline';
 import KanbanBoard from '@/components/crm/KanbanBoard';
 import PipelineSettingsModal from '@/components/crm/PipelineSettingsModal';
 import CrmAutomationsModal from '@/components/crm/CrmAutomationsModal';
-import AddLeadToPipelineModal from '@/components/crm/AddLeadToPipelineModal';
+import CreateOpportunityModal from '@/components/crm/CreateOpportunityModal';
+import CreateLeadOpportunityModal from '@/components/crm/CreateLeadOpportunityModal';
 import CrmLeadDetailPanel from '@/components/crm/CrmLeadDetailPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Settings, Zap, UserPlus, PlusCircle, Users, TrendingUp, Clock, Target } from 'lucide-react';
+import { BriefcaseBusiness, Settings, Zap, UserPlus, PlusCircle, Clock, Target } from 'lucide-react';
 import type { CrmLead } from '@/hooks/useCrmPipeline';
+import VendaModal from '@/components/modals/VendaModal';
+import { crmColumnVgv } from '@/utils/crmSales';
+import { useToast } from '@/hooks/use-toast';
 import CreatePipelineModal from '@/components/crm/CreatePipelineModal';
 
 export default function CRM() {
-    const { profile } = useAuth();
+    const { profile, isAdmin } = useAuth();
+    const { toast } = useToast();
+    const [archived, setArchived] = useState(false);
+    const [saleLead, setSaleLead] = useState<CrmLead | null>(null);
     const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
     const [showSettings, setShowSettings] = useState(false);
     const [showAutomations, setShowAutomations] = useState(false);
     const [showAddLead, setShowAddLead] = useState(false);
+    const [showCreateOpportunity, setShowCreateOpportunity] = useState(false);
     const [detailLead, setDetailLead] = useState<CrmLead | null>(null);
     const [showDetail, setShowDetail] = useState(false);
     const [showCreatePipeline, setShowCreatePipeline] = useState(false);
@@ -32,16 +39,16 @@ export default function CRM() {
         crmLeads,
         automations,
         moveLeadToStage,
-        addLeadToPipeline,
+        createOpportunity,
+        createLeadWithOpportunity,
         removeLeadFromPipeline,
         createPipeline,
-        updatePipeline,
         deletePipeline,
-        upsertStages,
+        savePipelineSettings,
         createAutomation,
         toggleAutomation,
         deleteAutomation,
-    } = useCrmPipeline(selectedPipelineId || undefined);
+    } = useCrmPipeline(selectedPipelineId || undefined, archived);
 
     // Auto-select default pipeline
     useEffect(() => {
@@ -85,16 +92,19 @@ export default function CRM() {
         return `${Math.round(avgHours / 24)}d`;
     }, [validLeadsData]);
 
-    const totalEstimatedValue = validLeadsData.reduce(
-        (acc, l) => acc + (l.valor_estimado || 0),
-        0
-    );
-
-    const existingLeadIds = validLeadsData.map((l) => l.lead_id);
+    const totalEstimatedValue = crmColumnVgv(validLeadsData);
 
     const currentDetailStage = detailLead
         ? stagesData.find((s) => s.id === detailLead.stage_id) ?? null
         : null;
+
+    useEffect(() => {
+        if (!detailLead) return;
+        const latestOpportunity = leadsData.find((item) => item.id === detailLead.id);
+        if (latestOpportunity && latestOpportunity !== detailLead) {
+            setDetailLead(latestOpportunity);
+        }
+    }, [detailLead, leadsData]);
 
     if (!profile) return null;
 
@@ -108,7 +118,7 @@ export default function CRM() {
                     <div>
                         <h1 className="text-3xl font-bold">CRM</h1>
                         <p className="text-muted-foreground">
-                            Gerencie seus leads no funil de vendas
+                            Gerencie oportunidades independentes no funil de vendas
                         </p>
                     </div>
                 </div>
@@ -158,9 +168,19 @@ export default function CRM() {
                         </Button>
 
                         <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowCreateOpportunity(true)}
+                            disabled={!activePipelineId || stagesData.length === 0}
+                        >
+                            <BriefcaseBusiness className="h-4 w-4 mr-1.5" />
+                            Gerar Oportunidade
+                        </Button>
+
+                        <Button
                             size="sm"
                             onClick={() => setShowAddLead(true)}
-                            disabled={!activePipelineId}
+                            disabled={!activePipelineId || stagesData.length === 0}
                         >
                             <UserPlus className="h-4 w-4 mr-1.5" />
                             Adicionar Lead
@@ -173,7 +193,7 @@ export default function CRM() {
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                                <Users className="h-4 w-4" />
+                                <BriefcaseBusiness className="h-4 w-4" />
                                 Total no Funil
                             </CardTitle>
                         </CardHeader>
@@ -210,7 +230,7 @@ export default function CRM() {
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
                                 <Target className="h-4 w-4" />
-                                Valor Estimado
+                                VGV do Quadro
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -223,6 +243,15 @@ export default function CRM() {
                     </Card>
                 </div>
 
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Tabs value={archived ? 'archived' : 'active'} onValueChange={value => setArchived(value === 'archived')}>
+                        <TabsList><TabsTrigger value="active">Em andamento</TabsTrigger><TabsTrigger value="archived">Arquivados</TabsTrigger></TabsList>
+                    </Tabs>
+                    <p className="text-xs text-muted-foreground">VGV: valor real das vendas e estimado das oportunidades abertas.</p>
+                </div>
+                {archived && <p className="text-sm text-muted-foreground">Histórico de cartões concluídos em meses anteriores. Os leads e as vendas permanecem cadastrados.</p>}
+                {(crmLeads.isError || pipelines.isError || stages.isError) && <p role="alert" className="text-destructive">Não foi possível atualizar o CRM. Recarregue a página para tentar novamente.</p>}
+                {!currentPipeline?.completed_stage_id && !archived && <p className="text-sm text-amber-700">Configure a coluna de vendas concluídas para utilizar o botão VENDIDO.</p>}
                 {/* Kanban Board */}
                 {isLoading ? (
                     <div className="flex gap-4">
@@ -240,7 +269,7 @@ export default function CRM() {
                             <Settings className="h-12 w-12 mx-auto mb-4 opacity-20" />
                             <h3 className="text-lg font-medium mb-1">Nenhuma etapa configurada</h3>
                             <p className="text-sm text-muted-foreground mb-4">
-                                Configure as etapas do seu funil para começar a organizar os leads
+                                Configure as etapas do seu funil para começar a organizar as oportunidades
                             </p>
                             <Button onClick={() => setShowSettings(true)}>
                                 <Settings className="h-4 w-4 mr-2" />
@@ -253,42 +282,59 @@ export default function CRM() {
                         stages={stagesData}
                         leads={validLeadsData}
                         onMoveLead={(crmLeadId, newStageId, newPosition) => {
-                            moveLeadToStage.mutate({ crmLeadId, newStageId, newPosition });
+                            if (!archived) moveLeadToStage.mutate({ crmLeadId, newStageId, newPosition });
                         }}
                         onCardClick={(crmLead) => {
+                            if (archived) {
+                                if (isAdmin && crmLead.venda_id) setSaleLead(crmLead);
+                                return;
+                            }
                             setDetailLead(crmLead);
                             setShowDetail(true);
                         }}
-                        onRemoveLead={(crmLeadId) => {
+                        onRemoveLead={!archived ? (crmLeadId) => {
                             removeLeadFromPipeline.mutate(crmLeadId);
-                        }}
+                        } : undefined}
+                        completedStageId={currentPipeline?.completed_stage_id}
                         onConfigureClick={() => setShowSettings(true)}
                     />
                 )}
             </div>
 
+            {saleLead && <VendaModal key={saleLead.id} isOpen onClose={() => setSaleLead(null)} vendaId={saleLead.venda_id} crmLead={saleLead} />}
             {/* Modals */}
+            <CreatePipelineModal
+                open={showCreatePipeline}
+                onOpenChange={setShowCreatePipeline}
+                isCreating={createPipeline.isPending}
+                onCreate={(data) => {
+                    createPipeline.mutate(data, {
+                        onSuccess: (newPipeline) => {
+                            setShowCreatePipeline(false);
+                            setSelectedPipelineId(newPipeline.id);
+                        }
+                    });
+                }}
+            />
+
             {currentPipeline && (
                 <>
-                    <PipelineSettingsModal
+                    {showSettings && <PipelineSettingsModal
                         open={showSettings}
                         onOpenChange={setShowSettings}
                         pipelineName={currentPipeline.nome}
                         pipelineDescription={currentPipeline.descricao ?? ''}
                         autoAddVisits={currentPipeline.auto_add_visits}
                         isDefault={currentPipeline.is_default || false}
+                        completedStageId={currentPipeline.completed_stage_id}
                         stages={stagesData}
                         pipelineId={activePipelineId}
-                        isSaving={upsertStages.isPending || updatePipeline.isPending}
+                        isSaving={savePipelineSettings.isPending}
                         onSave={async (data) => {
-                            await updatePipeline.mutateAsync({
-                                id: activePipelineId,
-                                nome: data.nome,
-                                descricao: data.descricao || undefined,
-                                auto_add_visits: data.auto_add_visits,
-                            });
-                            await upsertStages.mutateAsync(data.stages);
-                            setShowSettings(false);
+                            try {
+                                await savePipelineSettings.mutateAsync(data);
+                                setShowSettings(false);
+                            } catch { /* Mutation shows the server validation message. */ }
                         }}
                         onDelete={() => {
                             deletePipeline.mutate(activePipelineId, {
@@ -298,21 +344,7 @@ export default function CRM() {
                                 }
                             });
                         }}
-                    />
-
-                    <CreatePipelineModal
-                        open={showCreatePipeline}
-                        onOpenChange={setShowCreatePipeline}
-                        isCreating={createPipeline.isPending}
-                        onCreate={(data) => {
-                            createPipeline.mutate(data, {
-                                onSuccess: (newPipeline) => {
-                                    setShowCreatePipeline(false);
-                                    setSelectedPipelineId(newPipeline.id);
-                                }
-                            });
-                        }}
-                    />
+                    />}
 
                     <CrmAutomationsModal
                         open={showAutomations}
@@ -327,16 +359,26 @@ export default function CRM() {
                         onDeleteAutomation={(id) => deleteAutomation.mutate(id)}
                     />
 
-                    <AddLeadToPipelineModal
+                    <CreateOpportunityModal
+                        open={showCreateOpportunity}
+                        onOpenChange={setShowCreateOpportunity}
+                        stages={stagesData}
+                        isCreating={createOpportunity.isPending}
+                        onCreate={(input) => {
+                            createOpportunity.mutate(input, {
+                                onSuccess: () => setShowCreateOpportunity(false),
+                            });
+                        }}
+                    />
+
+                    <CreateLeadOpportunityModal
                         open={showAddLead}
                         onOpenChange={setShowAddLead}
-                        pipelineId={activePipelineId}
                         stages={stagesData}
-                        existingLeadIds={existingLeadIds}
-                        isAdding={addLeadToPipeline.isPending}
-                        onAdd={(leadId, stageId, valorEstimado) => {
-                            addLeadToPipeline.mutate(
-                                { leadId, stageId, valorEstimado },
+                        isCreating={createLeadWithOpportunity.isPending}
+                        onCreate={(input) => {
+                            createLeadWithOpportunity.mutate(
+                                input,
                                 { onSuccess: () => setShowAddLead(false) }
                             );
                         }}
@@ -345,6 +387,16 @@ export default function CRM() {
                     <CrmLeadDetailPanel
                         open={showDetail}
                         onOpenChange={setShowDetail}
+                        onSold={isAdmin ? (lead) => {
+                            setShowDetail(false);
+                            if (lead.venda_id) { setSaleLead(lead); return; }
+                            if (archived) return;
+                            if (!currentPipeline?.completed_stage_id) {
+                                toast({ title: 'Configure a coluna de vendas concluídas', description: 'Selecione a coluna em Configurar Funil.', variant: 'destructive' });
+                                setShowSettings(true); return;
+                            }
+                            setSaleLead(lead);
+                        } : undefined}
                         crmLead={detailLead}
                         currentStage={currentDetailStage}
                         pipelineId={activePipelineId}

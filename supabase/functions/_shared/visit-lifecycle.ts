@@ -2,6 +2,7 @@ import { visitPhone, parseVisitReply, visitPromptText, visitEventLabels } from '
 import { syncVisitSheet } from './visit-sheets.ts';
 import { validateExternalHttpUrl } from './security.ts';
 import { deliveryUncertain } from './visit-message.ts';
+import { canSendVisitGroupConfirmation, visitGroupConfirmation } from './visit-notifications.ts';
 
 export async function checked(query: any): Promise<any> {
   const { data, error } = await query;
@@ -15,7 +16,7 @@ export async function visitConfig(db: any) {
 
 export async function visitSnapshot(db: any, id: string) {
   const [visit, cycle] = await Promise.all([
-    checked(db.from('visitas').select('id,visit_code,lead_id,corretor_id,status,data_visita,horario_visita,deleted_at,feedback_corretor,meeting_address,meeting_neighborhood,customer_profile,lead:leads(nome,telefone,origem),broker:corretores(whatsapp,telefone,profiles(first_name,last_name)),property:empreendimentos(nome,endereco,bairro:bairros(nome))').eq('id', id).single()),
+    checked(db.from('visitas').select('id,visit_code,lead_id,corretor_id,status,data_visita,horario_visita,deleted_at,feedback_corretor,meeting_address,meeting_neighborhood,customer_profile,lead:leads(nome,telefone,origem,observacoes),broker:corretores(whatsapp,telefone,creci,profiles(first_name,last_name)),property:empreendimentos(nome,endereco,bairro:bairros(nome))').eq('id', id).single()),
     checked(db.from('visit_cycles').select('*').eq('visita_id', id).single()),
   ]);
   return { visit, cycle };
@@ -131,6 +132,10 @@ export async function runVisitLifecycle(db: any, channel = 'whatsapp') {
           phone = p.phone;
         } else {
           const event = await checked(db.from('visit_events').select('kind,payload,created_at').eq('id', item.event_id).single());
+          if (item.destination === 'group' && !canSendVisitGroupConfirmation(item, event, snapshot)) {
+            await checked(db.rpc('visit_lifecycle_finish', { p_id: item.id, p_lease: item.lease_token, p_status: 'obsolete' }));
+            continue;
+          }
           if (['client','broker'].includes(item.destination) && ['scheduled','changed','client_confirmed','broker_confirmed'].includes(event.kind) && c.outcome !== 'pending') {
             await checked(db.rpc('visit_lifecycle_finish', { p_id: item.id, p_lease: item.lease_token, p_status: 'obsolete' }));
             continue;
@@ -152,6 +157,7 @@ export async function runVisitLifecycle(db: any, channel = 'whatsapp') {
           if (event.kind === 'rating') text += `\nNota: ${event.payload.rating}/10`;
           if (event.kind === 'feedback') text += `\n${v.feedback_corretor || ''}`;
           text += '\nAcompanhe em https://core.memudecore.com.br/visitas';
+          if (item.destination === 'group') text = visitGroupConfirmation(snapshot);
           phone = item.destination === 'group' ? currentConfig.group_jid : item.destination === 'closer' ? currentConfig.closer_phone
             : visitPhone(item.destination === 'client' ? v.lead?.telefone || '' : v.broker?.whatsapp || v.broker?.telefone || '');
           if (!phone && ['client','broker'].includes(item.destination)) {

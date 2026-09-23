@@ -40,9 +40,8 @@ requirePattern('timeoutChecker', /force_advance_lead_id/, 'o avanço após recus
 requirePattern('timeoutChecker', /\.insert\(\{[\s\S]*?queue_id:\s*queueId[\s\S]*?lead_id:\s*leadId/, 'tentativas subsequentes devem guardar queue_id');
 requirePattern('timeoutChecker', /\.eq\('current_attempt',\s*currentAttempt\)/, 'o avanço da fila deve ter controle otimista de concorrência');
 requirePattern('evolutionSender', /remoteJid\.includes\('@lid'\)/, 'o envio deve persistir o mapeamento de LID retornado pela Evolution');
-requirePattern('visitTimeoutChecker', /force_advance_visita_id/, 'o avanço de visita após recusa/falha deve ser suportado');
-requirePattern('visitTimeoutChecker', /\.insert\(\{[\s\S]*?queue_id:\s*queueId[\s\S]*?visita_id:\s*visitaId/, 'tentativas subsequentes de visita devem guardar queue_id');
-requirePattern('visitTimeoutChecker', /\.eq\('current_attempt',\s*currentAttempt\)/, 'o avanço da fila de visita deve ter controle otimista de concorrência');
+requirePattern('visitTimeoutChecker', /authorize\(req,'internal'\)/, 'o worker de visitas deve exigir autorização interna');
+requirePattern('visitTimeoutChecker', /runVisitLifecycle\(access.supabase\)/, 'o worker deve delegar ao ciclo transacional testado por test:visits:db');
 requirePattern('webhookHandler', /analyzeDistributionResponse/, 'o webhook deve usar o analisador central de respostas');
 requirePattern('responseAnalyzer', /'accept lead'/, 'o analisador deve reconhecer o ID do botão de aceite');
 requirePattern('responseAnalyzer', /'reject lead'/, 'o analisador deve reconhecer o ID do botão de recusa');

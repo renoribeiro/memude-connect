@@ -48,8 +48,9 @@ export async function receiveVisitIntake(db:any,event:any,text:string) {
   if(!phone&&author.endsWith('@lid'))phone=(await checked(db.from('lid_phone_map').select('phone').eq('lid',author.split('@')[0]).maybeSingle()))?.phone||'';
   const requestId=await checked(db.rpc('visit_intake_receive',{p_message:`evolution:${event.instance}:${group}:${key.id}`,p_group:group,p_instance:instance.id,p_author:author,p_phone:phone.replace(/\D/g,''),p_text:text,...{p_protocol:command.protocol,p_revision:command.revision,p_action:command.action}}));
   if(!requestId) {
+    if (!cfg.closer_phone) throw new Error('WhatsApp do Closer não configurado');
     const transport=await visitInstance(db,instance.id);
-    await fetch(`${transport.api_url.replace(/\/$/,'')}/message/sendText/${encodeURIComponent(transport.instance_name)}`,{method:'POST',headers:{apikey:transport.api_token,'Content-Type':'application/json'},body:JSON.stringify({number:isGroup?group:phone,text:'Não foi possível aplicar esse comando. Confira a versão mais recente do pedido e responda citando a mensagem do sistema. Somente o autor ou Closer pode resolver. Para visita já cadastrada, use o acompanhamento no sistema.'}),signal:AbortSignal.timeout(12000)});
+    await fetch(`${transport.api_url.replace(/\/$/,'')}/message/sendText/${encodeURIComponent(transport.instance_name)}`,{method:'POST',headers:{apikey:transport.api_token,'Content-Type':'application/json'},body:JSON.stringify({number:cfg.closer_phone,text:'Não foi possível aplicar esse comando. Confira a versão mais recente do pedido e responda citando a mensagem do sistema. Somente o autor ou Closer pode resolver. Para visita já cadastrada, use o acompanhamento no sistema.'}),signal:AbortSignal.timeout(12000)});
   }
   return true;
 }
@@ -138,7 +139,11 @@ async function deliverIntakeNotifications(db:any) {
       const draft=await checked(db.from('visit_intake').select('revision,group_jid,instance_id').eq('id',delivery.intake_id).single());
       if(draft.revision!==delivery.revision){await checked(db.from('visit_intake_outbox').update({status:'obsolete',leased_until:null}).eq('id',delivery.id).eq('lease_token',delivery.lease_token));continue;}
       const instance=await visitInstance(db,draft.instance_id);
-      const number=delivery.destination==='group'?draft.group_jid:current.closer_phone;
+      if (delivery.destination === 'group') {
+        await checked(db.from('visit_intake_outbox').update({status:'obsolete',leased_until:null}).eq('id',delivery.id).eq('lease_token',delivery.lease_token));
+        continue;
+      }
+      const number=current.closer_phone;
       if(!number)throw new Error('Destino de aviso não configurado');
       transportStarted=true;
       const response=await fetch(`${instance.api_url.replace(/\/$/,'')}/message/sendText/${encodeURIComponent(instance.instance_name)}`,{method:'POST',headers:{apikey:instance.api_token,'Content-Type':'application/json'},body:JSON.stringify({number,text:delivery.body}),signal:AbortSignal.timeout(12000)});

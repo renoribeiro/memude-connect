@@ -56,6 +56,33 @@ const batch=await Promise.all(Array.from({length:10},()=>one("insert into visita
 assert.equal(new Set(batch.map(v=>v.visit_code)).size,10);pass('batch scheduling cannot duplicate codes');
 await db.exec('SET ROLE authenticated');await assert.rejects(()=>q("select private.allocate_visit_code('2099-10-22')"),/permission denied/);await assert.rejects(()=>q('select * from private.visit_code_registry'),/permission denied/);await db.exec('RESET ROLE');pass('counter and reservations are inaccessible to clients');
 assert.equal((await one("select private.intake_code_day('{}','AGENDAR VISITA'||chr(10)||'Data: 31/02/2099') as result_day")).result_day,null);pass('invalid dates do not create impossible date codes');
-console.log(count+' visit code scenarios passed');await db.close();
 
-
+const routingMigration = await readFile(new URL('../supabase/migrations/20260923193933_visit_notification_routing.sql', import.meta.url), 'utf8');
+await db.exec(routingMigration);
+assert.equal(Number((await one("select count(*) n from visit_outbox o join visit_events e on e.id=o.event_id where o.destination='group' and e.kind<>'match_accepted' and o.status in ('pending','processing','failed')")).n),0);
+assert.equal(Number((await one("select count(*) n from visit_intake_outbox where destination='group' and status in ('pending','processing','failed')")).n),0);
+pass('migration suppresses old group queues without deleting history');
+await q('update visit_automation_config set enabled=true');
+const events=['scheduled','changed','prompt_sent','client_confirmed','broker_confirmed','match_consulting','match_timeout','match_exhausted','missing_broker','cancelled','rating','feedback','post_visit_summary'];
+for(const kind of events){
+ const event=(await one('select private.visit_emit($1,$2) id',[manual.id,kind])).id;
+ const destinations=(await q('select destination from visit_outbox where event_id=$1',[event])).map(x=>x.destination);
+ assert.ok(destinations.includes('closer'),kind);assert.ok(destinations.includes('sheets'),kind);assert.ok(!destinations.includes('group'),kind);
+}
+pass('every operational event stays private, retaining sheet synchronization');
+await q("select private.visit_emit($1,'match_accepted',jsonb_build_object('broker_id',$2::text))",[manual.id,broker]);
+await q("select private.visit_emit($1,'match_accepted',jsonb_build_object('broker_id',$2::text))",[manual.id,broker]);
+assert.equal(Number((await one("select count(*) n from visit_outbox o join visit_events e on e.id=o.event_id where o.visita_id=$1 and o.destination='group' and e.kind='match_accepted'",[manual.id])).n),1);
+pass('repeated acceptance creates only one group confirmation per revision');
+await q('update visit_cycles set revision=revision+1 where visita_id=$1',[manual.id]);
+await q("select private.visit_emit($1,'match_accepted',jsonb_build_object('broker_id',$2::text))",[manual.id,broker]);
+assert.equal(Number((await one("select count(*) n from visit_outbox o join visit_events e on e.id=o.event_id where o.visita_id=$1 and o.destination='group' and e.kind='match_accepted'",[manual.id])).n),2);
+pass('a new visit revision can announce its new confirmation');
+const privateRequest=await createIntake('private-only','21/09/2099');
+await q("select private.visit_intake_notify($1,'Pendência de dados')",[privateRequest]);
+assert.deepEqual((await q('select distinct destination from visit_intake_outbox where intake_id=$1',[privateRequest])).map(x=>x.destination),['closer']);
+pass('intake acknowledgement and updates go only to the closer');
+const before=Number((await one('select count(*) n from visit_outbox')).n);await db.exec(routingMigration);
+assert.equal(Number((await one('select count(*) n from visit_outbox')).n),before);
+pass('migration can be retried without duplicating deliveries');
+console.log(count+' visit code and notification routing scenarios passed');await db.close();

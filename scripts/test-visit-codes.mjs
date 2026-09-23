@@ -57,7 +57,7 @@ assert.equal(new Set(batch.map(v=>v.visit_code)).size,10);pass('batch scheduling
 await db.exec('SET ROLE authenticated');await assert.rejects(()=>q("select private.allocate_visit_code('2099-10-22')"),/permission denied/);await assert.rejects(()=>q('select * from private.visit_code_registry'),/permission denied/);await db.exec('RESET ROLE');pass('counter and reservations are inaccessible to clients');
 assert.equal((await one("select private.intake_code_day('{}','AGENDAR VISITA'||chr(10)||'Data: 31/02/2099') as result_day")).result_day,null);pass('invalid dates do not create impossible date codes');
 
-const routingMigration = await readFile(new URL('../supabase/migrations/20260923193933_visit_notification_routing.sql', import.meta.url), 'utf8');
+const routingMigration = await readFile(new URL('../supabase/migrations/20260923195043_visit_notification_routing.sql', import.meta.url), 'utf8');
 await db.exec(routingMigration);
 assert.equal(Number((await one("select count(*) n from visit_outbox o join visit_events e on e.id=o.event_id where o.destination='group' and e.kind<>'match_accepted' and o.status in ('pending','processing','failed')")).n),0);
 assert.equal(Number((await one("select count(*) n from visit_intake_outbox where destination='group' and status in ('pending','processing','failed')")).n),0);

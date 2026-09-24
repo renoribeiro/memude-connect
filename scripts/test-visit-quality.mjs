@@ -51,7 +51,8 @@ await q("select visit_delivery_receipt('early-receipt','read')");
 await q("update visit_outbox set provider_id='early-receipt',delivery_state='queued' where id=$1",[ob.id]);
 assert.equal((await one('select delivery_state from visit_outbox where id=$1',[ob.id])).delivery_state,'read');pass('receipt preceding provider assignment is reconciled');
 await db.exec("update visit_outbox set status='obsolete';");
-await q("insert into visit_outbox(visita_id,revision,destination,status,leased_until) values($1,2,'sheets','processing',now()+interval '1 minute'),($1,2,'closer','pending',null)",[contact]);
+// This scenario tests independent leases, so make delivery eligible outside business hours too.
+await q("insert into visit_outbox(visita_id,revision,destination,status,leased_until,urgent) values($1,2,'sheets','processing',now()+interval '1 minute',true),($1,2,'closer','pending',null,true)",[contact]);
 const claim=await q("select * from visit_lifecycle_claim(5,'whatsapp')");assert.equal(claim.length,1);pass('sheet processing does not block WhatsApp');
 const requestId=(await one("select visit_intake_receive('quality-queued','123@g.us',$1,'author@lid','','AGENDAR VISITA') id",[instance])).id;
 let draft=await one('select * from visit_intake where id=$1',[requestId]);

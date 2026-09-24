@@ -450,7 +450,7 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && !saveMutation.isPending && handleClose()}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sale-modal max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <DollarSign className="h-5 w-5 text-primary" />
@@ -569,7 +569,7 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
 
                     {/* Calculation Preview */}
                     {parseFloat(valorImovel) > 0 && (
-                        <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg p-4 space-y-3">
+                        <div className="rounded-lg border bg-muted/60 text-foreground p-4 space-y-3">
                             <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
                                 <TrendingDown className="h-4 w-4" />
                                 Cálculo Automático
@@ -581,7 +581,7 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Imposto:</span>
-                                    <span className="font-mono font-medium text-red-500">
+                                    <span className="font-mono font-medium text-red-600 dark:text-red-400">
                                         - {formatCurrency(calculations.valorImposto)}
                                     </span>
                                 </div>
@@ -596,7 +596,7 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
                                     <span className="text-muted-foreground flex items-center gap-1">
                                         <ArrowRight className="h-3 w-3" /> Corretor (50%):
                                     </span>
-                                    <span className="font-mono font-semibold text-blue-600">
+                                    <span className="font-mono font-semibold text-blue-700 dark:text-blue-300">
                                         {formatCurrency(calculations.valorCorretor)}
                                     </span>
                                 </div>
@@ -604,7 +604,7 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
                                     <span className="text-muted-foreground flex items-center gap-1">
                                         <ArrowRight className="h-3 w-3" /> MeMude ({vendaDireta ? '100%' : '50%'}):
                                     </span>
-                                    <span className="font-mono font-semibold text-emerald-600">
+                                    <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-300">
                                         {formatCurrency(calculations.valorMemude)}
                                     </span>
                                 </div>

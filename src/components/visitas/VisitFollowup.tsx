@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { visitLifecycle, type VisitCycle, type VisitDashboardData } from '@/lib/visitLifecycle';
@@ -17,20 +17,47 @@ const eventNames: Record<string,string> = { match_consulting:'Consulta a correto
 const deliveryNames: Record<string,string> = { client: 'Cliente', broker: 'Corretor', closer: 'Closer', group: 'Grupo', sheets: 'Planilha', pending: 'Aguardando envio', processing: 'Processando', sent: 'Aceito pelo destino', failed: 'Falhou', obsolete: 'Substituído ou cancelado' };
 
 export function VisitPendingBanner() {
-  const { isAdmin } = useAuth();
-  const query = useQuery({ queryKey: ['visit-followup', 'banner'], queryFn: () => visitLifecycle<VisitDashboardData>('dashboard'), enabled: isAdmin, refetchInterval: 30000, retry: false });
+  const { isAdmin, session } = useAuth();
+  const loginId = session?.user
+    ? `${session.user.id}:${session.user.last_sign_in_at ?? session.expires_at ?? 'current'}`
+    : null;
+  const dismissalKey = session?.user
+    ? `memude:visit-pending-banner-dismissed:${session.user.id}`
+    : null;
+  const [dismissedLoginId, setDismissedLoginId] = useState<string | null>(null);
+  useEffect(() => {
+    setDismissedLoginId(dismissalKey ? window.localStorage.getItem(dismissalKey) : null);
+    const syncDismissal = (event: StorageEvent) => {
+      if (event.key === dismissalKey) setDismissedLoginId(event.newValue);
+    };
+    window.addEventListener('storage', syncDismissal);
+    return () => window.removeEventListener('storage', syncDismissal);
+  }, [dismissalKey]);
+  const query = useQuery({ queryKey: ['visit-followup', 'banner'], queryFn: () => visitLifecycle<VisitDashboardData>('dashboard'), enabled: isAdmin && dismissedLoginId !== loginId, refetchInterval: 30000, retry: false });
   if (!isAdmin) return null;
   if (query.error) return <div role="status" className="border border-amber-300 rounded p-3 mb-4 text-sm">Acompanhamento de visitas indisponível. <Link to="/visitas" className="underline">Verificar pendências</Link></div>;
   const unhealthy=query.data?.enabled && query.data?.health?.some(h=>!h.last_completed||Date.now()-Date.parse(h.last_completed)>5*60000);
-  if (!query.data?.count && !query.data?.failures && !query.data?.intake_pending && !query.data?.intake_failures && !query.data?.intake_stalled && !unhealthy) return null;
+  if (dismissedLoginId === loginId || (!query.data?.count && !query.data?.failures && !query.data?.intake_pending && !query.data?.intake_failures && !query.data?.intake_stalled && !unhealthy)) return null;
+  const dismiss = () => {
+    if (!dismissalKey || !loginId) return;
+    window.localStorage.setItem(dismissalKey, loginId);
+    setDismissedLoginId(loginId);
+  };
   return <div role="alert" className="border-2 border-red-600 bg-red-50 text-red-950 p-4 rounded-lg mb-4 font-medium">
-    Atenção, Closer: {query.data.count} visita(s) precisam de acompanhamento. {query.data.failures ? `${query.data.failures} envio(s) falharam.` : ''}
-    {query.data.intake_pending ? ` ${query.data.intake_pending} solicitação(ões) do WhatsApp aguardam resolução.` : ''}
-    {!!query.data.intake_failures && ` ${query.data.intake_failures} aviso(s) do grupo falharam.`}
-    {!!query.data.intake_stalled && ` ${query.data.intake_stalled} pedido(s) estão atrasados.`}
-    {unhealthy && ' Processamento sem atualização recente. Verifique as integrações.'}
-    <Link to="/visitas#acompanhamento" className="ml-2 underline font-bold">Resolver pendências</Link>
-    <p className="text-sm mt-1">Ler este aviso não encerra as pendências de recuperação.</p>
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        Atenção, Closer: {query.data.count} visita(s) precisam de acompanhamento. {query.data.failures ? `${query.data.failures} envio(s) falharam.` : ''}
+        {query.data.intake_pending ? ` ${query.data.intake_pending} solicitação(ões) do WhatsApp aguardam resolução.` : ''}
+        {!!query.data.intake_failures && ` ${query.data.intake_failures} aviso(s) do grupo falharam.`}
+        {!!query.data.intake_stalled && ` ${query.data.intake_stalled} pedido(s) estão atrasados.`}
+        {unhealthy && ' Processamento sem atualização recente. Verifique as integrações.'}
+        <Link to="/visitas#acompanhamento" className="ml-2 underline font-bold">Resolver pendências</Link>
+        <p className="text-sm mt-1">Ler este aviso não encerra as pendências de recuperação.</p>
+      </div>
+      <Button type="button" variant="outline" size="sm" className="shrink-0 border-red-700 bg-transparent text-red-950 hover:bg-red-100 hover:text-red-950" onClick={dismiss}>
+        Dispensar
+      </Button>
+    </div>
   </div>;
 }
 

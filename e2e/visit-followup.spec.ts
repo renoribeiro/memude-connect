@@ -6,8 +6,45 @@ const visitId = '20000000-0000-4000-8000-000000000001';
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(({ userId }) => {
     const token = `${btoa(JSON.stringify({ alg: 'HS256' }))}.${btoa(JSON.stringify({ sub: userId, exp: 2208988800, role: 'authenticated' }))}.synthetic`;
-    localStorage.setItem('sb-oxybasvtphosdmlmrfnb-auth-token', JSON.stringify({ access_token: token, refresh_token: 'synthetic', expires_at: 2208988800, expires_in: 3600, token_type: 'bearer', user: { id: userId, aud: 'authenticated', email: 'synthetic@example.invalid', user_metadata: {} } }));
+    const storageKey = 'sb-oxybasvtphosdmlmrfnb-auth-token';
+    if (!localStorage.getItem(storageKey))
+      localStorage.setItem(storageKey, JSON.stringify({ access_token: token, refresh_token: 'synthetic', expires_at: 2208988800, expires_in: 3600, token_type: 'bearer', user: { id: userId, aud: 'authenticated', email: 'synthetic@example.invalid', last_sign_in_at: '2026-09-24T10:00:00.000Z', user_metadata: {} } }));
   }, { userId });
+});
+
+test('Closer dismisses the warning until the next login', async ({ page }) => {
+  let signInAt = '2026-09-24T10:00:00.000Z';
+  await page.route('https://oxybasvtphosdmlmrfnb.supabase.co/**', async route => {
+    const url = route.request().url();
+    let data: any = [];
+    if (url.includes('/profiles?')) data = { id: userId, user_id: userId, first_name: 'Closer', last_name: 'Teste' };
+    else if (url.includes('/user_roles?')) data = { role: 'admin' };
+    else if (url.includes('/auth/v1/user')) data = { id: userId, aud: 'authenticated', last_sign_in_at: signInAt };
+    else if (url.includes('/functions/v1/visit-lifecycle')) {
+      const body = route.request().postDataJSON();
+      if (body.action === 'dashboard') data = { enabled: true, count: 1, failures: 2, cycles: [] };
+      if (body.action === 'intake_list') data = { enabled: true, count: 0, failures: [], requests: [] };
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
+  });
+
+  await page.goto('/visitas');
+  await expect(page.getByRole('button', { name: 'Dispensar' })).toBeVisible();
+  await page.getByRole('button', { name: 'Dispensar' }).click();
+  await expect(page.getByText('Atenção, Closer:', { exact: false })).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.getByText('Atenção, Closer:', { exact: false })).toHaveCount(0);
+
+  signInAt = '2026-09-24T11:00:00.000Z';
+  await page.evaluate(() => {
+    const storageKey = 'sb-oxybasvtphosdmlmrfnb-auth-token';
+    const session = JSON.parse(localStorage.getItem(storageKey)!);
+    session.user.last_sign_in_at = '2026-09-24T11:00:00.000Z';
+    localStorage.setItem(storageKey, JSON.stringify(session));
+  });
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Dispensar' })).toBeVisible();
 });
 
 test('intake conflict stays pending until the Closer explicitly approves', async ({page})=>{

@@ -1,5 +1,5 @@
 // Espelho somente leitura das abas LEADS e VISITAS da planilha "CRM MeMude 2025".
-// Modos: enviar (cron, a cada minuto) · conferencia (cron noturno) · reconstruir · importar · inspecionar · proteger.
+// Modos: enviar (cron diário 17h30) · conferencia · reconstruir · importar · puxar (status da planilha → core) · inspecionar · proteger.
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { autorizar, ErroHttp, json, lerJson, preflight, responderErro } from '../_shared/fase1-http.ts';
 import { chaveTelefone } from '../_shared/fase1-phone.ts';
@@ -316,6 +316,37 @@ async function proteger(planilha: string) {
   return { abas: resultado, editor: c.client_email };
 }
 
+// ===== Puxar da planilha: status (e resultado das visitas) dos registros que já existem no core =====
+async function puxar(db: SupabaseClient, planilha: string, aba: Aba, aplicar: boolean) {
+  const e = await estrutura(planilha, aba, false);
+  const dados = await lerAba(planilha, e);
+  const idCol = e.mapa[COLUNA_ID[aba]];
+  if (idCol === undefined) throw new ErroHttp(400, `A aba ${aba} não tem a coluna ${COLUNA_ID[aba]}`);
+  const campos = aba === 'VISITAS' ? ['status', 'follow up lucas', 'data venda', 'follow up no show'] : ['status'];
+  const vistos = new Set<string>();
+  const linhas: Record<string, string>[] = [];
+  for (const row of dados.slice(1)) {
+    const id = (row[idCol] ?? '').trim();
+    if (!id || vistos.has(id)) continue; // id repetido: vale a primeira linha
+    vistos.add(id);
+    linhas.push(Object.fromEntries([['id', id], ...campos.filter((c) => e.mapa[c] !== undefined).map((c) => [c, (row[e.mapa[c]] ?? '').trim()])]));
+  }
+  const total: Record<string, unknown> = { aba, aplicado: aplicar, contagem: {}, rotulos_fora_do_padrao: {}, exemplos: [] as unknown[] };
+  for (let i = 0; i < linhas.length; i += 400) {
+    const { data, error } = await db.rpc('planilha_puxar', { p_aba: aba, p_linhas: linhas.slice(i, i + 400), p_aplicar: aplicar });
+    if (error) throw error;
+    const r = data as { contagem: Record<string, number>; rotulos_fora_do_padrao: Record<string, number>; exemplos: unknown[] };
+    const soma = (alvo: Record<string, number>, de: Record<string, number>) => {
+      for (const [k, v] of Object.entries(de ?? {})) alvo[k] = (alvo[k] ?? 0) + v;
+    };
+    soma(total.contagem as Record<string, number>, r.contagem);
+    soma(total.rotulos_fora_do_padrao as Record<string, number>, r.rotulos_fora_do_padrao);
+    (total.exemplos as unknown[]).push(...(r.exemplos ?? []).slice(0, Math.max(0, 25 - (total.exemplos as unknown[]).length)));
+  }
+  total.linhas_sem_id = dados.slice(1).filter((r) => r.some((c) => c.trim()) && !(r[idCol] ?? '').trim()).length;
+  return total;
+}
+
 async function inspecionar(planilha: string) {
   const saida: Record<string, unknown> = { conta_servico: credencialGoogle()?.client_email ?? null };
   for (const aba of ABAS) {
@@ -345,7 +376,7 @@ Deno.serve(async (req) => {
     if (req.method !== 'POST') throw new ErroHttp(405, 'Método não permitido');
     const acesso = await autorizar(req, 'admin-ou-interno');
     db = acesso.servico;
-    const corpo = await lerJson<{ modo?: string; aba?: Aba; a_partir_de?: number }>(req, 4096);
+    const corpo = await lerJson<{ modo?: string; aba?: Aba; a_partir_de?: number; aplicar?: boolean }>(req, 4096);
     const modo = corpo.modo ?? 'enviar';
     const aba = corpo.aba;
     if (aba && !ABAS.includes(aba)) throw new ErroHttp(400, 'Aba inválida');
@@ -373,6 +404,11 @@ Deno.serve(async (req) => {
       case 'importar':
         if (!aba) throw new ErroHttp(400, 'Informe a aba');
         resultado = await importar(db, planilha, aba, Number(corpo.a_partir_de) || 2, inicio);
+        break;
+      case 'puxar':
+        if (!aba) throw new ErroHttp(400, 'Informe a aba');
+        if (corpo.aplicar !== true) return json(req, { modo, ...(await puxar(db, planilha, aba, false)) }); // simulação não registra execução
+        resultado = await puxar(db, planilha, aba, true);
         break;
       case 'inspecionar':
         return json(req, await inspecionar(planilha));

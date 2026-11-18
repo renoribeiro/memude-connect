@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import StatsCard from './StatsCard';
 import VisitsChart from './VisitsChart';
+import { PainelComercial } from './painel/PainelComercial';
 import LeadModal from '@/components/modals/LeadModal';
 import CorretorModal from '@/components/modals/CorretorModal';
 import EmpreendimentoModal from '@/components/modals/EmpreendimentoModal';
@@ -128,12 +129,17 @@ const AdminDashboard = () => {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          Dashboard Administrativo
+          Dashboard
         </h1>
         <p className="text-muted-foreground">
           Visão geral da operação MeMude Connect
         </p>
       </div>
+
+      {/* Seção principal: resultado comercial do período + modo apresentação */}
+      <PainelComercial />
+
+      <h2 className="pt-2 text-xl font-bold tracking-tight">Operação</h2>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

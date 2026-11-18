@@ -14,6 +14,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import KanbanColumn from './KanbanColumn';
 import KanbanCard from './KanbanCard';
+import { RolagemHorizontal } from '@/components/ui/rolagem-horizontal';
 import type { CrmStage, CrmLead } from '@/hooks/useCrmPipeline';
 
 interface KanbanBoardProps {
@@ -124,7 +125,7 @@ export default function KanbanBoard({
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
         >
-            <div className="flex gap-4 overflow-x-auto pb-4 min-h-[400px]">
+            <RolagemHorizontal classNameConteudo="flex gap-4 pb-4 min-h-[400px]">
                 {stages.map((stage) => (
                     <KanbanColumn
                         key={stage.id}
@@ -148,7 +149,7 @@ export default function KanbanBoard({
                         </button>
                     </div>
                 )}
-            </div>
+            </RolagemHorizontal>
 
             <DragOverlay>
                 {activeLead ? (

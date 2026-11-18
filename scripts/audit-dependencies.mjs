@@ -2,17 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { extname, join } from 'node:path';
 
-const exceptions = new Map([
-  [
-    'GHSA-qwww-vcr4-c8h2',
-    {
-      owner: 'Engenharia MeMude',
-      expiresAt: '2026-10-31',
-      reason:
-        'Afeta exclusivamente React Server Components/Server Actions; esta aplicação é uma SPA Vite estática.',
-    },
-  ],
-]);
+const exceptions = new Map();
 
 function sourceFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

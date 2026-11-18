@@ -32,6 +32,11 @@ const MinhasVisitas = lazy(() => import("./pages/corretor/MinhasVisitas"));
 const MinhasComissoes = lazy(() => import("./pages/corretor/MinhasComissoes"));
 const Perfil = lazy(() => import("./pages/corretor/Perfil"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const Hoje = lazy(() => import("./pages/comercial/Hoje"));
+const LeadsGrade = lazy(() => import("./pages/comercial/Leads"));
+const LeadPerfil = lazy(() => import("./pages/comercial/LeadPerfil"));
+const Agenda = lazy(() => import("./pages/comercial/Agenda"));
+const AjustesComercial = lazy(() => import("./pages/comercial/Ajustes"));
 
 const queryClient = new QueryClient();
 
@@ -44,7 +49,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Suspense fallback={<div className="h-screen w-full flex items-center justify-center text-teal-500 font-medium">Carregando...</div>}>
+            <Suspense fallback={<div className="h-screen w-full flex items-center justify-center text-primary font-medium">Carregando...</div>}>
               <Routes>
                 {/* Public Routes */}
                 <Route path="/auth" element={<AuthPage />} />
@@ -64,33 +69,65 @@ const App = () => (
                     <UserManagement />
                   </ProtectedRoute>
                 } />
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <Index semRedirecionar />
+                  </ProtectedRoute>
+                } />
+
+                {/* Leads e Visitas (equipe comercial: admin, SDR e closer) */}
+                <Route path="/hoje" element={
+                  <ProtectedRoute requireComercial>
+                    <Hoje />
+                  </ProtectedRoute>
+                } />
                 <Route path="/leads" element={
+                  <ProtectedRoute requireComercial>
+                    <LeadsGrade />
+                  </ProtectedRoute>
+                } />
+                <Route path="/leads/classico" element={
                   <ProtectedRoute requireAdmin>
                     <Leads />
                   </ProtectedRoute>
                 } />
-                <Route path="/crm" element={
+                <Route path="/leads/:id" element={
+                  <ProtectedRoute requireComercial>
+                    <LeadPerfil />
+                  </ProtectedRoute>
+                } />
+                <Route path="/agenda" element={
+                  <ProtectedRoute requireComercial>
+                    <Agenda />
+                  </ProtectedRoute>
+                } />
+                <Route path="/comercial/ajustes" element={
                   <ProtectedRoute requireAdmin>
+                    <AjustesComercial />
+                  </ProtectedRoute>
+                } />
+                <Route path="/crm" element={
+                  <ProtectedRoute requireComercial>
                     <CRM />
                   </ProtectedRoute>
                 } />
                 <Route path="/corretores" element={
-                  <ProtectedRoute requireAdmin>
+                  <ProtectedRoute requireComercial>
                     <Corretores />
                   </ProtectedRoute>
                 } />
                 <Route path="/empreendimentos" element={
-                  <ProtectedRoute requireAdmin>
+                  <ProtectedRoute requireComercial>
                     <Empreendimentos />
                   </ProtectedRoute>
                 } />
                 <Route path="/visitas" element={
-                  <ProtectedRoute requireAdmin>
+                  <ProtectedRoute requireComercial>
                     <Visitas />
                   </ProtectedRoute>
                 } />
                 <Route path="/vendas" element={
-                  <ProtectedRoute requireAdmin>
+                  <ProtectedRoute requireComercial>
                     <Vendas />
                   </ProtectedRoute>
                 } />

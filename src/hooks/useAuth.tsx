@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 interface Profile {
   id: string;
   user_id: string;
-  role: 'admin' | 'corretor' | 'cliente';
+  role: 'admin' | 'corretor' | 'cliente' | 'sdr' | 'closer';
   first_name: string;
   last_name: string;
   phone?: string;
@@ -23,6 +23,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   isAdmin: boolean;
   isCorretor: boolean;
+  /** Equipe comercial do módulo Leads e Visitas: admin, SDR ou closer. */
+  isComercial: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -91,17 +93,21 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         // Prevent race condition with getSession on mount
         if (event === 'INITIAL_SESSION') return;
+        if (!active) return;
 
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
           fetchProfile(session.user.id).then(userProfile => {
+            if (!active) return;
             setProfile(userProfile);
             setLoading(false);
           }).catch(error => {
@@ -121,6 +127,8 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!active) return;
+
       if (error) {
         console.error('Error getting session:', error);
         setLoading(false);
@@ -131,6 +139,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
         setSession(session);
         setUser(session.user);
         fetchProfile(session.user.id).then(userProfile => {
+          if (!active) return;
           setProfile(userProfile);
           setLoading(false);
         }).catch(error => {
@@ -146,7 +155,10 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, [fetchProfile]);
 
   const signIn = useCallback(async (email: string, password: string) => {
@@ -240,6 +252,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
 
   const isAdmin = useMemo(() => profile?.role === 'admin', [profile]);
   const isCorretor = useMemo(() => profile?.role === 'corretor', [profile]);
+  const isComercial = useMemo(() => ['admin', 'sdr', 'closer'].includes(profile?.role ?? ''), [profile]);
 
   const value = useMemo((): AuthContextType => ({
     user,
@@ -251,7 +264,8 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     signOut,
     isAdmin,
     isCorretor,
-  }), [user, session, profile, loading, isAuthenticating, signIn, signUp, signOut, isAdmin, isCorretor]);
+    isComercial,
+  }), [user, session, profile, loading, isAuthenticating, signIn, signUp, signOut, isAdmin, isCorretor, isComercial]);
 
   return (
     <AuthContext.Provider value={value}>

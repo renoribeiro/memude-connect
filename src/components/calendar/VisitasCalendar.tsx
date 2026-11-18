@@ -128,7 +128,7 @@ export default function VisitasCalendar() {
                 width: 6px;
                 height: 6px;
                 border-radius: 50%;
-                background-color: #14b8a6; /* Teal-500 */
+                background-color: hsl(var(--secondary)); /* Rosa MeMude */
               }
             `}</style>
           <Calendar

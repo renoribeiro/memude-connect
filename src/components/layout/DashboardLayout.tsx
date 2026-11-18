@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,144 +10,59 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import {
-  Home,
-  Users,
-  UserCheck,
-  Building2,
-  Calendar,
-  MessageSquare,
-  BarChart3,
-  Settings,
-  RefreshCw,
-  LogOut,
-  UserCog,
-  TrendingUp,
-  Activity,
-  Bot,
-  DollarSign,
-  Kanban,
-  Menu
-} from 'lucide-react';
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import { Link, useLocation } from 'react-router-dom';
+import { DollarSign, LogOut, Menu } from 'lucide-react';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import Logo from '@/components/ui/logo';
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import { VisitPendingBanner } from '@/components/visitas/VisitFollowup';
+import { MenuLateral } from './MenuLateral';
+import { NAV_CLIENTE, NAV_CORRETOR, NAV_EQUIPE, filtrarNav } from './navegacao';
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
-const navigation = {
-  admin: [
-    { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'Leads', href: '/leads', icon: Users },
-    { name: 'CRM', href: '/crm', icon: Kanban },
-    { name: 'Corretores', href: '/corretores', icon: UserCheck },
-    { name: 'Gestão de Usuários', href: '/admin/users', icon: UserCog },
-    { name: 'Empreendimentos', href: '/empreendimentos', icon: Building2 },
-    { name: 'Visitas', href: '/visitas', icon: Calendar },
-    { name: 'Vendas', href: '/vendas', icon: DollarSign },
-    { name: 'Comunicações', href: '/comunicacoes', icon: MessageSquare },
-    { name: 'Relatórios', href: '/relatorios', icon: BarChart3 },
-    { name: 'Analytics', href: '/admin/analytics', icon: TrendingUp },
-    { name: 'Agentes de IA', href: '/admin/ai-agents', icon: Bot },
-    { name: 'Monitoramento', href: '/admin/monitoring', icon: Activity },
-    { name: 'Sincronização WP', href: '/sincronizacao-wordpress', icon: RefreshCw },
-    { name: 'Configurações', href: '/configuracoes', icon: Settings },
-  ],
-  corretor: [
-    { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'Meus Leads', href: '/meus-leads', icon: Users },
-    { name: 'Minhas Visitas', href: '/minhas-visitas', icon: Calendar },
-    { name: 'Minhas Comissões', href: '/minhas-comissoes', icon: DollarSign },
-    { name: 'Meu Perfil', href: '/perfil', icon: UserCheck },
-  ],
-  cliente: [
-    { name: 'Dashboard', href: '/', icon: Home },
-  ],
+const PAPEL: Record<string, string> = {
+  admin: 'Administrador', corretor: 'Corretor', cliente: 'Cliente', sdr: 'SDR', closer: 'Closer',
 };
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
-  const { profile, signOut, isAdmin, isCorretor } = useAuth();
-  const location = useLocation();
+  const { profile, signOut, isAdmin, isComercial, isCorretor } = useAuth();
+  const [menuAberto, setMenuAberto] = useState(false);
 
-  const navItems = isAdmin
-    ? navigation.admin
-    : isCorretor
-      ? navigation.corretor
-      : navigation.cliente;
-
-  const getUserInitials = () => {
-    if (profile?.first_name && profile?.last_name) {
-      return `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase();
-    }
-    return 'US';
-  };
-
-  const getUserRole = () => {
-    switch (profile?.role) {
-      case 'admin': return 'Administrador';
-      case 'corretor': return 'Corretor';
-      case 'cliente': return 'Cliente';
-      default: return 'Usuário';
-    }
-  };
+  const entradas = isAdmin || isComercial
+    ? filtrarNav(NAV_EQUIPE, isAdmin)
+    : isCorretor ? NAV_CORRETOR : NAV_CLIENTE;
+  const iniciais = profile?.first_name && profile?.last_name
+    ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase()
+    : 'US';
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
+      <header className="sticky top-0 z-50 border-b border-border bg-card shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-2">
-              <Sheet>
+              <Sheet open={menuAberto} onOpenChange={setMenuAberto}>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="md:hidden" aria-label="Abrir menu lateral">
                     <Menu className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="w-64 p-0">
+                <SheetContent side="left" className="w-72 p-0">
+                  <SheetTitle className="sr-only">Menu</SheetTitle>
                   <div className="flex h-full flex-col bg-card">
-                    <div className="flex h-16 items-center px-6 border-b">
+                    <div className="flex h-16 items-center border-b px-6">
                       <Logo size="md" />
                     </div>
-                    <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
-                      <div className="flex flex-1 flex-col space-y-1 px-3">
-                        {navItems.map((item) => {
-                          const isActive = location.pathname === item.href;
-                          return (
-                            <Link
-                              key={item.name}
-                              to={item.href}
-                              className={`
-                                group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors
-                                ${isActive
-                                  ? 'bg-primary text-white shadow-glow'
-                                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                                }
-                              `}
-                            >
-                              <item.icon
-                                className={`mr-3 h-5 w-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-muted-foreground group-hover:text-foreground'}`}
-                                aria-hidden="true"
-                              />
-                              {item.name}
-                            </Link>
-                          );
-                        })}
-                      </div>
+                    <div className="flex-1 overflow-y-auto py-4">
+                      <MenuLateral entradas={entradas} aoNavegar={() => setMenuAberto(false)} />
                     </div>
                   </div>
                 </SheetContent>
               </Sheet>
-              <div className="flex-shrink-0 hidden md:flex">
+              <div className="hidden flex-shrink-0 md:flex">
                 <Logo size="md" />
               </div>
             </div>
@@ -173,9 +88,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="Menu de perfil do usuário">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={profile?.avatar_url} alt={profile?.first_name} />
-                      <AvatarFallback className="bg-primary text-white">
-                        {getUserInitials()}
-                      </AvatarFallback>
+                      <AvatarFallback className="bg-gradient-primary text-white">{iniciais}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
@@ -186,7 +99,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                         {profile?.first_name} {profile?.last_name}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">
-                        {getUserRole()}
+                        {PAPEL[profile?.role ?? ''] ?? 'Usuário'}
                       </p>
                     </div>
                   </DropdownMenuLabel>
@@ -203,42 +116,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       </header>
 
       <div className="flex h-[calc(100vh-4rem)]">
-        {/* Sidebar (Desktop) */}
-        <nav className="hidden md:flex w-64 shrink-0 bg-muted/50 border-r border-border">
-          <div className="flex h-full w-full min-w-0 flex-col">
-            <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
-              <div className="flex flex-1 flex-col space-y-1 px-3">
-                {navItems.map((item) => {
-                  const isActive = location.pathname === item.href;
-                  return (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className={`
-                        group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors
-                        ${isActive
-                          ? 'bg-primary text-white shadow-glow'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                        }
-                      `}
-                    >
-                      <item.icon
-                        className={`mr-3 h-5 w-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-muted-foreground group-hover:text-foreground'
-                          }`}
-                        aria-hidden="true"
-                      />
-                      {item.name}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </nav>
+        <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-border bg-card/70 py-4 md:block">
+          <MenuLateral entradas={entradas} />
+        </aside>
 
-        {/* Main content */}
         <main className="min-w-0 flex-1 overflow-hidden">
-          <div className="h-full overflow-y-auto p-6">
+          <div className="h-full overflow-y-auto p-4 sm:p-6">
             <VisitPendingBanner />
             {children}
           </div>

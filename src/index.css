@@ -7,18 +7,18 @@
 @layer base {
   :root {
     /* Base colors */
-    --background: 250 250% 99%;
+    --background: 250 30% 99%;
     --foreground: 240 10% 15%;
-    
-    /* MeMude Brand Colors */
-    --primary: 152 68% 47%;        /* MeMude Emerald */
-    --primary-light: 152 68% 57%;
-    --primary-dark: 152 68% 37%;
+
+    /* Identidade MeMude: roxo #422f91 e rosa #e92662 */
+    --primary: 252 51% 38%;        /* Roxo MeMude */
+    --primary-light: 252 51% 48%;
+    --primary-dark: 252 51% 30%;
     --primary-foreground: 0 0% 100%;
-    
-    --secondary: 190 90% 40%;      /* MeMude Cyan */
-    --secondary-light: 190 90% 50%;
-    --secondary-dark: 190 90% 30%;
+
+    --secondary: 342 82% 53%;      /* Rosa MeMude */
+    --secondary-light: 342 82% 63%;
+    --secondary-dark: 342 82% 43%;
     --secondary-foreground: 0 0% 100%;
     
     /* System colors */
@@ -55,20 +55,20 @@
     --border: 240 6% 90%;
     --input: 0 0% 100%;
     --input-border: 240 6% 85%;
-    --ring: 262 83% 65%;
+    --ring: 252 51% 48%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(152 68% 47%), hsl(190 90% 40%));
-    --gradient-subtle: linear-gradient(135deg, hsl(152 68% 98%), hsl(190 90% 98%));
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100% / 0.9), hsl(152 68% 99% / 0.8));
+    --gradient-primary: linear-gradient(135deg, hsl(252 51% 38%), hsl(342 82% 53%));
+    --gradient-subtle: linear-gradient(135deg, hsl(252 40% 98.5%), hsl(342 60% 99%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100% / 0.9), hsl(252 40% 99% / 0.8));
     
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 hsl(240 10% 15% / 0.05);
     --shadow-md: 0 4px 6px -1px hsl(240 10% 15% / 0.1), 0 2px 4px -2px hsl(240 10% 15% / 0.1);
     --shadow-lg: 0 10px 15px -3px hsl(240 10% 15% / 0.1), 0 4px 6px -4px hsl(240 10% 15% / 0.1);
     --shadow-xl: 0 20px 25px -5px hsl(240 10% 15% / 0.1), 0 8px 10px -6px hsl(240 10% 15% / 0.1);
-    --shadow-glow: 0 0 30px hsl(152 68% 47% / 0.3);
-    --shadow-glow-pink: 0 0 30px hsl(190 90% 40% / 0.3);
+    --shadow-glow: 0 4px 14px hsl(252 51% 38% / 0.25);
+    --shadow-glow-pink: 0 4px 14px hsl(342 82% 53% / 0.25);
 
     --radius: 0.75rem;
 
@@ -110,12 +110,12 @@
     --border: 240 10% 15%;
     --input: 240 10% 8%;
     --input-border: 240 10% 20%;
-    --ring: 262 83% 65%;
+    --ring: 252 60% 65%;
 
-    --gradient-subtle: linear-gradient(135deg, hsl(240 10% 7%), hsl(190 30% 9%));
+    --gradient-subtle: linear-gradient(135deg, hsl(240 10% 7%), hsl(252 30% 10%));
     --gradient-card: linear-gradient(145deg, hsl(240 10% 8% / 0.9), hsl(240 10% 12% / 0.8));
-    --shadow-glow: 0 0 30px hsl(152 68% 47% / 0.4);
-    --shadow-glow-pink: 0 0 30px hsl(190 90% 40% / 0.4);
+    --shadow-glow: 0 4px 14px hsl(252 51% 38% / 0.4);
+    --shadow-glow-pink: 0 4px 14px hsl(342 82% 53% / 0.4);
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;

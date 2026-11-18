@@ -24,19 +24,19 @@ export function usePainelComercial(de: string, ate: string) {
   });
 }
 
-export interface EtapaFunil { rotulo: string; valor: number; daEtapa: number | null; doTotal: number }
+export interface EtapaFunil { rotulo: string; campo: keyof Numeros; valor: number; daEtapa: number | null; doTotal: number }
 
 /** Funil de cima para baixo: leads → qualificados → visitas agendadas → realizadas → vendas. */
 export function funil(n: Numeros): EtapaFunil[] {
-  const etapas: [string, number][] = [
-    ['Leads recebidos', n.leads],
-    ['Leads qualificados', n.qualificados],
-    ['Visitas agendadas', n.visitas_agendadas],
-    ['Visitas realizadas', n.visitas_realizadas],
-    ['Vendas fechadas', n.vendas],
+  const etapas: [string, number, keyof Numeros][] = [
+    ['Leads recebidos', n.leads, 'leads'],
+    ['Leads qualificados', n.qualificados, 'qualificados'],
+    ['Visitas agendadas', n.visitas_agendadas, 'visitas_agendadas'],
+    ['Visitas realizadas', n.visitas_realizadas, 'visitas_realizadas'],
+    ['Vendas fechadas', n.vendas, 'vendas'],
   ];
-  return etapas.map(([rotulo, valor], i) => ({
-    rotulo, valor,
+  return etapas.map(([rotulo, valor, campo], i) => ({
+    rotulo, campo, valor,
     daEtapa: i === 0 ? null : etapas[i - 1][1] ? valor / etapas[i - 1][1] : 0,
     doTotal: n.leads ? valor / n.leads : 0,
   }));
@@ -64,3 +64,22 @@ export function porSemana(porDia: Painel['por_dia']) {
 }
 
 export const CORES_ORIGEM = ['#422f91', '#e92662', '#7c6bc4', '#f27a9e', '#2f2266', '#b31d4b', '#a99fdc'];
+
+export interface MesHistorico { mes: string; numeros: Numeros; origem: Record<string, number> }
+
+/** Últimos `meses` meses (até o mês de `ate`), para o comparativo dos campos. */
+export function useHistorico(ate: string, meses: number, ativo: boolean) {
+  return useQuery({
+    queryKey: ['painel-historico', ate.slice(0, 7), meses],
+    enabled: ativo,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('painel_historico', { p_ate: ate, p_meses: meses });
+      if (error) throw error;
+      return (data ?? []) as unknown as MesHistorico[];
+    },
+  });
+}
+
+/** Campos que abrem o comparativo: KPIs, etapas do funil e origem. */
+export type CampoComparativo = keyof Numeros | 'origem';

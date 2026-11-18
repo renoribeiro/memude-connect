@@ -20,7 +20,23 @@ function Variacao({ atual, anterior, grande }: { atual: number; anterior: number
   );
 }
 
-export function Kpis({ atual, anterior, grande }: { atual: Numeros; anterior: Numeros; grande?: boolean }) {
+/** Card que vira botão quando há comparativo para abrir. */
+function Clicavel({ onClick, rotulo, className, children }: {
+  onClick?: () => void; rotulo: string; className?: string; children: React.ReactNode;
+}) {
+  if (!onClick) return <div className={className}>{children}</div>;
+  return (
+    <div role="button" tabIndex={0} onClick={onClick} aria-label={rotulo} title="Ver comparativo dos últimos meses"
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+      className={cn(className, 'w-full cursor-pointer text-left transition hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')}>
+      {children}
+    </div>
+  );
+}
+
+export function Kpis({ atual, anterior, grande, onAbrir }: {
+  atual: Numeros; anterior: Numeros; grande?: boolean; onAbrir?: (campo: keyof Numeros) => void;
+}) {
   const itens: { rotulo: string; valor: string; chave: keyof Numeros; detalhe?: string; destaque?: boolean }[] = [
     { rotulo: 'VGV vendido', valor: moeda(atual.vgv), chave: 'vgv', destaque: true },
     { rotulo: 'Vendas fechadas', valor: String(atual.vendas), chave: 'vendas' },
@@ -33,19 +49,20 @@ export function Kpis({ atual, anterior, grande }: { atual: Numeros; anterior: Nu
   return (
     <div className={cn('grid gap-3', grande ? 'grid-cols-4 gap-5' : 'grid-cols-2 lg:grid-cols-4 xl:grid-cols-7')}>
       {itens.map((k) => (
-        <div key={k.rotulo} className={cn('rounded-xl border bg-card shadow-sm', grande ? 'p-6' : 'p-4',
-          k.destaque && 'border-primary/20 bg-gradient-to-br from-card to-primary/5')}>
+        <Clicavel key={k.rotulo} onClick={onAbrir && (() => onAbrir(k.chave))} rotulo={`Comparativo mensal de ${k.rotulo}`}
+          className={cn('rounded-xl border bg-card shadow-sm', grande ? 'p-6' : 'p-4',
+            k.destaque && 'border-primary/20 bg-gradient-to-br from-card to-primary/5')}>
           <p className={cn('font-medium uppercase tracking-wide text-muted-foreground', grande ? 'text-sm' : 'text-[11px]')}>{k.rotulo}</p>
           <p className={cn('mt-1 font-bold tabular-nums text-secondary', grande ? 'text-4xl' : 'text-2xl')}>{k.valor}</p>
           {k.detalhe && <p className={cn('text-muted-foreground', grande ? 'text-sm' : 'text-xs')}>{k.detalhe}</p>}
           <div className="mt-1"><Variacao atual={Number(atual[k.chave])} anterior={Number(anterior[k.chave])} grande={grande} /></div>
-        </div>
+        </Clicavel>
       ))}
     </div>
   );
 }
 
-export function Funil({ n, grande }: { n: Numeros; grande?: boolean }) {
+export function Funil({ n, grande, onAbrir }: { n: Numeros; grande?: boolean; onAbrir?: (campo: keyof Numeros) => void }) {
   const etapas = funil(n);
   const cores = ['#2b1d6e', '#422f91', '#6a2a8c', '#a82a73', '#e92662'];
   return (
@@ -53,7 +70,9 @@ export function Funil({ n, grande }: { n: Numeros; grande?: boolean }) {
       {etapas.map((e, i) => {
         const largura = 100 - i * 14;
         return (
-          <li key={e.rotulo} className="flex items-center gap-4">
+          <li key={e.rotulo}>
+            <Clicavel onClick={onAbrir && (() => onAbrir(e.campo))} rotulo={`Comparativo mensal de ${e.rotulo}`}
+              className="flex items-center gap-4 rounded-lg border border-transparent p-0.5">
             <div className="flex flex-1 justify-center">
               <div className={cn('flex items-center justify-center rounded-md font-bold text-white', grande ? 'h-16 text-3xl' : 'h-11 text-lg')}
                 style={{ width: `${largura}%`, background: cores[i] }}>{e.valor.toLocaleString('pt-BR')}</div>
@@ -64,6 +83,7 @@ export function Funil({ n, grande }: { n: Numeros; grande?: boolean }) {
                 {e.daEtapa === null ? '100% do total' : `${pctNum(e.daEtapa)} da etapa · ${pctNum(e.doTotal)} do total`}
               </p>
             </div>
+            </Clicavel>
           </li>
         );
       })}

@@ -111,6 +111,7 @@ export interface Acesso {
   servico: SupabaseClient;
   usuario: SupabaseClient | null;
   userId: string | null;
+  email?: string | null;
   papel: string | null;
   interno: boolean;
 }
@@ -133,7 +134,7 @@ export async function autorizar(req: Request, modo: Modo): Promise<Acesso> {
   if (!comercial || ((modo === 'admin' || modo === 'admin-ou-interno') && papel !== 'admin')) {
     throw new ErroHttp(403, modo === 'comercial' ? 'Acesso restrito à equipe comercial' : 'Acesso restrito a administradores');
   }
-  return { servico, usuario: clienteUsuario(token), userId: user.id, papel, interno: false };
+  return { servico, usuario: clienteUsuario(token), userId: user.id, email: user.email ?? null, papel, interno: false };
 }
 
 export function responderErro(req: Request, erro: unknown): Response {

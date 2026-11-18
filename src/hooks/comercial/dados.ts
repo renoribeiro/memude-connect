@@ -375,13 +375,86 @@ export function useTarefasPendentes() {
       const fimDoDia = new Date(`${somarDias(hojeISO(), 1)}T00:00:00-03:00`).toISOString();
       const { data, error } = await supabase
         .from('tarefas')
-        .select('*, visitas(id, visit_code, data_visita, horario_visita, status, local_nome, tentativas_remarcar, no_show_em, escalada_em, leads(nome, telefone_exibicao), empreendimentos(nome), corretores(profiles(first_name, last_name))), leads(nome)')
+        .select('*, visitas(id, visit_code, data_visita, horario_visita, status, local_nome, tentativas_remarcar, no_show_em, escalada_em, leads(nome, telefone_exibicao), empreendimentos(nome), corretores(profiles(first_name, last_name))), leads(id, nome)')
         .eq('status', 'pendente')
         .lt('disponivel_em', fimDoDia)
         .order('vence_em')
         .limit(500);
       if (error) throw error;
       return data ?? [];
+    },
+  });
+}
+
+// ===== Atividades agendadas (próximo passo pós-visita e lembretes) na Agenda =====
+export function useAtividadesPeriodo(inicio: string, fim: string) {
+  return useQuery({
+    queryKey: ['comercial', 'atividades', inicio, fim],
+    queryFn: async () => {
+      const de = new Date(`${inicio}T00:00:00-03:00`).toISOString();
+      const ate = new Date(`${somarDias(fim, 1)}T00:00:00-03:00`).toISOString();
+      const { data, error } = await supabase
+        .from('tarefas')
+        .select('id, tipo, titulo, status, disponivel_em, vence_em, observacao, dono_id, visita_id, lead_id, leads(id, nome)')
+        .in('tipo', ['atividade', 'manual'])
+        .neq('status', 'cancelada')
+        .gte('disponivel_em', de)
+        .lt('disponivel_em', ate)
+        .order('disponivel_em')
+        .limit(1000);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+// ===== Histórico completo do cliente (card do CRM) =====
+export type ItemHistorico = {
+  id: string; quando: string; ator_id: string | null;
+  origem: 'lead' | 'visita' | 'atividade';
+  tipo: string; payload?: unknown; campo?: string | null; de?: string | null; para?: string | null; observacao?: string | null;
+  titulo?: string | null; status?: string | null; visita?: { data_visita: string; empreendimento: string | null } | null;
+};
+
+export function useHistoricoLead(leadId: string | null | undefined, ativo = true) {
+  return useQuery({
+    queryKey: ['comercial', 'historico-lead', leadId ?? ''],
+    enabled: !!leadId && ativo,
+    queryFn: async () => {
+      const { data: visitas, error: ev } = await supabase.from('visitas')
+        .select('id, data_visita, empreendimentos(nome)').eq('lead_id', leadId!).is('deleted_at', null);
+      if (ev) throw ev;
+      const ids = (visitas ?? []).map((v) => v.id);
+      const porVisita = new Map((visitas ?? []).map((v) => [v.id, { data_visita: v.data_visita, empreendimento: (v.empreendimentos as { nome: string } | null)?.nome ?? null }]));
+      const [lead, eventos, atividades] = await Promise.all([
+        supabase.from('lead_eventos').select('id, tipo, campo, de, para, observacao, ator_id, criado_em').eq('lead_id', leadId!)
+          .order('criado_em', { ascending: false }).limit(300),
+        ids.length
+          ? supabase.from('visit_events').select('id, visita_id, kind, payload, created_at, ator_id').in('visita_id', ids)
+            .order('created_at', { ascending: false }).limit(500)
+          : Promise.resolve({ data: [], error: null }),
+        supabase.from('tarefas').select('id, tipo, titulo, status, disponivel_em, criado_em, dono_id, visita_id').eq('lead_id', leadId!)
+          .in('tipo', ['atividade', 'manual']).neq('status', 'cancelada').order('criado_em', { ascending: false }).limit(100),
+      ]);
+      if (lead.error) throw lead.error;
+      const itens: ItemHistorico[] = [
+        ...(lead.data ?? []).map((e) => ({
+          id: `l-${e.id}`, quando: e.criado_em, ator_id: e.ator_id, origem: 'lead' as const, tipo: e.tipo,
+          campo: e.campo, de: e.de, para: e.para, observacao: e.observacao,
+        })),
+        ...((eventos.data ?? []) as { id: string; visita_id: string; kind: string; payload: unknown; created_at: string; ator_id: string | null }[])
+          // As 341 importações da planilha não dizem nada para quem lê o card
+          .filter((e) => e.kind !== 'f1_importada')
+          .map((e) => ({
+            id: `v-${e.id}`, quando: e.created_at, ator_id: e.ator_id, origem: 'visita' as const, tipo: e.kind, payload: e.payload,
+            visita: porVisita.get(e.visita_id) ?? null,
+          })),
+        ...(atividades.data ?? []).map((t) => ({
+          id: `t-${t.id}`, quando: t.criado_em, ator_id: t.dono_id, origem: 'atividade' as const, tipo: t.tipo,
+          titulo: t.titulo, status: t.status, para: t.disponivel_em,
+        })),
+      ];
+      return itens.sort((a, b) => b.quando.localeCompare(a.quando));
     },
   });
 }

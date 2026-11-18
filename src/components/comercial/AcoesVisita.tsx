@@ -22,7 +22,13 @@ type Visita = {
   no_show_em: string | null; escalada_em: string | null; motivo_cancelamento: string | null; updated_at: string | null;
 };
 type Convite = { id: string; corretor_id: string; enviado_em: string; resposta: string | null; corretores?: { profiles?: { first_name?: string | null; last_name?: string | null } | null } | null };
-type Tarefa = { id: string; tipo: string; status: string; vence_em: string; disponivel_em: string; concluida_em: string | null; observacao: string | null };
+type Tarefa = {
+  id: string; tipo: string; status: string; vence_em: string; disponivel_em: string; concluida_em: string | null;
+  observacao: string | null; titulo?: string | null;
+};
+
+// Atividades mais comuns depois da visita (um clique preenche o próximo passo)
+const ATIVIDADES_SUGERIDAS = ['Ligar para o cliente', 'Enviar simulação', 'Enviar proposta', 'Mandar mensagem no WhatsApp', 'Agendar nova visita', 'Cobrar documentação'];
 
 const nome = (c?: Convite | null) => [c?.corretores?.profiles?.first_name, c?.corretores?.profiles?.last_name].filter(Boolean).join(' ') || 'corretor';
 
@@ -203,12 +209,25 @@ function RetornoPosVisita({ visita, tarefas }: { visita: Visita; tarefas: Tarefa
   const [nota, setNota] = useState<number | null>(visita.avaliacao_lead);
   const [impressao, setImpressao] = useState(visita.comentarios_lead ?? '');
   const [feedback, setFeedback] = useState(visita.feedback_corretor ?? '');
-  const [proximo, setProximo] = useState(visita.proximo_passo ?? '');
-  const [venda, setVenda] = useState(visita.data_venda ?? '');
+  const [atividade, setAtividade] = useState('');
+  const [dataPasso, setDataPasso] = useState('');
+  const [horaPasso, setHoraPasso] = useState('');
   const pendRetorno = tarefas.find((t) => t.tipo === 'retorno' && t.status === 'pendente');
   const pendProximo = tarefas.find((t) => t.tipo === 'proximo_passo' && t.status === 'pendente');
-  const mudou = nota !== visita.avaliacao_lead || impressao !== (visita.comentarios_lead ?? '') || feedback !== (visita.feedback_corretor ?? '')
-    || proximo !== (visita.proximo_passo ?? '') || venda !== (visita.data_venda ?? '');
+  const atividades = tarefas.filter((t) => t.tipo === 'atividade' && t.status !== 'cancelada')
+    .sort((a, b) => b.disponivel_em.localeCompare(a.disponivel_em));
+  const temAtividade = atividades.length > 0;
+
+  // Próximo passo = atividade com data e horário (vai para a Agenda). Obrigatório se ainda não houver uma.
+  const preencheuPasso = !!(atividade.trim() || dataPasso || horaPasso);
+  const quando = dataPasso && horaPasso ? new Date(`${dataPasso}T${horaPasso}:00-03:00`) : null;
+  const passoValido = !!(atividade.trim().length >= 3 && quando && quando.getTime() > Date.now() - 5 * 60000);
+  const precisaPasso = !temAtividade || preencheuPasso;
+  const mudouRetorno = nota !== visita.avaliacao_lead || impressao !== (visita.comentarios_lead ?? '') || feedback !== (visita.feedback_corretor ?? '');
+  const podeSalvar = (precisaPasso ? passoValido : mudouRetorno) && !acao.isPending;
+  const aviso = precisaPasso && !passoValido
+    ? (!atividade.trim() ? 'Descreva a atividade do próximo passo.' : !dataPasso || !horaPasso ? 'Escolha a data e o horário da atividade.' : 'Escolha uma data e horário no futuro.')
+    : null;
 
   return (
     <Cartao tom={pendRetorno || pendProximo ? 'alerta' : 'sucesso'} icone={CheckCircle2} titulo="Retorno pós-visita">
@@ -221,17 +240,56 @@ function RetornoPosVisita({ visita, tarefas }: { visita: Visita; tarefas: Tarefa
         <Textarea id="rv-imp" rows={2} maxLength={4000} value={impressao} onChange={(e) => setImpressao(e.target.value)} placeholder="O que o cliente achou do empreendimento e do atendimento" /></div>
       <div className="grid gap-1.5"><Label htmlFor="rv-fb">Retorno do corretor</Label>
         <Textarea id="rv-fb" rows={2} maxLength={4000} value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Interesse, objeções, condições" /></div>
-      <div className="grid gap-1.5"><Label htmlFor="rv-px">Próximo passo</Label>
-        <Input id="rv-px" maxLength={2000} value={proximo} onChange={(e) => setProximo(e.target.value)} placeholder="Ex.: enviar simulação até sexta" /></div>
-      <div className="grid gap-1.5 sm:w-48"><Label htmlFor="rv-venda">Data da venda</Label>
-        <Input id="rv-venda" type="date" value={venda} onChange={(e) => setVenda(e.target.value)} /></div>
-      <Button disabled={!mudou || acao.isPending} onClick={() => acao.mutate({
+
+      <fieldset className="space-y-2.5 rounded-lg border border-primary/25 bg-primary/[0.03] p-3">
+        <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold">
+          <CalendarClock className="h-4 w-4 text-primary" /> Próximo passo {!temAtividade && <span className="text-xs font-normal text-rose-600">(obrigatório)</span>}
+        </legend>
+        {temAtividade && (
+          <ul className="space-y-1.5">
+            {atividades.map((t) => (
+              <li key={t.id} className="flex items-center gap-2 rounded-md bg-card px-2.5 py-1.5 text-sm ring-1 ring-border">
+                {t.status === 'concluida' ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" /> : <AlarmClock className="h-4 w-4 shrink-0 text-primary" />}
+                <span className={cn('min-w-0 flex-1 truncate font-medium', t.status === 'concluida' && 'text-muted-foreground line-through')}>{t.titulo ?? 'Atividade'}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">{formatarDataHora(t.disponivel_em)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-xs text-muted-foreground">
+          {temAtividade ? 'Para agendar outra atividade, preencha abaixo.' : 'Toda visita realizada termina com uma atividade agendada. Ela entra na Agenda e na tela Hoje.'}
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {ATIVIDADES_SUGERIDAS.map((a) => (
+            <button key={a} type="button" onClick={() => setAtividade(a)}
+              className={cn('rounded-full border px-2.5 py-1 text-xs', atividade === a ? 'border-primary bg-primary/10 font-medium text-primary' : 'bg-card hover:bg-muted')}>{a}</button>
+          ))}
+        </div>
+        <div className="grid gap-1.5"><Label htmlFor="rv-px">Atividade</Label>
+          <Input id="rv-px" maxLength={200} value={atividade} onChange={(e) => setAtividade(e.target.value)} placeholder="Ex.: Ligar para o cliente" /></div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="grid gap-1.5"><Label htmlFor="rv-pd">Data</Label>
+            <Input id="rv-pd" type="date" min={hojeISO()} value={dataPasso} onChange={(e) => setDataPasso(e.target.value)} /></div>
+          <div className="grid gap-1.5"><Label htmlFor="rv-ph">Horário</Label>
+            <Input id="rv-ph" type="time" step={900} value={horaPasso} onChange={(e) => setHoraPasso(e.target.value)} /></div>
+        </div>
+        {aviso && preencheuPasso && <p className="text-xs font-medium text-rose-600">{aviso}</p>}
+      </fieldset>
+
+      <Button disabled={!podeSalvar} title={aviso ?? undefined} onClick={() => acao.mutate({
         rpc: 'visita_registrar_retorno',
-        args: { p_visita_id: visita.id, p_dados: { nota, impressao, feedback_corretor: feedback, proximo_passo: proximo, data_venda: venda || null } },
-        sucesso: 'Retorno salvo',
-      })}>
+        args: {
+          p_visita_id: visita.id,
+          p_dados: {
+            nota, impressao, feedback_corretor: feedback,
+            ...(passoValido && quando ? { proximo_passo: atividade.trim(), proximo_passo_em: quando.toISOString() } : {}),
+          },
+        },
+        sucesso: passoValido ? 'Retorno salvo · próximo passo na agenda' : 'Retorno salvo',
+      }, { onSuccess: () => { setAtividade(''); setDataPasso(''); setHoraPasso(''); } })}>
         {acao.isPending && <Loader2 className="animate-spin" />} Salvar retorno
       </Button>
+      {!temAtividade && !preencheuPasso && <p className="-mt-1 text-center text-xs text-muted-foreground">Agende o próximo passo para salvar.</p>}
     </Cartao>
   );
 }

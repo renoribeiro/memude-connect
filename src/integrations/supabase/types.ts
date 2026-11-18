@@ -6351,6 +6351,10 @@ export type Database = {
           is_allowed: boolean
         }[]
       }
+      lead_adicionar_nota: {
+        Args: { p_lead_id: string; p_texto: string }
+        Returns: Json
+      }
       lead_atualizar: {
         Args: { p_campos: Json; p_lead_id: string }
         Returns: Json
@@ -6430,6 +6434,7 @@ export type Database = {
       normalize_phone_key: { Args: { raw: string }; Returns: string }
       painel_comercial: { Args: { p_ate: string; p_de: string }; Returns: Json }
       painel_historico: { Args: { p_ate: string; p_meses?: number }; Returns: Json }
+      painel_apresentacao: { Args: { p_ate: string; p_de: string }; Returns: Json }
       permanently_delete_lead: { Args: { p_lead_id: string }; Returns: boolean }
       planilha_importar_lote: {
         Args: { p_aba: string; p_linhas: Json }

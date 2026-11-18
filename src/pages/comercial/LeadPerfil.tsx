@@ -201,7 +201,8 @@ export default function LeadPerfilPage() {
                     <li key={e.id} className="relative">
                       <span className={cn('absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white', e.tipo === 'status' ? 'bg-primary' : 'bg-slate-400')} />
                       <p className="text-sm">
-                        {e.campo ? <><strong>{e.campo}</strong>: {e.de ?? '—'} → {e.para ?? '—'}</> : e.observacao}
+                        {e.tipo === 'nota' ? <><strong>Nota</strong>: {e.observacao}</>
+                          : e.campo ? <><strong>{e.campo}</strong>: {e.de ?? '—'} → {e.para ?? '—'}</> : e.observacao}
                       </p>
                       <p className="text-xs text-muted-foreground">{formatarDataHora(e.criado_em)}{e.ator_id && ` · ${nomes.get(e.ator_id) ?? 'equipe'}`}</p>
                     </li>

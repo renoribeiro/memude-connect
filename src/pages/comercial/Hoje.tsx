@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-  AlarmClock, CalendarDays, CheckCircle2, ChevronRight, ClipboardCheck, Flag, Handshake, MessageSquareReply, PhoneOff,
+  AlarmClock, CalendarClock, CalendarDays, CheckCircle2, ChevronRight, ClipboardCheck, Flag, Handshake, MessageSquareReply, PhoneOff,
   ThumbsDown, ThumbsUp, UserPlus, Users,
 } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useAcaoVisita, useEquipe, useTarefasPendentes, useVisitasDoDia } from '@/hooks/comercial/dados';
-import { formatarHora, hojeISO, formatarDiaSemana, relativo } from '@/lib/comercial/datas';
+import { formatarDataHora, formatarHora, hojeISO, formatarDiaSemana, relativo } from '@/lib/comercial/datas';
 import { VisitaPainel } from '@/components/comercial/VisitaPainel';
 import { useAbrirVisita } from '@/hooks/comercial/useAbrirVisita';
 import { EstadoVazio, StatusVisitaBadge } from '@/components/comercial/ui';
@@ -19,6 +19,7 @@ import { nomeCorretor } from '@/lib/comercial/nomes';
 type Tarefa = NonNullable<ReturnType<typeof useTarefasPendentes>['data']>[number];
 
 const BLOCOS: { chave: string; titulo: string; tipos: string[]; icone: typeof AlarmClock; ajuda: string }[] = [
+  { chave: 'atividades', titulo: 'Atividades agendadas', tipos: ['atividade', 'manual'], icone: CalendarClock, ajuda: 'Próximos passos pós-visita e lembretes de retomada' },
   { chave: 'aceite', titulo: 'Aguardando aceite do corretor', tipos: ['aceite_corretor'], icone: Handshake, ajuda: 'Sem resposta em 15 min: troque de corretor' },
   { chave: 'conf', titulo: 'Confirmações D-2 e D-1 do dia', tipos: ['confirmacao_d2', 'confirmacao_d1'], icone: ClipboardCheck, ajuda: 'Envie o lembrete e registre a resposta' },
   { chave: 'd0', titulo: 'Confirmações D0 do dia', tipos: ['confirmacao_d0'], icone: ClipboardCheck, ajuda: 'Até 3h antes do horário' },
@@ -160,15 +161,20 @@ function ItemTarefa({ t, onAbrir, dono }: { t: Tarefa; onAbrir: (id: string) => 
   const executar = (rpc: string, args: Record<string, unknown>, sucesso: string) =>
     v && acao.mutate({ rpc, args: { p_visita_id: v.id, ...args }, sucesso });
   const etapa = t.tipo.startsWith('confirmacao_') ? t.tipo.replace('confirmacao_', '') : null;
+  const navegar = useNavigate();
+  const ehAtividade = t.tipo === 'atividade' || t.tipo === 'manual';
+  const leadId = (t.leads as { id?: string } | null)?.id ?? t.lead_id;
+  const abrirItem = () => { if (v) onAbrir(v.id); else if (leadId) navegar(`/leads/${leadId}`); };
 
   return (
     <li className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3', atrasada && 'bg-rose-50/70')}>
-      <button type="button" onClick={() => v && onAbrir(v.id)} className="flex min-w-[16rem] flex-1 items-start gap-3 text-left">
+      <button type="button" onClick={abrirItem} className="flex min-w-[16rem] flex-1 items-start gap-3 text-left">
         <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', atrasada ? 'bg-rose-500' : 'bg-amber-400')} aria-hidden />
         <span className="min-w-0">
-          <span className="block truncate font-medium">{v?.leads?.nome ?? (t.leads as { nome: string } | null)?.nome ?? t.titulo}</span>
+          <span className="block truncate font-medium">{ehAtividade ? t.titulo : v?.leads?.nome ?? (t.leads as { nome: string } | null)?.nome ?? t.titulo}</span>
           <span className="block truncate text-sm text-muted-foreground">
-            {v && `${formatarDiaSemana(v.data_visita, 'short')} ${formatarHora(v.horario_visita)} · ${v.empreendimentos?.nome ?? '—'} · ${nomeCorretor(v.corretores) || 'sem corretor'}`}
+            {ehAtividade && `${(t.leads as { nome: string } | null)?.nome ?? v?.leads?.nome ?? 'Cliente'} · ${formatarDataHora(t.disponivel_em)}`}
+            {!ehAtividade && v && `${formatarDiaSemana(v.data_visita, 'short')} ${formatarHora(v.horario_visita)} · ${v.empreendimentos?.nome ?? '—'} · ${nomeCorretor(v.corretores) || 'sem corretor'}`}
             {t.tipo === 'remarcar_no_show' && v ? ` · ${v.tentativas_remarcar} tentativa(s)` : ''}
             {dono && ` · ${dono}`}
           </span>
@@ -195,7 +201,12 @@ function ItemTarefa({ t, onAbrir, dono }: { t: Tarefa; onAbrir: (id: string) => 
             <Button size="sm" variant="outline" disabled={acao.isPending} onClick={() => executar('visita_registrar_resultado', { p_resultado: 'no_show' }, 'No-show registrado')}>No-show</Button>
           </>
         )}
-        <Button size="sm" variant="ghost" onClick={() => v && onAbrir(v.id)} aria-label="Abrir visita"><ChevronRight /></Button>
+        {ehAtividade && (
+          <Button size="sm" disabled={acao.isPending} onClick={() => acao.mutate({ rpc: 'tarefa_concluir', args: { p_tarefa_id: t.id, p_observacao: null }, sucesso: 'Atividade concluída' })}>
+            <CheckCircle2 /> Feito
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" onClick={abrirItem} aria-label={v ? 'Abrir visita' : 'Abrir lead'}><ChevronRight /></Button>
       </div>
     </li>
   );

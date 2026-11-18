@@ -1,40 +1,23 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Calendar, Clock, MapPin, Plus, Star, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Search, Plus, Calendar, Clock, MapPin, Star, CalendarDays, User, Phone, Trash2, Users } from "lucide-react";
 import { VisitaModal } from "@/components/modals/VisitaModal";
 import { VisitaActions } from "@/components/actions/VisitaActions";
 import { VisitaDetails } from "@/components/modals/VisitaDetails";
-import VisitasCalendar from "@/components/calendar/VisitasCalendar";
-import { DistributionDashboard } from "@/components/automation/DistributionDashboard";
-import { VisitFollowup } from '@/components/visitas/VisitFollowup';
-import { VisitIntake } from '@/components/visitas/VisitIntake';
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
-import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { parseLocalDate, isSameLocalDay } from "@/utils/dateHelpers";
-import { useDebounce } from "@/hooks/use-debounce";
 import { SeletorMeses } from "@/components/comercial/SeletorMeses";
 import { ResumoVisitasMes, rotuloVisita } from "@/components/visitas/ResumoVisitasMes";
-import { descreverMeses, mesAtual } from "@/lib/comercial/periodo";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { descreverMeses, mes, mesAtual } from "@/lib/comercial/periodo";
 
 interface Visita {
   id: string;
@@ -46,385 +29,142 @@ interface Visita {
   avaliacao_lead?: number;
   comentarios_lead?: string;
   feedback_corretor?: string;
-  created_at: string;
   deleted_at?: string | null;
   planilha_extra?: unknown;
-  leads: {
-    nome: string;
-    telefone: string;
-  } | null;
-  corretores?: {
-    profiles: {
-      first_name: string;
-      last_name: string;
-    } | null;
-  } | null;
-  empreendimentos?: {
-    nome: string;
-  } | null;
+  leads: { nome: string; telefone: string } | null;
+  corretores?: { profiles: { first_name: string; last_name: string } | null } | null;
+  empreendimentos?: { nome: string } | null;
 }
 
-const statusVariants = {
-  'agendada': 'secondary',
-  'confirmada': 'outline',
-  'realizada': 'success',
-  'cancelada': 'destructive',
-  'reagendada': 'default'
-} as const;
-
-const statusLabels = {
-  'aguardando_corretor': 'Aguardando corretor',
-  'agendada': 'Agendada',
-  'confirmada': 'Confirmada',
-  'realizada': 'Realizada',
-  'no_show': 'No-show',
-  'cancelada': 'Cancelada',
-  'reagendada': 'Reagendada'
+const COR_STATUS: Record<string, string> = {
+  aguardando_corretor: "bg-amber-50 text-amber-800 ring-amber-600/20",
+  agendada: "bg-primary/10 text-primary ring-primary/20",
+  confirmada: "bg-primary/10 text-primary ring-primary/20",
+  realizada: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  no_show: "bg-rose-50 text-rose-700 ring-rose-600/20",
+  cancelada: "bg-slate-100 text-slate-600 ring-slate-500/20",
+  reagendada: "bg-slate-100 text-slate-600 ring-slate-500/20",
 };
 
+/** Tela de visitas: resumo do período e a lista completa, da mais recente para a mais antiga. */
 export default function Visitas() {
   const { profile } = useAuth();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const debouncedSearchTerm = useDebounce(searchTerm, 500);
-  const [viewMode, setViewMode] = useState<'active' | 'trash'>('active');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedVisitaId, setSelectedVisitaId] = useState<string | undefined>();
-
-  const [currentPage, setCurrentPage] = useState(1);
   const [meses, setMeses] = useState<string[]>(() => [mesAtual()]);
-  const ITEMS_PER_PAGE = 15;
+  const [modalAberto, setModalAberto] = useState(false);
+  const [detalheAberto, setDetalheAberto] = useState(false);
+  const [visitaId, setVisitaId] = useState<string | undefined>();
+
+  const ordenados = [...meses].sort();
+  const de = mes(ordenados[0]).de;
+  const ate = mes(ordenados[ordenados.length - 1]).ate;
 
   const { data: visitas = [], isLoading } = useQuery({
-    queryKey: ['visitas', debouncedSearchTerm, filterStatus, viewMode],
+    queryKey: ["visitas", "periodo", de, ate],
     queryFn: async () => {
-      let query = supabase
-        .from('visitas')
-        .select(`
-          *,
-          leads(nome, telefone),
-          corretores(
-            profiles(first_name, last_name)
-          ),
-          empreendimentos(nome)
-        `)
-        .order('data_visita', { ascending: true });
-
-      // Filter by view mode (active or trash)
-      if (viewMode === 'active') {
-        query = query.is('deleted_at', null);
-      } else {
-        query = query.not('deleted_at', 'is', null);
-      }
-
-      if (debouncedSearchTerm) {
-        query = query.or(`leads.nome.ilike.%${debouncedSearchTerm}%,leads.telefone.ilike.%${debouncedSearchTerm}%`);
-      }
-
-      if (filterStatus !== 'all') {
-        query = query.eq('status', filterStatus);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await supabase
+        .from("visitas")
+        .select("*, leads(nome, telefone), corretores(profiles(first_name, last_name)), empreendimentos(nome)")
+        .is("deleted_at", null)
+        .gte("data_visita", de)
+        .lte("data_visita", ate)
+        .order("data_visita", { ascending: false })
+        .order("horario_visita", { ascending: false })
+        .limit(2000);
       if (error) throw error;
       return data as Visita[];
-    }
+    },
   });
 
-  const getRatingStars = (rating: number) => {
-    const stars = [];
-    for (let i = 1; i <= 5; i++) {
-      stars.push(
-        <Star
-          key={i}
-          className={`w-3 h-3 ${i <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`}
-        />
-      );
-    }
-    return stars;
-  };
-
-  const isToday = (date: string) => {
-    return isSameLocalDay(date, new Date());
-  };
-
-  const isTomorrow = (date: string) => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return isSameLocalDay(date, tomorrow);
-  };
-
-  // Reset page when filters change
-  useState(() => {
-    setCurrentPage(1);
-  });
+  // Meses podem não ser contínuos (ex.: setembro e novembro): fica só o que foi escolhido.
+  const doPeriodo = useMemo(() => visitas.filter((v) => meses.includes(v.data_visita.slice(0, 7))), [visitas, meses]);
 
   if (!profile) return null;
 
-  // Na lista ativa vale o período escolhido; a lixeira mostra tudo.
-  const visitasPeriodo = viewMode === 'active'
-    ? visitas.filter(v => meses.includes(v.data_visita.slice(0, 7)))
-    : visitas;
-  const totalPages = Math.ceil(visitasPeriodo.length / ITEMS_PER_PAGE);
-  const paginatedVisitas = visitasPeriodo.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const hoje = new Date();
+  const amanha = new Date(); amanha.setDate(amanha.getDate() + 1);
+  const ehHoje = (d: string) => isSameLocalDay(d, hoje);
+  const ehAmanha = (d: string) => isSameLocalDay(d, amanha);
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Visitas</h1>
             <p className="text-muted-foreground">
-              {viewMode === 'active'
-                ? `${descreverMeses(meses)} · hoje ${visitas.filter(v => isToday(v.data_visita)).length}, amanhã ${visitas.filter(v => isTomorrow(v.data_visita)).length}`
-                : 'Visitas excluídas'}
+              {descreverMeses(meses)} · hoje {doPeriodo.filter((v) => ehHoje(v.data_visita)).length}, amanhã {doPeriodo.filter((v) => ehAmanha(v.data_visita)).length}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {viewMode === 'active' && <SeletorMeses valor={meses} onChange={(m) => { setMeses(m); setCurrentPage(1); }} />}
-            <Button
-              className="flex items-center gap-2"
-              onClick={() => {
-                setSelectedVisitaId(undefined);
-                setIsModalOpen(true);
-              }}
-            >
-              <Plus className="w-4 h-4" />
-              Nova Visita
+            <SeletorMeses valor={meses} onChange={setMeses} />
+            <Button onClick={() => { setVisitaId(undefined); setModalAberto(true); }}>
+              <Plus className="mr-1.5 h-4 w-4" /> Nova visita
             </Button>
           </div>
         </div>
 
-        {/* Visitas do período (seção principal) */}
-        {viewMode === 'active' && <ResumoVisitasMes visitas={visitasPeriodo} periodo={descreverMeses(meses)} />}
+        <ResumoVisitasMes visitas={doPeriodo} periodo={descreverMeses(meses)} />
 
-        {/* Acompanhamento da automação de visitas (robô em stand-by): recolhido para não tomar a tela */}
-        <details className="group rounded-xl border bg-card shadow-sm">
-          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground">
-            <span className="mr-1 inline-block transition-transform group-open:rotate-90">›</span>
-            Acompanhamento da automação de visitas e pedidos do WhatsApp
-          </summary>
-          <div className="space-y-4 border-t p-4">
-            <VisitFollowup />
-            <VisitIntake />
-          </div>
-        </details>
-
-        {/* View Mode Toggle */}
-        <Card className="hover-scale transition-all duration-200 animate-fade-in">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex gap-2">
-                <Button
-                  variant={viewMode === 'active' ? 'default' : 'outline'}
-                  onClick={() => setViewMode('active')}
-                  className="flex items-center gap-2"
-                >
-                  <CalendarDays className="w-4 h-4" />
-                  Visitas Ativas
-                </Button>
-                <Button
-                  variant={viewMode === 'trash' ? 'default' : 'outline'}
-                  onClick={() => setViewMode('trash')}
-                  className="flex items-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Lixeira
-                </Button>
-              </div>
-            </div>
-
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar visitas..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 transition-all duration-200 focus:ring-2"
-                />
-              </div>
-              <div className="flex gap-2">
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-3 py-2 border rounded-md bg-background transition-all duration-200 hover:border-primary/50"
-                >
-                  <option value="all">Todos os Status</option>
-                  {Object.entries(statusLabels).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Tabs for List, Calendar and Distribution */}
-        <Tabs defaultValue="list" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="list" className="flex items-center gap-2">
-              <CalendarDays className="w-4 h-4" />
-              Lista de Visitas
-            </TabsTrigger>
-            <TabsTrigger value="calendar" className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              Calendário
-            </TabsTrigger>
-            <TabsTrigger value="distribution" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Distribuição
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="list" className="space-y-4">
-            {isLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="h-20 bg-muted animate-pulse rounded" />
-                ))}
-              </div>
-            ) : (
-              <Card className="hover-scale transition-all duration-200 animate-fade-in">
-                <CardHeader>
-                  <CardTitle>
-                    {viewMode === 'active' ? `Visitas do período (${visitasPeriodo.length})` : 'Visitas na Lixeira'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {visitasPeriodo.map((visita, index) => (
-                      <div
-                        key={visita.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-all duration-200 animate-fade-in hover-scale"
-                        style={{ animationDelay: `${Math.min(index, 10) * 50}ms` }}
-                      >
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-3">
-                            <h3 className="font-semibold">{visita.leads?.nome || "Lead Desconhecido"}</h3>
-                            <p className="text-sm text-muted-foreground">{visita.visit_code}</p>
-                            <Badge variant={statusVariants[visita.status as keyof typeof statusVariants] || 'default'}>
-                              {rotuloVisita(visita)}
-                            </Badge>
-                            {visita.deleted_at && (
-                              <Badge variant="destructive" className="flex items-center gap-1">
-                                <Trash2 className="w-3 h-3" />
-                                Na Lixeira
-                              </Badge>
-                            )}
-                            {!visita.deleted_at && isToday(visita.data_visita) && (
-                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                Hoje
-                              </Badge>
-                            )}
-                            {!visita.deleted_at && isTomorrow(visita.data_visita) && (
-                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                                Amanhã
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {format(parseLocalDate(visita.data_visita), 'dd/MM/yyyy', { locale: ptBR })}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {visita.horario_visita}
-                            </div>
-                            {visita.empreendimentos && (
-                              <div className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {visita.empreendimentos.nome}
-                              </div>
-                            )}
-                            {visita.corretores && (
-                              <div className="flex items-center gap-1">
-                                <User className="w-3 h-3" />
-                                {visita.corretores.profiles?.first_name || ""} {visita.corretores.profiles?.last_name || ""}
-                              </div>
-                            )}
-                          </div>
-                          {visita.avaliacao_lead && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-muted-foreground">Avaliação:</span>
-                              <div className="flex items-center gap-1">
-                                {getRatingStars(visita.avaliacao_lead)}
-                                <span className="text-sm text-muted-foreground ml-1">
-                                  ({visita.avaliacao_lead}/5)
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                          {visita.comentarios_lead && (
-                            <div className="text-sm text-muted-foreground">
-                              <strong>Comentário do Lead:</strong> {visita.comentarios_lead}
-                            </div>
-                          )}
-                          {visita.feedback_corretor && (
-                            <div className="text-sm text-muted-foreground">
-                              <strong>Feedback do Corretor:</strong> {visita.feedback_corretor}
-                            </div>
-                          )}
-                        </div>
-                        <VisitaActions
-                          visitaId={visita.id}
-                          status={visita.status}
-                          leadId={visita.lead_id || ''}
-                          deletedAt={visita.deleted_at}
-                          onEdit={() => {
-                            setSelectedVisitaId(visita.id);
-                            setIsModalOpen(true);
-                          }}
-                          onView={() => {
-                            setSelectedVisitaId(visita.id);
-                            setIsViewModalOpen(true);
-                          }}
-                        />
-                      </div>
-                    ))}
-                    {visitasPeriodo.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        {viewMode === 'active'
-                          ? 'Nenhuma visita ativa encontrada'
-                          : 'Nenhuma visita na lixeira'}
-                      </div>
-                    )}
+        <section className="rounded-xl border bg-card shadow-sm">
+          <header className="flex items-center justify-between border-b px-5 py-3">
+            <h2 className="text-sm font-semibold">Visitas do período <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{doPeriodo.length}</span></h2>
+            <span className="text-xs text-muted-foreground">Mais recentes primeiro</span>
+          </header>
+          {isLoading ? (
+            <div className="space-y-2 p-5">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+          ) : !doPeriodo.length ? (
+            <p className="px-5 py-12 text-center text-sm text-muted-foreground">Nenhuma visita em {descreverMeses(meses)}.</p>
+          ) : (
+            <ul className="divide-y">
+              {doPeriodo.map((v) => (
+                <li key={v.id} className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/40">
+                  <div className="w-14 shrink-0 text-center">
+                    <p className="text-xl font-bold leading-none tabular-nums text-primary">{v.data_visita.slice(8, 10)}</p>
+                    <p className="mt-0.5 text-[11px] font-medium uppercase text-muted-foreground">
+                      {format(parseLocalDate(v.data_visita), "MMM", { locale: ptBR })}
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate font-semibold">{v.leads?.nome || "Lead sem nome"}</h3>
+                      <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset", COR_STATUS[v.status] ?? COR_STATUS.cancelada)}>
+                        {rotuloVisita(v)}
+                      </span>
+                      {ehHoje(v.data_visita) && <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">Hoje</Badge>}
+                      {ehAmanha(v.data_visita) && <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Amanhã</Badge>}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3" />{format(parseLocalDate(v.data_visita), "EEE, dd/MM", { locale: ptBR })}</span>
+                      <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{v.horario_visita?.slice(0, 5)}</span>
+                      {v.empreendimentos && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{v.empreendimentos.nome}</span>}
+                      {v.corretores?.profiles && (
+                        <span className="inline-flex items-center gap-1"><User className="h-3 w-3" />{v.corretores.profiles.first_name} {v.corretores.profiles.last_name}</span>
+                      )}
+                      {v.avaliacao_lead ? (
+                        <span className="inline-flex items-center gap-1"><Star className="h-3 w-3 fill-amber-400 text-amber-400" />{v.avaliacao_lead}/5</span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <VisitaActions
+                    visitaId={v.id}
+                    status={v.status}
+                    leadId={v.lead_id || ""}
+                    deletedAt={v.deleted_at}
+                    onEdit={() => { setVisitaId(v.id); setModalAberto(true); }}
+                    onView={() => { setVisitaId(v.id); setDetalheAberto(true); }}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-          <TabsContent value="calendar">
-            <VisitasCalendar />
-          </TabsContent>
+        <VisitaModal isOpen={modalAberto} onClose={() => { setModalAberto(false); setVisitaId(undefined); }} visitaId={visitaId} />
 
-          <TabsContent value="distribution">
-            <DistributionDashboard />
-          </TabsContent>
-        </Tabs>
-
-        {/* Visita Modal */}
-        <VisitaModal
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false);
-            setSelectedVisitaId(undefined);
-          }}
-          visitaId={selectedVisitaId}
-        />
-
-        {/* Modal de Visualização de Detalhes */}
-        <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+        <Dialog open={detalheAberto} onOpenChange={setDetalheAberto}>
           <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Detalhes da Visita</DialogTitle>
-            </DialogHeader>
-            {selectedVisitaId && <VisitaDetails visitaId={selectedVisitaId} />}
+            <DialogHeader><DialogTitle>Detalhes da visita</DialogTitle></DialogHeader>
+            {visitaId && <VisitaDetails visitaId={visitaId} />}
           </DialogContent>
         </Dialog>
       </div>

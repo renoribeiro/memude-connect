@@ -55,7 +55,8 @@ export const ROTULO_TAREFA: Record<string, string> = {
   proximo_passo: 'Próximo passo',
   remarcar_no_show: 'Remarcar no-show',
   escalada: 'Escalada pelo closer',
-  manual: 'Tarefa',
+  manual: 'Lembrete',
+  atividade: 'Atividade',
 };
 
 export const TIPOS_LOCAL = ['Stand de vendas', 'Decorado', 'Plantão no empreendimento', 'Escritório da construtora'] as const;

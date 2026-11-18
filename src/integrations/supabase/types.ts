@@ -6429,6 +6429,7 @@ export type Database = {
       normalize_phone_display: { Args: { raw: string }; Returns: string }
       normalize_phone_key: { Args: { raw: string }; Returns: string }
       painel_comercial: { Args: { p_ate: string; p_de: string }; Returns: Json }
+      painel_historico: { Args: { p_ate: string; p_meses?: number }; Returns: Json }
       permanently_delete_lead: { Args: { p_lead_id: string }; Returns: boolean }
       planilha_importar_lote: {
         Args: { p_aba: string; p_linhas: Json }

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Filter, Move } from 'lucide-react';
+import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, Filter, Move } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { useEmpreendimentos, useEquipe, useVisitasPeriodo } from '@/hooks/comercial/dados';
+import { useAtividadesPeriodo, useEmpreendimentos, useEquipe, useVisitasPeriodo } from '@/hooks/comercial/dados';
 import {
   COR_STATUS_VISITA, ROTULO_STATUS_VISITA, STATUS_VISITA, STATUS_VISITA_ATIVOS,
 } from '@/lib/comercial/constantes';
@@ -19,6 +20,13 @@ import { nomeCorretor } from '@/lib/comercial/nomes';
 
 type Visao = 'dia' | 'semana' | 'mes';
 type Item = NonNullable<ReturnType<typeof useVisitasPeriodo>['data']>[number];
+type Atividade = NonNullable<ReturnType<typeof useAtividadesPeriodo>['data']>[number];
+/** Visita ou atividade agendada (próximo passo pós-visita / lembrete) na mesma grade. */
+type Entrada = { id: string; hora: string; v?: Item; a?: Atividade };
+
+const FUSO = 'America/Fortaleza';
+const diaFortaleza = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: FUSO }).format(new Date(iso));
+const horaFortaleza = (iso: string) => new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso));
 
 const HORA_INI = 7;
 const HORA_FIM = 21;
@@ -46,11 +54,14 @@ export default function AgendaPage() {
   const [ref, setRef] = useState(hojeISO());
   const [filtros, setFiltros] = useState({ corretor: null as string | null, empreendimento: null as string | null, responsavel: null as string | null, status: [] as string[] });
   const [mostrarEncerradas, setMostrarEncerradas] = useState(true);
+  const [mostrarAtividades, setMostrarAtividades] = useState(true);
+  const navegarPara = useNavigate();
   const [solto, setSolto] = useState<{ item: Item; data: string; hora: string } | null>(null);
   const abrir = useAbrirVisita();
   const grade = useRef<HTMLDivElement>(null);
   const { inicio, fim } = intervalo(visao, ref);
   const { data: visitas = [], isFetching } = useVisitasPeriodo(inicio, fim);
+  const { data: atividades = [] } = useAtividadesPeriodo(inicio, fim);
   const { data: equipe = [] } = useEquipe();
   const { data: empreendimentos = [] } = useEmpreendimentos();
 
@@ -67,11 +78,18 @@ export default function AgendaPage() {
     && (!filtros.status.length || filtros.status.includes(v.status))
     && (mostrarEncerradas || !['cancelada', 'reagendada'].includes(v.status)));
 
+  // Atividades aparecem quando não há filtro de visita (corretor, empreendimento, status) ativo
+  const atividadesVisiveis = useMemo(() => (mostrarAtividades && !filtros.corretor && !filtros.empreendimento && !filtros.status.length
+    ? atividades.filter((a) => !filtros.responsavel || a.dono_id === filtros.responsavel) : []), [mostrarAtividades, filtros, atividades]);
+
   const porDia = useMemo(() => {
-    const m = new Map<string, Item[]>();
-    for (const v of filtradas) m.set(v.data_visita, [...(m.get(v.data_visita) ?? []), v]);
+    const m = new Map<string, Entrada[]>();
+    const por = (dia: string, e: Entrada) => m.set(dia, [...(m.get(dia) ?? []), e]);
+    for (const v of filtradas) por(v.data_visita, { id: v.id, hora: v.horario_visita.slice(0, 5), v });
+    for (const a of atividadesVisiveis) por(diaFortaleza(a.disponivel_em), { id: `a-${a.id}`, hora: horaFortaleza(a.disponivel_em), a });
+    for (const lista of m.values()) lista.sort((x, y) => x.hora.localeCompare(y.hora));
     return m;
-  }, [filtradas]);
+  }, [filtradas, atividadesVisiveis]);
 
   const navegar = (dir: number) => setRef((r) => {
     if (visao === 'dia') return somarDias(r, dir);
@@ -119,6 +137,28 @@ export default function AgendaPage() {
       </button>
     );
   };
+
+  const EventoAtividade = ({ a, compacto }: { a: Atividade; compacto?: boolean }) => {
+    const feita = a.status === 'concluida';
+    const lead = a.leads as { id: string; nome: string } | null;
+    const idLead = lead?.id ?? a.lead_id;
+    const abrirAtividade = () => { if (a.visita_id) abrir(a.visita_id); else if (idLead) navegarPara(`/leads/${idLead}`); };
+    return (
+      <button type="button" onClick={abrirAtividade}
+        title={`${horaFortaleza(a.disponivel_em)} · ${a.titulo ?? 'Atividade'} · ${lead?.nome ?? ''}${feita ? ' · concluída' : ''}`}
+        className={cn('w-full overflow-hidden rounded-md border border-dashed border-primary/50 border-l-4 border-l-primary bg-primary/5 px-1.5 py-1 text-left text-xs text-primary-dark transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          feita && 'opacity-60')}>
+        <span className="flex items-center gap-1 font-semibold">
+          {feita ? <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden /> : <CalendarClock className="h-3 w-3 shrink-0" aria-hidden />}
+          <span className="tabular-nums">{horaFortaleza(a.disponivel_em)}</span>
+          <span className={cn('truncate', feita && 'line-through')}>{a.titulo ?? 'Atividade'}</span>
+        </span>
+        {!compacto && <span className="block truncate opacity-80">{lead?.nome ?? 'Cliente'}</span>}
+      </button>
+    );
+  };
+  const ItemAgenda = ({ e, compacto }: { e: Entrada; compacto?: boolean }) =>
+    e.v ? <Evento v={e.v} compacto={compacto} /> : e.a ? <EventoAtividade a={e.a} compacto={compacto} /> : null;
 
   // Abre a grade perto da hora atual (Fortaleza), não às 07:00
   useEffect(() => {
@@ -175,6 +215,7 @@ export default function AgendaPage() {
                       </label>
                     ))}
                   </div></fieldset>
+                <label className="flex items-center gap-2 text-sm"><Checkbox checked={mostrarAtividades} onCheckedChange={(c) => setMostrarAtividades(!!c)} /> Mostrar atividades (próximos passos e lembretes)</label>
                 <label className="flex items-center gap-2 text-sm"><Checkbox checked={mostrarEncerradas} onCheckedChange={(c) => setMostrarEncerradas(!!c)} /> Mostrar canceladas e reagendadas</label>
                 {nFiltros > 0 && <Button variant="ghost" size="sm" className="w-full" onClick={() => setFiltros({ corretor: null, empreendimento: null, responsavel: null, status: [] })}>Limpar filtros</Button>}
               </PopoverContent>
@@ -184,6 +225,7 @@ export default function AgendaPage() {
 
         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
           {STATUS_VISITA.map((s) => <span key={s} className="inline-flex items-center gap-1.5"><span className={cn('h-2.5 w-2.5 rounded-sm', COR_STATUS_VISITA[s].ponto)} />{ROTULO_STATUS_VISITA[s]}</span>)}
+          <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-dashed border-primary bg-primary/10" />Atividade (próximo passo)</span>
           <span className="ml-auto hidden md:inline">Arraste uma visita para outro horário para reagendar.</span>
         </div>
 
@@ -205,7 +247,7 @@ export default function AgendaPage() {
                       {Number(dia.slice(8))}
                     </button>
                     <div className="space-y-1">
-                      {lista.slice(0, 3).map((v) => <Evento key={v.id} v={v} compacto />)}
+                      {lista.slice(0, 3).map((e) => <ItemAgenda key={e.id} e={e} compacto />)}
                       {lista.length > 3 && (
                         <button type="button" onClick={() => { setRef(dia); setVisao('dia'); }} className="w-full rounded px-1 text-left text-xs font-medium text-primary hover:underline">
                           +{lista.length - 3} mais
@@ -226,8 +268,8 @@ export default function AgendaPage() {
                 {diasSemana.map((dia) => (
                   <section key={dia} className="rounded-xl border bg-card p-3">
                     <h2 className={cn('mb-2 text-sm font-semibold first-letter:uppercase', dia === hoje && 'text-primary')}>{fmtTitulo(dia, { weekday: 'long', day: '2-digit', month: 'short' })}</h2>
-                    {(porDia.get(dia) ?? []).length ? <div className="space-y-1.5">{(porDia.get(dia) ?? []).map((v) => <Evento key={v.id} v={v} />)}</div>
-                      : <p className="text-xs text-muted-foreground">Sem visitas</p>}
+                    {(porDia.get(dia) ?? []).length ? <div className="space-y-1.5">{(porDia.get(dia) ?? []).map((e) => <ItemAgenda key={e.id} e={e} />)}</div>
+                      : <p className="text-xs text-muted-foreground">Nada agendado</p>}
                   </section>
                 ))}
               </div>
@@ -250,12 +292,12 @@ export default function AgendaPage() {
                     ))}
                   </div>
                   {diasSemana.map((dia) => {
-                    const lista = (porDia.get(dia) ?? []).slice().sort((a, b) => a.horario_visita.localeCompare(b.horario_visita));
-                    const colunas: Item[][] = [];
+                    const lista = (porDia.get(dia) ?? []).slice();
+                    const colunas: Entrada[][] = [];
                     const posicao = new Map<string, { col: number }>();
                     for (const v of lista) {
-                      const ini = minutos(v.horario_visita);
-                      let c = colunas.findIndex((col) => minutos(col[col.length - 1].horario_visita) + 60 <= ini);
+                      const ini = minutos(v.hora);
+                      let c = colunas.findIndex((col) => minutos(col[col.length - 1].hora) + 60 <= ini);
                       if (c < 0) { colunas.push([v]); c = colunas.length - 1; } else colunas[c].push(v);
                       posicao.set(v.id, { col: c });
                     }
@@ -268,14 +310,14 @@ export default function AgendaPage() {
                             onDragOver={(e) => e.preventDefault()} onDrop={(e) => soltar(e, dia, hora)} aria-hidden />;
                         })}
                         {lista.map((v) => {
-                          const ini = Math.max(minutos(v.horario_visita), HORA_INI * 60);
+                          const ini = Math.max(minutos(v.hora), HORA_INI * 60);
                           const p = posicao.get(v.id)!;
                           return (
                             <div key={v.id} className="absolute px-0.5" style={{
                               top: ((ini - HORA_INI * 60) / 60) * PX_HORA, height: PX_HORA - 2,
                               left: `${(p.col / total) * 100}%`, width: `${100 / total}%`,
                             }}>
-                              <Evento v={v} compacto={total > 2} />
+                              <ItemAgenda e={v} compacto={total > 2} />
                             </div>
                           );
                         })}

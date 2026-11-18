@@ -16,16 +16,15 @@ export const NAV_EQUIPE: EntradaNav[] = [
   { nome: 'Hoje', href: '/hoje', icone: ListChecks, acesso: 'comercial' },
   { nome: 'Dashboard', href: '/dashboard', icone: Home, acesso: 'comercial' },
   { nome: 'Agenda', href: '/agenda', icone: CalendarDays, acesso: 'comercial' },
+  { nome: 'CRM', href: '/crm', icone: Kanban, acesso: 'comercial' },
   {
     nome: 'SDR', icone: Headset, itens: [
       { nome: 'Leads', href: '/leads', icone: Users, acesso: 'comercial' },
       { nome: 'Visitas', href: '/visitas', icone: Calendar, acesso: 'comercial' },
-      { nome: 'CRM', href: '/crm', icone: Kanban, acesso: 'comercial' },
     ],
   },
   {
     nome: 'Closer', icone: Handshake, itens: [
-      { nome: 'CRM', href: '/crm', icone: Kanban, acesso: 'comercial' },
       { nome: 'Corretores', href: '/corretores', icone: UserCheck, acesso: 'comercial' },
       { nome: 'Vendas', href: '/vendas', icone: DollarSign, acesso: 'comercial' },
       { nome: 'Visitas', href: '/visitas', icone: Calendar, acesso: 'comercial' },

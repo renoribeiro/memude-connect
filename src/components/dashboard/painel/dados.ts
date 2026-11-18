@@ -83,3 +83,37 @@ export function useHistorico(ate: string, meses: number, ativo: boolean) {
 
 /** Campos que abrem o comparativo: KPIs, etapas do funil e origem. */
 export type CampoComparativo = keyof Numeros | 'origem';
+
+// ===== Telas extras da apresentação (contratos, canais, status, corretores, visitas) =====
+export interface Contagem { agendadas: number; realizadas: number }
+export interface DadosApresentacao {
+  contratos: {
+    cliente: string | null; empreendimento: string | null; corretor: string; data_venda: string; recebimento: string | null;
+    origem: string; entrada: string | null; vgv: number; comissao_liquida: number; valor_memude: number;
+  }[];
+  canais: { fonte: string; leads: number; qualificados: number; vendas: number; vgv: number }[];
+  status_leads: { status: string; total: number }[];
+  corretores_vendas: { corretor: string; vendas: number; vgv: number; comissao_memude: number }[];
+  visitas: { agendadas: number; realizadas: number; no_show: number; canceladas: number; futuras: number };
+  nao_aconteceram: { motivo: string; total: number }[];
+  realizadas_rotulos: { rotulo: string; total: number }[];
+  comparecimento_origem: ({ fonte: string } & Contagem)[];
+  comparecimento_formato: ({ formato: string } & Contagem)[];
+  corretores_visitas: ({ corretor: string } & Contagem)[];
+  empreendimentos_visitas: ({ empreendimento: string } & Contagem)[];
+  semanas: ({ inicio: string; fim: string } & Contagem)[];
+  evolucao: ({ mes: string } & Contagem)[];
+}
+
+export function usePainelApresentacao(de: string, ate: string, ativo: boolean) {
+  return useQuery({
+    queryKey: ['painel-apresentacao', de, ate],
+    enabled: ativo,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('painel_apresentacao', { p_de: de, p_ate: ate });
+      if (error) throw error;
+      return data as unknown as DadosApresentacao;
+    },
+  });
+}

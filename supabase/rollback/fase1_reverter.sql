@@ -75,3 +75,13 @@ begin
   return NEW;
 end $$;
 -- 12) Status puxados da planilha em 18/11/2026: backup em backup_20261118.visitas_pre_puxar / leads_pre_puxar
+-- 13) Ajustes de 18/11/2026 (migração 20261118220000):
+--   a) Etiqueta do mês no Kanban: desliga a troca automática e devolve as etiquetas anteriores
+drop trigger if exists crm_kanban_data_visita on public.visitas;
+-- (para parar de etiquetar ao agendar, recrie private.crm_mover_por_visita sem o bloco "Etiqueta do mês")
+-- update public.crm_leads c set tag = b.tag, tag_cor = b.tag_cor
+--   from backup_20261118.crm_leads_etiqueta b where b.id = c.id;
+--   b) Próximo passo como atividade: as tarefas tipo 'atividade' podem ficar (aparecem na Agenda);
+--      para voltar o retorno sem obrigatoriedade, recrie public.visita_registrar_retorno da migração 20261118165556.
+--   c) Notas no histórico: drop function if exists public.lead_adicionar_nota(uuid, text);
+--   d) Apresentação: drop function if exists public.painel_apresentacao(date, date);

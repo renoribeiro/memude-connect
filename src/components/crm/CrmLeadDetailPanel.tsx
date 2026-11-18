@@ -11,7 +11,6 @@ import { Phone, Mail, Building2, User, Calendar, MapPin, Clock, FileText, Dollar
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { CrmLead, CrmStage } from '@/hooks/useCrmPipeline';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -20,6 +19,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { HistoricoLead } from '@/components/comercial/HistoricoLead';
 
 interface CrmLeadDetailPanelProps {
     open: boolean;
@@ -61,7 +61,6 @@ export default function CrmLeadDetailPanel({
 }: CrmLeadDetailPanelProps) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    const [notas, setNotas] = useState('');
     const [valorEstimado, setValorEstimado] = useState('');
     const [empreendimentoId, setEmpreendimentoId] = useState('');
     const [googleDriveUrl, setGoogleDriveUrl] = useState('');
@@ -73,7 +72,6 @@ export default function CrmLeadDetailPanel({
 
     useEffect(() => {
         if (!open || !crmLead) return;
-        setNotas(crmLead.notas || '');
         setValorEstimado(crmLead.valor_estimado?.toString() || '');
         setEmpreendimentoId(crmLead.empreendimento_id || '');
         setGoogleDriveUrl(crmLead.google_drive_url || '');
@@ -108,7 +106,6 @@ export default function CrmLeadDetailPanel({
             const { error } = await supabase
                 .from('crm_leads')
                 .update({
-                    notas: notas || null,
                     valor_estimado: valorEstimado ? parseFloat(valorEstimado) : null,
                     empreendimento_id: empreendimentoId || null,
                     google_drive_url: googleDriveUrl || null,
@@ -131,7 +128,7 @@ export default function CrmLeadDetailPanel({
 
     return (
         <Dialog open={open} onOpenChange={handleOpen}>
-            <DialogContent className="sm:max-w-[540px] max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-lg">{lead.nome}</DialogTitle>
                     <DialogDescription className="flex items-center gap-2">
@@ -296,8 +293,8 @@ export default function CrmLeadDetailPanel({
                                 </div>
                             )}
                             <p className="text-xs text-muted-foreground">
-                                Aparece no card do funil. Use para marcar o mês da oportunidade ou
-                                qualquer outra situação (origem, prioridade, pendência).
+                                Ao agendar uma visita, o mês entra sozinho (ex.: Novembro/26). Depois do mês,
+                                você pode acrescentar uma situação: "Novembro/26 - Renda Informal".
                             </p>
                         </div>
                         <div className="space-y-1.5">
@@ -340,22 +337,20 @@ export default function CrmLeadDetailPanel({
                                 )}
                             </div>
                         </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="crm-notas" className="flex items-center gap-1.5">
-                                <FileText className="h-3.5 w-3.5" />
-                                Notas
-                            </Label>
-                            <Textarea
-                                id="crm-notas"
-                                value={notas}
-                                onChange={(e) => setNotas(e.target.value)}
-                                placeholder="Anotações sobre este lead no funil..."
-                                rows={4}
-                            />
-                        </div>
                         <Button onClick={handleSave} disabled={isSaving} className="w-full">
                             {isSaving ? 'Salvando...' : 'Salvar Alterações'}
                         </Button>
+                    </div>
+
+                    <Separator />
+
+                    {/* Histórico do cliente (o mesmo do retorno da visita) + notas */}
+                    <div className="space-y-3">
+                        <h4 className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            <FileText className="h-3.5 w-3.5" />
+                            Histórico e notas
+                        </h4>
+                        <HistoricoLead leadId={crmLead.lead_id} notasAntigas={crmLead.notas} />
                     </div>
 
                     {/* Observações do Lead Original */}

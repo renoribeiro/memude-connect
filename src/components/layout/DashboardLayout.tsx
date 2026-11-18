@@ -15,7 +15,6 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/s
 import Logo from '@/components/ui/logo';
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
 import ThemeToggle from '@/components/layout/ThemeToggle';
-import { VisitPendingBanner } from '@/components/visitas/VisitFollowup';
 import { MenuLateral } from './MenuLateral';
 import { NAV_CLIENTE, NAV_CORRETOR, NAV_EQUIPE, filtrarNav } from './navegacao';
 
@@ -122,7 +121,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
         <main className="min-w-0 flex-1 overflow-hidden">
           <div className="h-full overflow-y-auto p-4 sm:p-6">
-            <VisitPendingBanner />
             {children}
           </div>
         </main>

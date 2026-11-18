@@ -9,6 +9,7 @@
 //   PATCH                                          atualiza status, qualificação, empreendimento ou anota
 //   POST   ?recurso=visita                         agenda visita (o card do CRM anda sozinho)
 //   POST   ?recurso=lembrete                       lembrete de retomada na tela Hoje
+//   POST   ?recurso=sessao                         sessão própria da extensão a partir do login do site
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { autorizar, ErroHttp, json, lerJson, preflight, responderErro } from '../_shared/fase1-http.ts';
 import { telefoneCanonico } from '../_shared/fase1-phone.ts';
@@ -137,6 +138,15 @@ Deno.serve(async (req) => {
       if (error) throw error;
       const contexto = data.lead ? await contextoDoLead(db, data.lead.id) : null;
       return json(req, { ...data, lead: comLink(data.lead), contexto, telefone_canonico: telefoneCanonico(telefone) });
+    }
+
+    // Login da extensão a partir do Connect já aberto no navegador: quem já está logado no site
+    // recebe uma sessão própria para a extensão (sem senha). Só para o próprio usuário do token.
+    if (req.method === 'POST' && recurso === 'sessao') {
+      if (!acesso.email) throw new ErroHttp(422, 'Usuário sem e-mail');
+      const { data, error } = await acesso.servico.auth.admin.generateLink({ type: 'magiclink', email: acesso.email });
+      if (error || !data?.properties?.hashed_token) throw new ErroHttp(500, 'Não foi possível abrir a sessão da extensão');
+      return json(req, { token_hash: data.properties.hashed_token, email: acesso.email });
     }
 
     if (req.method === 'POST' && recurso === 'visita') {

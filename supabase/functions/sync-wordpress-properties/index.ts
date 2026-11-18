@@ -80,49 +80,8 @@ serve(async (req) => {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  // SECURITY: Verify caller is authenticated and is admin
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized: No authorization header' }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      }
-    );
-  }
-
-  // Get the user from the JWT token
-  const { data: { user: callerUser }, error: authError } = await supabase.auth.getUser(
-    authHeader.replace('Bearer ', '')
-  );
-
-  if (authError || !callerUser) {
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized: Invalid token' }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      }
-    );
-  }
-
-  // Verify role admin before proceeding
-  const { data: roleRecord, error: roleError } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', callerUser.id)
-    .maybeSingle();
-
-  if (roleError || roleRecord?.role !== 'admin') {
-    return new Response(
-      JSON.stringify({ error: 'Forbidden: Caller is not an administrator' }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 403,
-      }
-    );
-  }
+  // A autorização (admin ou cron interno) já foi feita por authorize() acima.
+  // A checagem antiga exigia login de usuário e barrava o cron diário desde setembro/2026.
 
   const startTime = Date.now();
   const syncId = crypto.randomUUID();

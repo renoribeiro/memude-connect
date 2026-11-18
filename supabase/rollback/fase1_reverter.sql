@@ -56,3 +56,22 @@ drop policy if exists "Equipe comercial move cards do CRM" on public.crm_leads;
 drop policy if exists "Equipe comercial tira cards do CRM" on public.crm_leads;
 drop policy if exists "Equipe comercial lê automações do CRM" on public.crm_automations;
 drop policy if exists "Equipe comercial edita corretores" on public.corretores;
+-- 11) Kanban acompanhando a visita (18/11/2026): desliga o movimento automático de cards
+drop trigger if exists crm_kanban_status_visita on public.visitas;
+-- e devolve a criação de card por visita no primeiro estágio (comportamento anterior):
+create or replace function public.auto_add_lead_to_crm()
+returns trigger language plpgsql security definer set search_path = '' as $$
+declare v_pipeline_id uuid; v_first_stage_id uuid; v_position integer;
+begin
+  if coalesce(current_setting('memude.reagendamento', true), '') = '1' then return NEW; end if;
+  select id into v_pipeline_id from public.crm_pipelines where is_default = true and auto_add_visits = true order by created_at, id limit 1;
+  if v_pipeline_id is null then return NEW; end if;
+  select id into v_first_stage_id from public.crm_stages where pipeline_id = v_pipeline_id order by posicao, created_at, id limit 1;
+  if v_first_stage_id is null then return NEW; end if;
+  select coalesce(max(posicao) + 1, 0) into v_position from public.crm_leads where pipeline_id = v_pipeline_id and stage_id = v_first_stage_id;
+  insert into public.crm_leads (lead_id, pipeline_id, stage_id, empreendimento_id, visita_id, posicao)
+  values (NEW.lead_id, v_pipeline_id, v_first_stage_id, NEW.empreendimento_id, NEW.id, v_position)
+  on conflict (pipeline_id, visita_id) where visita_id is not null do nothing;
+  return NEW;
+end $$;
+-- 12) Status puxados da planilha em 18/11/2026: backup em backup_20261118.visitas_pre_puxar / leads_pre_puxar

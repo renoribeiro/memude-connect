@@ -24,6 +24,9 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { parseLocalDate, isSameLocalDay } from "@/utils/dateHelpers";
 import { useDebounce } from "@/hooks/use-debounce";
+import { SeletorMeses } from "@/components/comercial/SeletorMeses";
+import { ResumoVisitasMes, rotuloVisita } from "@/components/visitas/ResumoVisitasMes";
+import { descreverMeses, mesAtual } from "@/lib/comercial/periodo";
 import {
   Pagination,
   PaginationContent,
@@ -45,6 +48,7 @@ interface Visita {
   feedback_corretor?: string;
   created_at: string;
   deleted_at?: string | null;
+  planilha_extra?: unknown;
   leads: {
     nome: string;
     telefone: string;
@@ -69,9 +73,11 @@ const statusVariants = {
 } as const;
 
 const statusLabels = {
+  'aguardando_corretor': 'Aguardando corretor',
   'agendada': 'Agendada',
   'confirmada': 'Confirmada',
   'realizada': 'Realizada',
+  'no_show': 'No-show',
   'cancelada': 'Cancelada',
   'reagendada': 'Reagendada'
 };
@@ -87,6 +93,7 @@ export default function Visitas() {
   const [selectedVisitaId, setSelectedVisitaId] = useState<string | undefined>();
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [meses, setMeses] = useState<string[]>(() => [mesAtual()]);
   const ITEMS_PER_PAGE = 15;
 
   const { data: visitas = [], isLoading } = useQuery({
@@ -155,86 +162,55 @@ export default function Visitas() {
 
   if (!profile) return null;
 
-  const totalPages = Math.ceil(visitas.length / ITEMS_PER_PAGE);
-  const paginatedVisitas = visitas.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  // Na lista ativa vale o período escolhido; a lixeira mostra tudo.
+  const visitasPeriodo = viewMode === 'active'
+    ? visitas.filter(v => meses.includes(v.data_visita.slice(0, 7)))
+    : visitas;
+  const totalPages = Math.ceil(visitasPeriodo.length / ITEMS_PER_PAGE);
+  const paginatedVisitas = visitasPeriodo.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <DashboardLayout>
-      <VisitFollowup />
-      <VisitIntake />
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Gerenciamento de Visitas</h1>
+            <h1 className="text-3xl font-bold">Visitas</h1>
             <p className="text-muted-foreground">
-              Agende e acompanhe todas as visitas do sistema
+              {viewMode === 'active'
+                ? `${descreverMeses(meses)} · hoje ${visitas.filter(v => isToday(v.data_visita)).length}, amanhã ${visitas.filter(v => isTomorrow(v.data_visita)).length}`
+                : 'Visitas excluídas'}
             </p>
           </div>
-          <Button
-            className="flex items-center gap-2 hover-scale transition-all duration-200"
-            onClick={() => {
-              setSelectedVisitaId(undefined);
-              setIsModalOpen(true);
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            Nova Visita
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {viewMode === 'active' && <SeletorMeses valor={meses} onChange={(m) => { setMeses(m); setCurrentPage(1); }} />}
+            <Button
+              className="flex items-center gap-2"
+              onClick={() => {
+                setSelectedVisitaId(undefined);
+                setIsModalOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              Nova Visita
+            </Button>
+          </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total de Visitas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{visitas.length}</div>
-            </CardContent>
-          </Card>
+        {/* Visitas do período (seção principal) */}
+        {viewMode === 'active' && <ResumoVisitasMes visitas={visitasPeriodo} periodo={descreverMeses(meses)} />}
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Hoje
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {visitas.filter(v => isToday(v.data_visita)).length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Amanhã
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {visitas.filter(v => isTomorrow(v.data_visita)).length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Realizadas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {visitas.filter(v => v.status === 'realizada').length}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Acompanhamento da automação de visitas (robô em stand-by): recolhido para não tomar a tela */}
+        <details className="group rounded-xl border bg-card shadow-sm">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground">
+            <span className="mr-1 inline-block transition-transform group-open:rotate-90">›</span>
+            Acompanhamento da automação de visitas e pedidos do WhatsApp
+          </summary>
+          <div className="space-y-4 border-t p-4">
+            <VisitFollowup />
+            <VisitIntake />
+          </div>
+        </details>
 
         {/* View Mode Toggle */}
         <Card className="hover-scale transition-all duration-200 animate-fade-in">
@@ -315,23 +291,23 @@ export default function Visitas() {
               <Card className="hover-scale transition-all duration-200 animate-fade-in">
                 <CardHeader>
                   <CardTitle>
-                    {viewMode === 'active' ? 'Visitas Agendadas' : 'Visitas na Lixeira'}
+                    {viewMode === 'active' ? `Visitas do período (${visitasPeriodo.length})` : 'Visitas na Lixeira'}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {visitas.map((visita, index) => (
+                    {visitasPeriodo.map((visita, index) => (
                       <div
                         key={visita.id}
                         className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-all duration-200 animate-fade-in hover-scale"
-                        style={{ animationDelay: `${index * 50}ms` }}
+                        style={{ animationDelay: `${Math.min(index, 10) * 50}ms` }}
                       >
                         <div className="flex-1 space-y-1">
                           <div className="flex items-center gap-3">
                             <h3 className="font-semibold">{visita.leads?.nome || "Lead Desconhecido"}</h3>
                             <p className="text-sm text-muted-foreground">{visita.visit_code}</p>
                             <Badge variant={statusVariants[visita.status as keyof typeof statusVariants] || 'default'}>
-                              {statusLabels[visita.status as keyof typeof statusLabels] || visita.status}
+                              {rotuloVisita(visita)}
                             </Badge>
                             {visita.deleted_at && (
                               <Badge variant="destructive" className="flex items-center gap-1">
@@ -410,7 +386,7 @@ export default function Visitas() {
                         />
                       </div>
                     ))}
-                    {visitas.length === 0 && (
+                    {visitasPeriodo.length === 0 && (
                       <div className="text-center py-8 text-muted-foreground">
                         {viewMode === 'active'
                           ? 'Nenhuma visita ativa encontrada'

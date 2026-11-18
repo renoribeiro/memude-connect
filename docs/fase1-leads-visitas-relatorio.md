@@ -185,3 +185,26 @@ Se os Agentes de IA ou a distribuição automática de leads voltarem a ser usad
 ## Sugestões (não aplicadas)
 - Ativar "Leaked password protection" no Supabase Auth.
 - Antes de criar conta para SDR/closer não-admin, revisar o acesso de Visitas, CRM e Vendas (hoje só admin abre essas telas; o menu já esconde o que o papel não pode abrir).
+
+---
+
+# Pacote 18/11/2026 (tarde): Visitas, Kanban, Dashboard e planilha
+
+- **Planilha → sistema:** novo modo `puxar` na função `sheets-espelho` (simula antes e só aplica com `aplicar: true`).
+  - Atualizados 16 status de visitas e 7 de leads. Importados 22 leads novos da extensão.
+  - Nova simulação depois de aplicar: zero diferenças.
+  - Backup em `backup_20261118.*`.
+- **WordPress:** a rotina diária falhava desde setembro, porque a função exigia login de usuário. Corrigido para aceitar a rotina interna.
+  - Ressincronizado: 460 posts, 453 atualizados, 7 empreendimentos novos.
+- **Kanban:** visita agendada leva o card do cliente para "Visita Agendada"; visita realizada leva para "Visita Realizada".
+  - Só avança e reaproveita o card do cliente, em vez de criar um card novo no Bolsão a cada visita.
+- **Visitas:** a seção principal agora é o resumo do período (agendadas, realizadas, a acontecer, no-show, canceladas e status da planilha), com seleção de um ou vários meses.
+  - A lista passa a seguir o período escolhido.
+  - O acompanhamento da automação ficou recolhido.
+- **Dashboard:** seção "Resultado comercial" com comparação com o período anterior:
+  - KPIs: VGV, vendas, ticket médio, comissão MeMude, leads, visitas agendadas e realizadas;
+  - funil comercial, origem dos leads e entrada de leads por semana ou por dia;
+  - botão **Apresentar**, que abre em tela cheia para a diretoria.
+- **Definições:**
+  - Lead qualificado = status "em conversa", "interessado" ou mais quente (visita agendada, documentação, negociação, já comprou, vendido), ou que já teve visita.
+  - Visita realizada inclui os rótulos de pós-visita da planilha (Documentação, Doc Aprovada, Seguiu com outro imóvel, Comprou…).

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { RelatoriosAutomaticos } from "@/components/reports/RelatoriosAutomaticos";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { GeneratedReportDialog } from "@/components/reports/GeneratedReportDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,16 +32,16 @@ import { subDays, startOfMonth, endOfMonth } from "@/utils/dateHelpers";
 import { AdvancedCharts } from "@/components/charts/AdvancedCharts";
 import { ReportTemplateManager } from "@/components/reports/ReportTemplateManager";
 import { ReportBuilder } from "@/components/reports/ReportBuilder";
-import { ScheduleReportModal } from "@/components/reports/ScheduleReportModal";
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', '#8884d8', '#82ca9d'];
 
 export default function Relatorios() {
   const { profile } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [params, setParams] = useSearchParams();
+  const activeTab = params.get('aba') ?? 'dashboard';
+  const setActiveTab = (aba: string) => setParams(aba === 'dashboard' ? {} : { aba }, { replace: true });
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
-  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const [generatedReportOpen, setGeneratedReportOpen] = useState(false);
@@ -486,14 +488,6 @@ export default function Relatorios() {
           </div>
           <div className="flex gap-2">
             <Button
-              variant="outline"
-              className="flex items-center gap-2"
-              onClick={() => setScheduleModalOpen(true)}
-            >
-              <Clock className="w-4 h-4" />
-              Agendar Relatório
-            </Button>
-            <Button
               className="flex items-center gap-2"
               onClick={handleExportDashboard}
             >
@@ -505,7 +499,7 @@ export default function Relatorios() {
 
         {/* Tabs Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="flex h-auto w-full flex-wrap justify-start sm:grid sm:grid-cols-4">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
               Dashboard
@@ -518,9 +512,9 @@ export default function Relatorios() {
               <Settings className="w-4 h-4" />
               Construtor
             </TabsTrigger>
-            <TabsTrigger value="scheduled" className="flex items-center gap-2">
+            <TabsTrigger value="automaticos" className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              Agendados
+              Envios automáticos
             </TabsTrigger>
           </TabsList>
 
@@ -700,17 +694,18 @@ export default function Relatorios() {
             />
           </TabsContent>
 
-          {/* Scheduled Reports Tab */}
-          <TabsContent value="scheduled">
+          {/* Envios automáticos (boletim diário e semanal) + agendamentos antigos, se existirem */}
+          <TabsContent value="automaticos" className="space-y-6">
+            <RelatoriosAutomaticos />
+            {scheduledReports.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Relatórios Agendados</CardTitle>
+                <CardTitle>Agendamentos antigos</CardTitle>
                 <CardDescription>
-                  Gerencie seus relatórios programados
+                  Criados pelo construtor de relatórios. Estes não disparam e-mail; use os envios automáticos acima.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {scheduledReports.length > 0 ? (
                   <div className="space-y-4">
                     {scheduledReports.map((schedule: any) => (
                       <div
@@ -747,28 +742,11 @@ export default function Relatorios() {
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Clock className="w-12 h-12 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Nenhum relatório agendado</h3>
-                    <p>Configure relatórios automáticos para receber insights regulares.</p>
-                    <Button className="mt-4" onClick={() => setScheduleModalOpen(true)}>
-                      <Clock className="w-4 h-4 mr-2" />
-                      Agendar Primeiro Relatório
-                    </Button>
-                  </div>
-                )}
               </CardContent>
             </Card>
+            )}
           </TabsContent>
         </Tabs>
-
-        {/* Schedule Report Modal */}
-        <ScheduleReportModal
-          open={scheduleModalOpen}
-          onOpenChange={setScheduleModalOpen}
-          template={selectedTemplate}
-        />
 
         {/* Generated Report Dialog */}
         {generatedReportConfig && generatedReportData && (

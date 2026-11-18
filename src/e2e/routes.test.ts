@@ -12,17 +12,17 @@ const ASSETS = join(DIST, 'assets');
  */
 const ADMIN_ROUTES = [
   { path: '/admin/users', component: 'UserManagement', chunk: 'UserManagement', file: 'pages/admin/UserManagement.tsx' },
-  { path: '/leads', component: 'Leads', chunk: 'Leads', file: 'pages/admin/Leads.tsx' },
-  { path: '/crm', component: 'CRM', chunk: 'CRM', file: 'pages/admin/CRM.tsx' },
-  { path: '/vendas', component: 'Vendas', chunk: 'Vendas', file: 'pages/admin/Vendas.tsx' },
-  { path: '/corretores', component: 'Corretores', chunk: 'Corretores', file: 'pages/admin/Corretores.tsx' },
-  { path: '/visitas', component: 'Visitas', chunk: 'Visitas', file: 'pages/admin/Visitas.tsx' },
+  { path: '/leads/classico', component: 'Leads', chunk: 'Leads', file: 'pages/admin/Leads.tsx' },
+  { path: '/crm', component: 'CRM', chunk: 'CRM', file: 'pages/admin/CRM.tsx', acesso: 'comercial' },
+  { path: '/vendas', component: 'Vendas', chunk: 'Vendas', file: 'pages/admin/Vendas.tsx', acesso: 'comercial' },
+  { path: '/corretores', component: 'Corretores', chunk: 'Corretores', file: 'pages/admin/Corretores.tsx', acesso: 'comercial' },
+  { path: '/visitas', component: 'Visitas', chunk: 'Visitas', file: 'pages/admin/Visitas.tsx', acesso: 'comercial' },
   { path: '/comunicacoes', component: 'Comunicacoes', chunk: 'Comunicacoes', file: 'pages/admin/Comunicacoes.tsx' },
   { path: '/configuracoes', component: 'Configuracoes', chunk: 'Configuracoes', file: 'pages/admin/Configuracoes.tsx' },
   { path: '/admin/analytics', component: 'Analytics', chunk: 'Analytics', file: 'pages/admin/Analytics.tsx' },
   { path: '/relatorios', component: 'Relatorios', chunk: 'Relatorios', file: 'pages/admin/Relatorios.tsx' },
   { path: '/admin/ai-agents', component: 'AIAgents', chunk: 'AIAgents', file: 'pages/admin/AIAgents.tsx' },
-  { path: '/empreendimentos', component: 'Empreendimentos', chunk: 'Empreendimentos', file: 'pages/admin/Empreendimentos.tsx' },
+  { path: '/empreendimentos', component: 'Empreendimentos', chunk: 'Empreendimentos', file: 'pages/admin/Empreendimentos.tsx', acesso: 'comercial' },
   { path: '/admin/monitoring', component: 'Monitoring', chunk: 'Monitoring', file: 'pages/admin/Monitoring.tsx' },
   { path: '/sincronizacao-wordpress', component: 'SincronizacaoWordpress', chunk: 'SincronizacaoWordpress', file: 'pages/admin/SincronizacaoWordpress.tsx' },
 ];
@@ -184,7 +184,9 @@ describe('Source File Verification', () => {
         new RegExp(`<Route\\s+path="${escapedPath}"[\\s\\S]*?<\\/ProtectedRoute>[\\s\\S]*?\\}\\s*\\/>`),
       )?.[0];
       expect(routeBlock, `Missing route block: ${route.path}`).toBeDefined();
-      expect(routeBlock, `Admin role not required: ${route.path}`).toContain('<ProtectedRoute requireAdmin>');
+      // Telas operacionais (SDR/closer) usam requireComercial; o restante continua exclusivo do admin.
+      const guarda = 'acesso' in route && route.acesso === 'comercial' ? '<ProtectedRoute requireComercial>' : '<ProtectedRoute requireAdmin>';
+      expect(routeBlock, `Proteção incorreta: ${route.path}`).toContain(guarda);
     }
   });
 

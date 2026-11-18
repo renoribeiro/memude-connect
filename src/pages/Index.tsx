@@ -4,25 +4,32 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import AdminDashboard from '@/components/dashboard/AdminDashboard';
 import CorretorDashboard from '@/components/dashboard/CorretorDashboard';
 import { AuthLoadingScreen } from '@/components/ui/loading-states';
+import { useConfigComercial } from '@/hooks/comercial/dados';
 
-const Index = () => {
-  const { user, profile, loading, isAdmin, isCorretor } = useAuth();
+const Index = ({ semRedirecionar = false }: { semRedirecionar?: boolean }) => {
+  const { user, profile, loading, isAdmin, isCorretor, isComercial } = useAuth();
+  const { data: cfg, isLoading: carregandoCfg } = useConfigComercial(isComercial && !semRedirecionar);
 
-  // Show loading spinner while checking auth
-  if (loading) {
+  if (loading || (isComercial && !semRedirecionar && carregandoCfg)) {
     return <AuthLoadingScreen />;
   }
 
-  // Redirect to auth if not logged in
   if (!user || !profile) {
     return <Navigate to="/auth" replace />;
   }
 
+  // A tela Hoje é a primeira tela de quem opera Leads e Visitas (SDR, closer e responsáveis configurados).
+  const operaComercial = profile.role === 'sdr' || profile.role === 'closer'
+    || cfg?.closer_user_id === user.id || (cfg?.responsaveis ?? []).includes(user.id);
+  if (!semRedirecionar && operaComercial) {
+    return <Navigate to="/hoje" replace />;
+  }
+
   return (
     <DashboardLayout>
-      {isAdmin && <AdminDashboard />}
+      {(isAdmin || isComercial) && <AdminDashboard />}
       {isCorretor && <CorretorDashboard />}
-      {!isAdmin && !isCorretor && (
+      {!isAdmin && !isComercial && !isCorretor && (
         <div className="p-6 text-center">
           <h1 className="text-2xl font-bold mb-4">Bem-vindo ao MeMude Connect</h1>
           <p className="text-muted-foreground">

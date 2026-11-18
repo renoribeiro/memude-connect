@@ -7,14 +7,16 @@ interface ProtectedRouteProps {
   children: ReactNode;
   requireAdmin?: boolean;
   requireCorretor?: boolean;
+  requireComercial?: boolean;
 }
 
-const ProtectedRoute = ({ 
-  children, 
-  requireAdmin = false, 
-  requireCorretor = false 
+const ProtectedRoute = ({
+  children,
+  requireAdmin = false,
+  requireCorretor = false,
+  requireComercial = false,
 }: ProtectedRouteProps) => {
-  const { user, profile, loading, isAdmin, isCorretor } = useAuth();
+  const { user, profile, loading, isAdmin, isCorretor, isComercial } = useAuth();
   const location = useLocation();
 
   // Show loading while checking auth
@@ -29,6 +31,10 @@ const ProtectedRoute = ({
 
   // Check role-based access
   if (requireAdmin && !isAdmin) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  if (requireComercial && !isComercial) {
     return <Navigate to="/unauthorized" replace />;
   }
 

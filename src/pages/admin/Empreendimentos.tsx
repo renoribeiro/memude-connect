@@ -33,7 +33,8 @@ interface Empreendimento {
 }
 
 export default function Empreendimentos() {
-  const { profile } = useAuth();
+  // SDR e closer consultam; cadastrar, editar e ativar fica com o admin (sincroniza com o site).
+  const { profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterAtivo, setFilterAtivo] = useState<string>("all");
@@ -82,13 +83,15 @@ export default function Empreendimentos() {
               Gerencie empreendimentos, preços e detalhes
             </p>
           </div>
-          <Button className="flex items-center gap-2" onClick={() => {
-            setSelectedEmpreendimento(null);
-            setShowEmpreendimentoModal(true);
-          }}>
-            <Plus className="w-4 h-4" />
-            Novo Empreendimento
-          </Button>
+          {isAdmin && (
+            <Button className="flex items-center gap-2" onClick={() => {
+              setSelectedEmpreendimento(null);
+              setShowEmpreendimentoModal(true);
+            }}>
+              <Plus className="w-4 h-4" />
+              Novo Empreendimento
+            </Button>
+          )}
         </div>
 
         {/* Stats Cards */}
@@ -246,6 +249,7 @@ export default function Empreendimentos() {
                         <Eye className="w-3 h-3 mr-1" />
                         Visualizar
                       </Button>
+                      {isAdmin && (<>
                       <Button variant="outline" size="sm" onClick={() => {
                         setSelectedEmpreendimento(empreendimento);
                         setShowEmpreendimentoModal(true);
@@ -269,6 +273,7 @@ export default function Empreendimentos() {
                       >
                         {empreendimento.ativo ? 'Desativar' : 'Ativar'}
                       </Button>
+                      </>)}
                     </div>
                   </div>
                 ))}

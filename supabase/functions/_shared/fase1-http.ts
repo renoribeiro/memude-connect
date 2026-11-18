@@ -22,7 +22,7 @@ export function cors(req: Request): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': origemPermitida(req.headers.get('origin')),
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-internal-secret, x-cron-secret',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };

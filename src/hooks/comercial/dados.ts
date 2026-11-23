@@ -465,3 +465,40 @@ export function useVisitasDoDia() {
 }
 
 export { dataISO };
+
+// ===== Leads: ações em massa e lixeira =====
+export function useLeadsEmMassa() {
+  const qc = useQueryClient();
+  const invalidar = () => {
+    qc.invalidateQueries({ queryKey: chaves.leads });
+    qc.invalidateQueries({ queryKey: ['crm-leads'] });
+  };
+  const excluir = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { data, error } = await supabase.rpc('leads_excluir', { p_ids: ids });
+      if (error) throw error;
+      return data as { excluidos: number; ids: string[] };
+    },
+    onSuccess: invalidar,
+    onError: (e) => toast.error(mensagemErro(e)),
+  });
+  const restaurar = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { data, error } = await supabase.rpc('leads_restaurar', { p_ids: ids });
+      if (error) throw error;
+      return data as { restaurados: number };
+    },
+    onSuccess: invalidar,
+    onError: (e) => toast.error(mensagemErro(e)),
+  });
+  const alterar = useMutation({
+    mutationFn: async ({ ids, campos }: { ids: string[]; campos: Record<string, unknown> }) => {
+      const { data, error } = await supabase.rpc('leads_em_massa', { p_ids: ids, p_campos: campos as never });
+      if (error) throw error;
+      return data as { alterados: number };
+    },
+    onSuccess: invalidar,
+    onError: (e) => toast.error(mensagemErro(e)),
+  });
+  return { excluir, restaurar, alterar };
+}

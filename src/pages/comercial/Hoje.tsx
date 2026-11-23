@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   AlarmClock, CalendarClock, CalendarDays, CheckCircle2, ChevronRight, ClipboardCheck, Flag, Handshake, MessageSquareReply, PhoneOff,
-  ThumbsDown, ThumbsUp, UserPlus, Users,
+  ThumbsDown, ThumbsUp, UserPlus, UserX, Users,
 } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { formatarDataHora, formatarHora, hojeISO, formatarDiaSemana, relativo } 
 import { VisitaPainel } from '@/components/comercial/VisitaPainel';
 import { useAbrirVisita } from '@/hooks/comercial/useAbrirVisita';
 import { EstadoVazio, StatusVisitaBadge } from '@/components/comercial/ui';
+import { CancelarDialog } from '@/components/comercial/AcoesVisita';
 import { nomeCorretor } from '@/lib/comercial/nomes';
 
 type Tarefa = NonNullable<ReturnType<typeof useTarefasPendentes>['data']>[number];
@@ -44,8 +45,10 @@ export default function HojePage() {
   const abrir = useAbrirVisita();
   const nomes = useMemo(() => new Map(equipe.map((u) => [u.user_id, u.nome])), [equipe]);
 
-  const minhas = tarefas.filter((t) => t.dono_id === user?.id);
-  const daEquipeAtrasadas = isAdmin ? tarefas.filter((t) => t.dono_id !== user?.id && vencida(t)) : [];
+  // Visita cancelada/reagendada não tem mais o que confirmar (o banco já encerra; aqui é só proteção)
+  const validas = tarefas.filter((t) => !['cancelada', 'reagendada'].includes((t.visitas as { status?: string } | null)?.status ?? ''));
+  const minhas = validas.filter((t) => t.dono_id === user?.id);
+  const daEquipeAtrasadas = isAdmin ? validas.filter((t) => t.dono_id !== user?.id && vencida(t)) : [];
   const totalVencidas = minhas.filter(vencida).length;
   const ordenar = (lista: Tarefa[]) => [...lista].sort((a, b) => Number(vencida(b)) - Number(vencida(a)) || a.vence_em.localeCompare(b.vence_em));
 
@@ -162,6 +165,7 @@ function ItemTarefa({ t, onAbrir, dono }: { t: Tarefa; onAbrir: (id: string) => 
     v && acao.mutate({ rpc, args: { p_visita_id: v.id, ...args }, sucesso });
   const etapa = t.tipo.startsWith('confirmacao_') ? t.tipo.replace('confirmacao_', '') : null;
   const navegar = useNavigate();
+  const [desmarcou, setDesmarcou] = useState(false);
   const ehAtividade = t.tipo === 'atividade' || t.tipo === 'manual';
   const leadId = (t.leads as { id?: string } | null)?.id ?? t.lead_id;
   const abrirItem = () => { if (v) onAbrir(v.id); else if (leadId) navegar(`/leads/${leadId}`); };
@@ -191,9 +195,19 @@ function ItemTarefa({ t, onAbrir, dono }: { t: Tarefa; onAbrir: (id: string) => 
           </>
         )}
         {etapa && (
-          <Button size="sm" disabled={acao.isPending} onClick={() => executar('visita_confirmar', { p_etapa: etapa, p_confirmou: true }, `Cliente confirmou (${etapa.toUpperCase()})`)}>
-            <CheckCircle2 /> Confirmou
-          </Button>
+          <>
+            <Button size="sm" disabled={acao.isPending} onClick={() => executar('visita_confirmar', { p_etapa: etapa, p_confirmou: true }, `Cliente confirmou (${etapa.toUpperCase()})`)}>
+              <CheckCircle2 /> Confirmou
+            </Button>
+            <Button size="sm" variant="outline" disabled={acao.isPending} className="border-rose-300 text-rose-700 hover:bg-rose-50"
+              onClick={() => setDesmarcou(true)}>
+              <UserX /> Desmarcou
+            </Button>
+          </>
+        )}
+        {(etapa || t.tipo === 'aceite_corretor' || t.tipo === 'registrar_resultado') && v && desmarcou && (
+          <CancelarDialog aberto={desmarcou} onOpenChange={setDesmarcou} visitaId={v.id}
+            titulo="Cliente desmarcou a visita" motivoInicial="Cliente desmarcou" onReagendar={() => onAbrir(v.id)} />
         )}
         {t.tipo === 'registrar_resultado' && (
           <>

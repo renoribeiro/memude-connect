@@ -16,6 +16,7 @@ import Logo from '@/components/ui/logo';
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import { MenuLateral } from './MenuLateral';
+import { BalaoSugestoes } from './BalaoSugestoes';
 import { NAV_CLIENTE, NAV_CORRETOR, NAV_EQUIPE, filtrarNav } from './navegacao';
 
 interface DashboardLayoutProps {
@@ -124,6 +125,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             {children}
           </div>
         </main>
+        <BalaoSugestoes />
       </div>
     </div>
   );

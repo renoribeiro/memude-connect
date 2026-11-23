@@ -62,6 +62,7 @@ export const ROTULO_TAREFA: Record<string, string> = {
 export const TIPOS_LOCAL = ['Stand de vendas', 'Decorado', 'Plantão no empreendimento', 'Escritório da construtora'] as const;
 
 export const MOTIVOS_CANCELAMENTO = [
+  'Cliente desmarcou',
   'Cliente desistiu da compra',
   'Cliente comprou outro imóvel',
   'Sem renda / crédito reprovado',

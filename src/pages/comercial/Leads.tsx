@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, ChevronLeft, ChevronRight, Columns3, Copy, Filter,
-  Pencil, Search, UserPlus, Users, X,
+  Pencil, Search, Trash2, UserPlus, Users, X,
 } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,8 @@ import { AgendarVisitaDialog } from '@/components/comercial/AgendarVisitaDialog'
 import { VisitaPainel } from '@/components/comercial/VisitaPainel';
 import { useAbrirVisita } from '@/hooks/comercial/useAbrirVisita';
 import { ComboboxBusca, EstadoVazio, StatusAtendimentoBadge, StatusVisitaBadge } from '@/components/comercial/ui';
+import { BarraSelecaoLeads, ConfirmarExclusao } from '@/components/comercial/AcoesLeads';
+import { useExcluirLeads } from '@/hooks/comercial/useExcluirLeads';
 
 const FILTROS_SALVOS: { valor: FiltroSalvo; rotulo: string }[] = [
   { valor: 'todos', rotulo: 'Todos' },
@@ -80,6 +82,9 @@ export default function LeadsPage() {
   const [agendarPara, setAgendarPara] = useState<LinhaLead | null>(null);
   const [visiveis, setVisiveis] = useColunasVisiveis(user?.id);
   const abrirVisita = useAbrirVisita();
+  const [selecionados, setSelecionados] = useState<Set<string>>(() => new Set());
+  const [excluirAlvo, setExcluirAlvo] = useState<{ ids: string[]; nome?: string } | null>(null);
+  const exclusao = useExcluirLeads();
 
   const { data, isLoading, isFetching, isError, refetch } = useLeadsGrade(filtros);
   const { data: equipe = [] } = useEquipe();
@@ -98,6 +103,9 @@ export default function LeadsPage() {
       setParams(params, { replace: true });
     }
   }, [params, setParams]);
+
+  // Trocar filtro, busca ou página limpa a seleção (evita excluir o que não está na tela)
+  useEffect(() => { setSelecionados(new Set()); }, [filtros]);
 
   const nomes = useMemo(() => new Map(equipe.map((u) => [u.user_id, u.nome])), [equipe]);
   const responsaveis = useMemo(() => equipe.filter((u) => u.responsavel), [equipe]);
@@ -123,6 +131,19 @@ export default function LeadsPage() {
   const inicio = total ? filtros.pagina * filtros.porPagina + 1 : 0;
   const fim = Math.min(total, (filtros.pagina + 1) * filtros.porPagina);
   const mostrar = (c: ColunaId) => visiveis.includes(c);
+  const linhasPagina = data?.linhas ?? [];
+  const todosMarcados = linhasPagina.length > 0 && linhasPagina.every((l) => selecionados.has(l.id));
+  const algunsMarcados = !todosMarcados && linhasPagina.some((l) => selecionados.has(l.id));
+  const alternar = (id: string, marcar: boolean) => setSelecionados((atual) => {
+    const novo = new Set(atual);
+    if (marcar) novo.add(id); else novo.delete(id);
+    return novo;
+  });
+  const alternarPagina = (marcar: boolean) => setSelecionados((atual) => {
+    const novo = new Set(atual);
+    for (const l of linhasPagina) { if (marcar) novo.add(l.id); else novo.delete(l.id); }
+    return novo;
+  });
 
   return (
     <DashboardLayout>
@@ -220,13 +241,23 @@ export default function LeadsPage() {
           </div>
         </div>
 
+        {selecionados.size > 0 && (
+          <BarraSelecaoLeads ids={[...selecionados]} responsaveis={responsaveis}
+            onLimpar={() => setSelecionados(new Set())}
+            onExcluir={() => setExcluirAlvo({ ids: [...selecionados] })} />
+        )}
+
         <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
           <div className="relative max-h-[calc(100vh-17rem)] overflow-auto">
             {isFetching && !isLoading && <div className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary" />}
             <table className="w-full min-w-[960px] border-separate border-spacing-0 text-sm">
               <thead className="sticky top-0 z-10 bg-muted/50 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <Th className="sticky left-0 z-10 bg-muted/50" ordenavel ativa={filtros.ordem.coluna === 'nome'} asc={filtros.ordem.asc} onClick={() => ordenar('nome')}>Nome</Th>
+                  <th className="sticky left-0 z-10 w-10 border-b bg-muted/50 px-3 py-2.5">
+                    <Checkbox checked={todosMarcados ? true : algunsMarcados ? 'indeterminate' : false}
+                      onCheckedChange={(v) => alternarPagina(v === true)} aria-label="Selecionar todos os leads da página" />
+                  </th>
+                  <Th className="sticky left-10 z-10 bg-muted/50" ordenavel ativa={filtros.ordem.coluna === 'nome'} asc={filtros.ordem.asc} onClick={() => ordenar('nome')}>Nome</Th>
                   {mostrar('telefone') && <Th>Telefone</Th>}
                   {mostrar('empreendimento') && <Th>Empreendimento</Th>}
                   {mostrar('fonte') && <Th ordenavel ativa={filtros.ordem.coluna === 'fonte'} asc={filtros.ordem.asc} onClick={() => ordenar('fonte')}>Fonte</Th>}
@@ -234,16 +265,19 @@ export default function LeadsPage() {
                   {mostrar('responsavel') && <Th>Responsável</Th>}
                   {mostrar('entrada') && <Th ordenavel ativa={filtros.ordem.coluna === 'data_entrada'} asc={filtros.ordem.asc} onClick={() => ordenar('data_entrada')}>Entrada</Th>}
                   {mostrar('proxima') && <Th>Próxima visita</Th>}
-                  <Th className="w-12"><span className="sr-only">Ações</span></Th>
+                  <Th className="w-24"><span className="sr-only">Ações</span></Th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i}>{Array.from({ length: 9 }).map((__, j) => <td key={j} className="border-b px-3 py-3"><Skeleton className="h-4 w-full" /></td>)}</tr>
+                  <tr key={i}>{Array.from({ length: 10 }).map((__, j) => <td key={j} className="border-b px-3 py-3"><Skeleton className="h-4 w-full" /></td>)}</tr>
                 ))}
                 {!isLoading && data?.linhas.map((l) => (
-                  <tr key={l.id} className="group hover:bg-muted/60">
-                    <td className="sticky left-0 z-[1] border-b bg-card px-3 py-1.5 group-hover:bg-muted/60">
+                  <tr key={l.id} className={cn('group hover:bg-muted/60', selecionados.has(l.id) && 'bg-primary/[0.04]')}>
+                    <td className="sticky left-0 z-[1] w-10 border-b bg-card px-3 py-1.5 group-hover:bg-muted/60">
+                      <Checkbox checked={selecionados.has(l.id)} onCheckedChange={(v) => alternar(l.id, v === true)} aria-label={`Selecionar ${l.nome}`} />
+                    </td>
+                    <td className="sticky left-10 z-[1] border-b bg-card px-3 py-1.5 group-hover:bg-muted/60">
                       <CelulaNome linha={l} onSalvar={(v) => salvarCampo(l, 'nome', v)} />
                     </td>
                     {mostrar('telefone') && (
@@ -305,7 +339,7 @@ export default function LeadsPage() {
                         ) : <span className="text-muted-foreground">—</span>}
                       </td>
                     )}
-                    <td className="border-b px-2 py-1.5 text-right">
+                    <td className="whitespace-nowrap border-b px-2 py-1.5 text-right">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setAgendarPara(l)} aria-label={`Agendar visita para ${l.nome}`}>
@@ -313,6 +347,15 @@ export default function LeadsPage() {
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Agendar visita</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:bg-rose-50 hover:text-rose-700"
+                            onClick={() => setExcluirAlvo({ ids: [l.id], nome: l.nome })} aria-label={`Excluir ${l.nome}`}>
+                            <Trash2 />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Excluir lead</TooltipContent>
                       </Tooltip>
                     </td>
                   </tr>
@@ -350,6 +393,12 @@ export default function LeadsPage() {
       </div>
 
       <NovoLeadDialog aberto={novoAberto} onOpenChange={setNovoAberto} />
+      <ConfirmarExclusao aberto={!!excluirAlvo} onOpenChange={(v) => !v && setExcluirAlvo(null)}
+        quantidade={excluirAlvo?.ids.length ?? 0} nome={excluirAlvo?.nome} pendente={exclusao.pendente}
+        onConfirmar={() => excluirAlvo && exclusao.executar(excluirAlvo.ids, () => {
+          setSelecionados((atual) => { const novo = new Set(atual); excluirAlvo.ids.forEach((id) => novo.delete(id)); return novo; });
+          setExcluirAlvo(null);
+        })} />
       {agendarPara && (
         <AgendarVisitaDialog aberto onOpenChange={(v) => !v && setAgendarPara(null)}
           lead={{ id: agendarPara.id, nome: agendarPara.nome, empreendimento_id: agendarPara.empreendimento_id, fonte: agendarPara.fonte }}

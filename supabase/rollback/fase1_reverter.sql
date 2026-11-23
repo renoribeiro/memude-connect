@@ -85,3 +85,9 @@ drop trigger if exists crm_kanban_data_visita on public.visitas;
 --      para voltar o retorno sem obrigatoriedade, recrie public.visita_registrar_retorno da migração 20261118165556.
 --   c) Notas no histórico: drop function if exists public.lead_adicionar_nota(uuid, text);
 --   d) Apresentação: drop function if exists public.painel_apresentacao(date, date);
+-- 14) Ajustes de 23/11/2026 (migração 20261123130000):
+--   a) drop trigger if exists tarefas_status_visita on public.visitas;
+--   b) drop function if exists public.leads_excluir(uuid[]), public.leads_restaurar(uuid[]), public.leads_em_massa(uuid[], jsonb);
+--      (leads excluídos ficam com deleted_at; para trazer de volta: update public.leads set deleted_at = null where id in (...))
+--   c) drop trigger if exists import_conflito_sem_repetir on public.import_conflitos;
+--   d) cron 'fase1-planilha-espelho' voltar ao corpo {"modo":"enviar"} (só CRM → planilha).

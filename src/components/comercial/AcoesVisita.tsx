@@ -393,16 +393,22 @@ export function ReagendarDialog({ aberto, onOpenChange, visita, onReagendada, da
 }
 
 // ===== Cancelar =====
-export function CancelarDialog({ aberto, onOpenChange, visitaId }: { aberto: boolean; onOpenChange: (v: boolean) => void; visitaId: string }) {
+export function CancelarDialog({ aberto, onOpenChange, visitaId, titulo = 'Cancelar visita', motivoInicial = '', onReagendar }: {
+  aberto: boolean; onOpenChange: (v: boolean) => void; visitaId: string;
+  titulo?: string; motivoInicial?: string; onReagendar?: () => void;
+}) {
   const acao = useAcaoVisita();
-  const [motivo, setMotivo] = useState('');
-  useEffect(() => { if (aberto) setMotivo(''); }, [aberto]);
+  const [motivo, setMotivo] = useState(motivoInicial);
+  useEffect(() => { if (aberto) setMotivo(motivoInicial); }, [aberto, motivoInicial]);
   return (
     <Dialog open={aberto} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Cancelar visita</DialogTitle>
-          <DialogDescription>O motivo é obrigatório e fica no histórico. Tarefas pendentes são encerradas.</DialogDescription>
+          <DialogTitle>{titulo}</DialogTitle>
+          <DialogDescription>
+            O motivo é obrigatório e fica no histórico. A visita sai das pendências (confirmações e resultado).
+            {onReagendar && ' Se o cliente quer outra data, reagende em vez de cancelar.'}
+          </DialogDescription>
         </DialogHeader>
         <div className="flex flex-wrap gap-1.5">
           {MOTIVOS_CANCELAMENTO.map((m) => (
@@ -413,6 +419,9 @@ export function CancelarDialog({ aberto, onOpenChange, visitaId }: { aberto: boo
         <Textarea rows={3} maxLength={1000} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Descreva o motivo" aria-label="Motivo do cancelamento" />
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Voltar</Button>
+          {onReagendar && (
+            <Button variant="outline" onClick={() => { onOpenChange(false); onReagendar(); }}><CalendarClock /> Reagendar</Button>
+          )}
           <Button variant="destructive" disabled={motivo.trim().length < 3 || acao.isPending}
             onClick={() => acao.mutate({ rpc: 'visita_cancelar', args: { p_visita_id: visitaId, p_motivo: motivo }, sucesso: 'Visita cancelada' },
               { onSuccess: () => onOpenChange(false) })}>

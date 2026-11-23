@@ -6351,6 +6351,12 @@ export type Database = {
           is_allowed: boolean
         }[]
       }
+      leads_em_massa: {
+        Args: { p_campos: Json; p_ids: string[] }
+        Returns: Json
+      }
+      leads_excluir: { Args: { p_ids: string[] }; Returns: Json }
+      leads_restaurar: { Args: { p_ids: string[] }; Returns: Json }
       lead_adicionar_nota: {
         Args: { p_lead_id: string; p_texto: string }
         Returns: Json

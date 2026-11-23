@@ -1,5 +1,5 @@
 // Espelho somente leitura das abas LEADS e VISITAS da planilha "CRM MeMude 2025".
-// Modos: enviar (cron diário 17h30) · conferencia · reconstruir · importar · puxar (status da planilha → core) · inspecionar · proteger.
+// Modos: diario (cron 17h30/17h45: importa linhas novas, confere e envia) · enviar · conferencia · reconstruir · importar · puxar (status da planilha → core) · inspecionar · proteger.
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { autorizar, ErroHttp, json, lerJson, preflight, responderErro } from '../_shared/fase1-http.ts';
 import { chaveTelefone } from '../_shared/fase1-phone.ts';
@@ -173,7 +173,8 @@ async function idsExistentes(db: SupabaseClient, aba: Aba, ids: string[]): Promi
 }
 
 // ===== Conferência banco × planilha =====
-async function conferir(db: SupabaseClient, planilha: string) {
+// apenasFaltantes: só enfileira o que está no core e não tem linha na planilha (não sobrescreve edições feitas na planilha).
+async function conferir(db: SupabaseClient, planilha: string, apenasFaltantes = false) {
   const resultado: Record<string, unknown> = {};
   for (const aba of ABAS) {
     const e = await estrutura(planilha, aba);
@@ -189,22 +190,26 @@ async function conferir(db: SupabaseClient, planilha: string) {
     }
     const registros = await todosRegistros(db, aba);
     const divergentes: string[] = [];
+    const faltantes: string[] = [];
     const noBanco = new Set<string>();
     for (const r of registros) {
       noBanco.add(r.registro_id);
       const row = naPlanilha.get(r.registro_id);
+      if (!row) faltantes.push(r.registro_id);
       const difere = !row || Object.entries(e.mapa).some(([campo, col]) =>
         campo in r.linha && normValor(row[col]) !== normValor(r.linha[campo]));
       if (difere) divergentes.push(r.registro_id);
     }
-    for (let i = 0; i < divergentes.length; i += 500) {
+    const enfileirar = apenasFaltantes ? faltantes : divergentes;
+    for (let i = 0; i < enfileirar.length; i += 500) {
       const { error: errEnf } = await db.rpc('sheet_sync_enfileirar_ids', {
-        p_aba: aba, p_ids: divergentes.slice(i, i + 500), p_origem: 'conferencia',
+        p_aba: aba, p_ids: enfileirar.slice(i, i + 500), p_origem: apenasFaltantes ? 'diario' : 'conferencia',
       });
       if (errEnf) throw errEnf;
     }
     resultado[aba] = {
       divergentes: divergentes.length,
+      faltando_na_planilha: faltantes.length,
       ids_na_planilha_sem_registro: [...naPlanilha.keys()].filter((id) => !noBanco.has(id)).length,
       ids_duplicados_na_planilha: duplicados.size,
     };
@@ -392,6 +397,19 @@ Deno.serve(async (req) => {
         enviados = r.enviados;
         erros = r.erros;
         if (!enviados && !erros) return json(req, { modo, ...r });
+        break;
+      }
+      case 'diario': {
+        // Rotina das 17h30 (e repescagem às 17h45), nos dois sentidos:
+        // 1) linhas novas da aba LEADS (sem id) viram leads no core e recebem o id na planilha;
+        // 2) a conferência enfileira o que está no core e falta na planilha (edições feitas na planilha são preservadas);
+        // 3) o envio grava a fila na planilha.
+        const importacao = await importar(db, planilha, 'LEADS', 2, inicio);
+        const conferencia = await conferir(db, planilha, true);
+        const envio = await enviar(db, planilha, Math.max(20_000, 110_000 - (Date.now() - inicio)));
+        resultado = { importacao, conferencia, envio };
+        enviados = envio.enviados;
+        erros = envio.erros + ((importacao.contagem as Record<string, number>).erro ?? 0);
         break;
       }
       case 'conferencia':

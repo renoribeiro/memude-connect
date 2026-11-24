@@ -31,6 +31,7 @@ import { useAbrirVisita } from '@/hooks/comercial/useAbrirVisita';
 import { ComboboxBusca, EstadoVazio, StatusAtendimentoBadge, StatusVisitaBadge } from '@/components/comercial/ui';
 import { BarraSelecaoLeads, ConfirmarExclusao } from '@/components/comercial/AcoesLeads';
 import { useExcluirLeads } from '@/hooks/comercial/useExcluirLeads';
+import { SincronizarPlanilha } from '@/components/comercial/SincronizarPlanilha';
 
 const FILTROS_SALVOS: { valor: FiltroSalvo; rotulo: string }[] = [
   { valor: 'todos', rotulo: 'Todos' },
@@ -155,7 +156,10 @@ export default function LeadsPage() {
               {isLoading ? 'Carregando…' : `${total.toLocaleString('pt-BR')} ${total === 1 ? 'lead' : 'leads'}`} · clique na célula para editar
             </p>
           </div>
-          <Button onClick={() => setNovoAberto(true)}><UserPlus /> Novo lead</Button>
+          <div className="flex flex-wrap gap-2">
+            <SincronizarPlanilha />
+            <Button onClick={() => setNovoAberto(true)}><UserPlus /> Novo lead</Button>
+          </div>
         </header>
 
         <div className="flex flex-col gap-3 rounded-xl border bg-card p-3 shadow-sm lg:flex-row lg:items-center">

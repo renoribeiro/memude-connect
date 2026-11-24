@@ -91,3 +91,6 @@ drop trigger if exists crm_kanban_data_visita on public.visitas;
 --      (leads excluídos ficam com deleted_at; para trazer de volta: update public.leads set deleted_at = null where id in (...))
 --   c) drop trigger if exists import_conflito_sem_repetir on public.import_conflitos;
 --   d) cron 'fase1-planilha-espelho' voltar ao corpo {"modo":"enviar"} (só CRM → planilha).
+-- 15) Botão "Sincronizar planilha" (migração 20261124130000):
+--   drop function if exists public.planilha_sincronizar_agora(); drop table if exists private.planilha_sync_disparos;
+--   (a trava pg_advisory_xact_lock em planilha_importar_lote pode ficar: só serializa os lotes)

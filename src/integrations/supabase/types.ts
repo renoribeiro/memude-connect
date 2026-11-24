@@ -6441,6 +6441,7 @@ export type Database = {
       painel_comercial: { Args: { p_ate: string; p_de: string }; Returns: Json }
       painel_historico: { Args: { p_ate: string; p_meses?: number }; Returns: Json }
       painel_apresentacao: { Args: { p_ate: string; p_de: string }; Returns: Json }
+      planilha_sincronizar_agora: { Args: never; Returns: Json }
       permanently_delete_lead: { Args: { p_lead_id: string }; Returns: boolean }
       planilha_importar_lote: {
         Args: { p_aba: string; p_linhas: Json }

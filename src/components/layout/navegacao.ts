@@ -1,6 +1,6 @@
 import {
   Activity, BarChart3, Bot, Building2, Calendar, CalendarDays, DollarSign, Handshake, Headset, Home, Kanban, ListChecks,
-  MessageSquare, RefreshCw, Send, Settings, SlidersHorizontal, TrendingUp, UserCheck, UserCog, Users, Wrench, type LucideIcon,
+  MessageSquare, MessagesSquare, RefreshCw, Smartphone, Send, Settings, SlidersHorizontal, TrendingUp, UserCheck, UserCog, Users, Wrench, type LucideIcon,
 } from 'lucide-react';
 
 export type Acesso = 'admin' | 'comercial';
@@ -14,6 +14,7 @@ export const ehGrupo = (e: EntradaNav): e is GrupoNav => 'itens' in e;
 /** Menu da equipe interna, agrupado por função (SDR, closer, gestão). */
 export const NAV_EQUIPE: EntradaNav[] = [
   { nome: 'Hoje', href: '/hoje', icone: ListChecks, acesso: 'comercial' },
+  { nome: 'Conversas', href: '/conversas', icone: MessagesSquare, acesso: 'comercial' },
   { nome: 'Dashboard', href: '/dashboard', icone: Home, acesso: 'comercial' },
   { nome: 'Agenda', href: '/agenda', icone: CalendarDays, acesso: 'comercial' },
   { nome: 'CRM', href: '/crm', icone: Kanban, acesso: 'comercial' },
@@ -52,6 +53,7 @@ export const NAV_EQUIPE: EntradaNav[] = [
 ];
 
 export const NAV_CORRETOR: ItemNav[] = [
+  { nome: 'App do corretor', href: '/app', icone: Smartphone, acesso: 'comercial' },
   { nome: 'Dashboard', href: '/', icone: Home, acesso: 'comercial' },
   { nome: 'Meus Leads', href: '/meus-leads', icone: Users, acesso: 'comercial' },
   { nome: 'Minhas Visitas', href: '/minhas-visitas', icone: Calendar, acesso: 'comercial' },

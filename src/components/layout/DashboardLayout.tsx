@@ -21,13 +21,15 @@ import { NAV_CLIENTE, NAV_CORRETOR, NAV_EQUIPE, filtrarNav } from './navegacao';
 
 interface DashboardLayoutProps {
   children: ReactNode;
+  /** Tela de altura total, sem margens (ex.: caixa de conversas). */
+  telaCheia?: boolean;
 }
 
 const PAPEL: Record<string, string> = {
   admin: 'Administrador', corretor: 'Corretor', cliente: 'Cliente', sdr: 'SDR', closer: 'Closer',
 };
 
-const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+const DashboardLayout = ({ children, telaCheia = false }: DashboardLayoutProps) => {
   const { profile, signOut, isAdmin, isComercial, isCorretor } = useAuth();
   const [menuAberto, setMenuAberto] = useState(false);
 
@@ -121,11 +123,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </aside>
 
         <main className="min-w-0 flex-1 overflow-hidden">
-          <div className="h-full overflow-y-auto p-4 sm:p-6">
-            {children}
-          </div>
+          {telaCheia ? children : (
+            <div className="h-full overflow-y-auto p-4 sm:p-6">
+              {children}
+            </div>
+          )}
         </main>
-        <BalaoSugestoes />
+        {!telaCheia && <BalaoSugestoes />}
       </div>
     </div>
   );

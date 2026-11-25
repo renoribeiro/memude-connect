@@ -29,3 +29,16 @@ begin
     execute src;
   end if;
 end $do$;
+
+-- 3) Ao iniciar, reaproveita a conversa do mesmo lead mesmo se o telefone do lead mudou
+do $do$
+declare src text;
+begin
+  src := pg_get_functiondef('public.conversa_iniciar(uuid,uuid)'::regprocedure);
+  if position('por_lead_ou_telefone' in src) = 0 then
+    src := replace(src, $a$from public.conversas c where c.telefone_chave = l.telefone_chave$a$,
+      $a$from public.conversas c where (c.lead_id = l.id or c.telefone_chave = l.telefone_chave) /* por_lead_ou_telefone */$a$);
+    if position('por_lead_ou_telefone' in src) = 0 then raise exception 'Ajuste de conversa_iniciar não aplicado'; end if;
+    execute src;
+  end if;
+end $do$;

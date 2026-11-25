@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BellRing, Inbox, Search, X } from 'lucide-react';
+import { BellRing, Inbox, Search, WifiOff, X } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +20,9 @@ const FILTROS = [
   { v: 'arquivadas', r: 'Arquivadas' },
 ] as const;
 
-export default function AppConversas({ conversas }: { conversas: ConversaItem[] }) {
+export default function AppConversas({ conversas, carregando, erro, tentar }: {
+  conversas: ConversaItem[]; carregando?: boolean; erro?: boolean; tentar?: () => void;
+}) {
   const navigate = useNavigate();
   const agora = useAgora(20_000);
   const push = usePush();
@@ -67,7 +70,21 @@ export default function AppConversas({ conversas }: { conversas: ConversaItem[] 
         </div>
       </div>
       <div className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {lista.length === 0 ? (
+        {carregando && filtro !== 'arquivadas' ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 border-b px-3 py-3">
+              <Skeleton className="h-11 w-11 rounded-full" />
+              <div className="flex-1 space-y-2"><Skeleton className="h-4 w-2/3" /><Skeleton className="h-3 w-full" /></div>
+            </div>
+          ))
+        ) : erro && filtro !== 'arquivadas' ? (
+          <div className="flex flex-col items-center px-8 py-16 text-center">
+            <span className="mb-3 rounded-full bg-rose-50 p-4 dark:bg-rose-950"><WifiOff className="h-7 w-7 text-rose-600" /></span>
+            <p className="text-lg font-semibold">Não foi possível carregar</p>
+            <p className="mt-1 text-sm text-muted-foreground">Confira a internet e tente de novo.</p>
+            <Button className="mt-4" onClick={tentar}>Tentar de novo</Button>
+          </div>
+        ) : lista.length === 0 ? (
           <div className="flex flex-col items-center px-8 py-16 text-center">
             <span className="mb-3 rounded-full bg-primary/10 p-4"><Inbox className="h-7 w-7 text-primary" /></span>
             <p className="text-lg font-semibold">{busca ? 'Ninguém encontrado' : filtro === 'arquivadas' ? 'Nada arquivado' : filtro === 'todas' ? 'Nenhum cliente ainda' : 'Tudo respondido 👏'}</p>

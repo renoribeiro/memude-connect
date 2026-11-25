@@ -10,7 +10,7 @@ import { nomeDaConversa, quandoNaLista } from '@/lib/conversas/formato';
 import { ETAPAS, type ConversaItem } from '@/lib/conversas/tipos';
 
 /** Mini-kanban do corretor: deslize entre as etapas; toque no cartão para abrir a conversa. */
-export default function AppFunil({ conversas }: { conversas: ConversaItem[] }) {
+export default function AppFunil({ conversas, carregando }: { conversas: ConversaItem[]; carregando?: boolean }) {
   const navigate = useNavigate();
   const mover = useMoverEtapa();
   const agora = useAgora(30_000);
@@ -30,7 +30,8 @@ export default function AppFunil({ conversas }: { conversas: ConversaItem[] }) {
                 <span className="ml-auto rounded-full bg-card px-2 text-xs font-semibold tabular-nums">{itens.length}</span>
               </header>
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-2">
-                {!itens.length && <p className="px-2 py-6 text-center text-xs text-muted-foreground">Ninguém nesta etapa</p>}
+                {carregando && <div className="h-20 animate-pulse rounded-xl bg-card" />}
+                {!carregando && !itens.length && <p className="px-2 py-6 text-center text-xs text-muted-foreground">Ninguém nesta etapa</p>}
                 {itens.map((c) => (
                   <div key={c.id} className="rounded-xl border bg-card p-3 shadow-sm">
                     <div className="flex items-start gap-2.5">

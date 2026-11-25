@@ -61,6 +61,7 @@ export function ImoveisParaCliente({ conversaId, aoEnviar }: { conversaId?: stri
   const { data: imoveis = [], isLoading } = useImoveis();
   const [busca, setBusca] = useState('');
   const enviar = useEnviarMensagem();
+  const [enviandoId, setEnviandoId] = useState<string | null>(null);
   const { data: sugeridos = [] } = useQuery({
     queryKey: ['conversas', 'imoveis-ia', conversaId],
     enabled: !!conversaId,
@@ -77,14 +78,20 @@ export function ImoveisParaCliente({ conversaId, aoEnviar }: { conversaId?: stri
     return t ? imoveis.filter((i) => i.nome.toLowerCase().includes(t) || i.bairro?.toLowerCase().includes(t)).slice(0, 40) : imoveis.slice(0, 40);
   }, [imoveis, busca]);
 
-  const mandar = conversaId ? (i: Imovel) => enviar.mutate({ conversaId, texto: texto(i) }, { onSuccess: () => { toast.success(`${i.nome} enviado`); aoEnviar?.(); } }) : undefined;
+  const mandar = conversaId ? (i: Imovel) => {
+    setEnviandoId(i.id);
+    enviar.mutate({ conversaId, texto: texto(i) }, {
+      onSuccess: () => { toast.success(`${i.nome} enviado`); aoEnviar?.(); },
+      onSettled: () => setEnviandoId(null),
+    });
+  } : undefined;
 
   return (
     <div className="space-y-4 p-4">
       {daIA.length > 0 && (
         <section className="space-y-2">
           <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary"><Sparkles className="h-3.5 w-3.5" /> Combinam com o cliente</h3>
-          {daIA.map((i) => <CartaoImovel key={i.id} i={i} aoEnviar={mandar} enviando={enviar.isPending} />)}
+          {daIA.map((i) => <CartaoImovel key={i.id} i={i} aoEnviar={mandar} enviando={enviandoId === i.id} />)}
         </section>
       )}
       <section className="space-y-2">
@@ -93,7 +100,7 @@ export function ImoveisParaCliente({ conversaId, aoEnviar }: { conversaId?: stri
           <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar imóvel ou bairro" className="h-11 rounded-full pl-9 text-base" aria-label="Buscar imóvel" />
         </div>
         {isLoading ? <Loader2 className="mx-auto my-6 h-5 w-5 animate-spin text-muted-foreground" />
-          : filtrados.map((i) => <CartaoImovel key={i.id} i={i} aoEnviar={mandar} enviando={enviar.isPending} />)}
+          : filtrados.map((i) => <CartaoImovel key={i.id} i={i} aoEnviar={mandar} enviando={enviandoId === i.id} />)}
         {!isLoading && !filtrados.length && <p className="py-6 text-center text-sm text-muted-foreground">Nenhum imóvel encontrado.</p>}
       </section>
     </div>

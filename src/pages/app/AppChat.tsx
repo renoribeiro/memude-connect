@@ -14,7 +14,7 @@ export default function AppChat() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: conv, isLoading, isError } = useConversa(id ?? null);
+  const { data: conv, isLoading, isError } = useConversa(id ?? null, 30_000);
   const [painel, setPainel] = useState<'ficha' | 'imoveis' | null>(null);
 
   // Conversa que não é (mais) do corretor some da lista: volta para o início

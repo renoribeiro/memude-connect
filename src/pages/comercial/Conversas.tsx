@@ -56,7 +56,7 @@ export default function ConversasPage() {
 
   useTempoRealConversas();
   useMensagensDoServiceWorker();
-  const { data: conversas = [], isLoading } = useListaConversas(filtro, busca);
+  const { data: conversas = [], isLoading, isError, refetch } = useListaConversas(filtro, busca);
   const { data: alertas = [] } = useAlertas();
   const daLista = useMemo(() => conversas.find((c) => c.id === ativa) ?? null, [conversas, ativa]);
   const { data: detalhe } = useConversa(daLista ? null : ativa);
@@ -139,7 +139,7 @@ export default function ConversasPage() {
           <div className="flex min-h-0 flex-1">
             {mostrarLista && (
               <div className="flex w-full min-w-0 flex-col border-r md:w-[340px] lg:w-[380px] md:shrink-0">
-                <ListaConversas conversas={conversas} carregando={isLoading} filtro={filtro} aoFiltrar={setFiltro}
+                <ListaConversas conversas={conversas} carregando={isLoading} erro={isError} aoTentar={() => refetch()} filtro={filtro} aoFiltrar={setFiltro}
                   busca={busca} aoBuscar={setBusca} ativa={ativa} aoAbrir={abrir} aoNova={() => setNova(true)} />
               </div>
             )}

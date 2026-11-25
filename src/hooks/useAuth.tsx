@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode, useMemo, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,6 +51,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const ultimoUsuario = useRef<string | null>(null);
 
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     try {
@@ -104,6 +105,13 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
         // Prevent race condition with getSession on mount
         if (event === 'INITIAL_SESSION') return;
         if (!active) return;
+
+        // Sessão expirou, saiu em outra aba ou trocou de pessoa: nada da anterior fica em cache
+        const novoUsuario = session?.user?.id ?? null;
+        if (event === 'SIGNED_OUT' || (ultimoUsuario.current && novoUsuario && novoUsuario !== ultimoUsuario.current)) {
+          queryClient.clear();
+        }
+        ultimoUsuario.current = novoUsuario;
 
         setSession(session);
         setUser(session?.user ?? null);
@@ -162,7 +170,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       active = false;
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [fetchProfile, queryClient]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     setIsAuthenticating(true);

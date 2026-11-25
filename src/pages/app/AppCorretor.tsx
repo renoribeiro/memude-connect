@@ -31,7 +31,7 @@ export default function AppCorretor() {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const noChat = pathname.startsWith('/app/c/');
-  const { data: conversas = [] } = useListaConversas('minhas', '');
+  const { data: conversas = [], isLoading: carregando, isError: erro, refetch } = useListaConversas('minhas', '');
   const { data: convites = [] } = useConvites(true);
   useTempoRealConversas();
   useMensagensDoServiceWorker();
@@ -51,13 +51,13 @@ export default function AppCorretor() {
       <main className="flex min-h-0 flex-1 flex-col">
         <Suspense fallback={<Carregando />}>
           <Routes>
-            <Route index element={<AppConversas conversas={conversas} />} />
+            <Route index element={<AppConversas conversas={conversas} carregando={carregando} erro={erro} tentar={() => refetch()} />} />
             <Route path="c/:id" element={<AppChat />} />
             <Route path="hoje" element={<AppHoje />} />
-            <Route path="funil" element={<AppFunil conversas={conversas} />} />
+            <Route path="funil" element={<AppFunil conversas={conversas} carregando={carregando} />} />
             <Route path="imoveis" element={<AppImoveis />} />
             <Route path="eu" element={<AppEu />} />
-            <Route path="*" element={<AppConversas conversas={conversas} />} />
+            <Route path="*" element={<AppConversas conversas={conversas} carregando={carregando} erro={erro} tentar={() => refetch()} />} />
           </Routes>
         </Suspense>
       </main>

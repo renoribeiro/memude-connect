@@ -27,7 +27,7 @@ const COLUNAS: { chave: Coluna; rotulo: string; dica: string; melhorMenor?: bool
 export function DesempenhoPainel() {
   const [dias, setDias] = useState(30);
   const [ordem, setOrdem] = useState<{ col: Coluna; desc: boolean }>({ col: 'respondidas_15min_pct', desc: true });
-  const { data = [], isLoading } = useDesempenho(dias);
+  const { data = [], isLoading, isError, refetch } = useDesempenho(dias);
 
   const linhas = useMemo(() => [...data].sort((a, b) => {
     const va = (a[ordem.col] as number | null) ?? -1;
@@ -84,7 +84,10 @@ export function DesempenhoPainel() {
         </p>
       )}
 
-      {isLoading ? <Skeleton className="h-64 w-full rounded-xl" /> : !linhas.length ? (
+      {isLoading ? <Skeleton className="h-64 w-full rounded-xl" /> : isError ? (
+        <EstadoVazio icone={Gauge} titulo="Não foi possível carregar" descricao="Confira a internet e tente de novo."
+          acao={<button type="button" onClick={() => refetch()} className="rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground">Tentar de novo</button>} />
+      ) : !linhas.length ? (
         <EstadoVazio icone={Gauge} titulo="Sem dados ainda" descricao="Os números aparecem quando os corretores começarem a atender pelo app." />
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-card">

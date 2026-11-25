@@ -3,6 +3,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Loader2, MoreVertical, Plus, QrCode, RefreshCw, Smartphone, Star, Unplug, Wifi, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -11,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EstadoVazio } from '@/components/comercial/ui';
 import { haQuanto, telefoneLegivel } from '@/lib/conversas/formato';
-import { chamarFuncao } from '@/lib/conversas/servidor';
+import { chamarFuncao, mensagemErro } from '@/lib/conversas/servidor';
 import type { Numero } from '@/lib/conversas/tipos';
 import { useAcaoNumero, useNumeros } from '@/hooks/conversas/dados';
 
@@ -27,13 +30,22 @@ const STATUS: Record<string, { rotulo: string; cor: string; icone: typeof Wifi }
 function ConectarDialog({ numero, qrInicial, aoFechar }: { numero: Numero; qrInicial: string | null; aoFechar: () => void }) {
   const [qr, setQr] = useState<string | null>(qrInicial);
   const [conectado, setConectado] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [tentativa, setTentativa] = useState(0);
   const qc = useQueryClient();
 
   useEffect(() => {
     let vivo = true;
     const buscarQr = async () => {
-      const r = await chamarFuncao<RespostaNumero>('conversas-numeros', { acao: 'qr', id: numero.id }).catch(() => null);
+      let r: RespostaNumero | null = null;
+      try {
+        r = await chamarFuncao<RespostaNumero>('conversas-numeros', { acao: 'qr', id: numero.id });
+      } catch (e) {
+        if (vivo) setErro(mensagemErro(e));
+        return;
+      }
       if (!vivo || !r) return;
+      setErro(null);
       if (r.qr) setQr(r.qr);
       else if (r.numero?.status === 'aberto') setConectado(true);
     };
@@ -44,7 +56,7 @@ function ConectarDialog({ numero, qrInicial, aoFechar }: { numero: Numero; qrIni
       if (vivo && r?.numero?.status === 'aberto') setConectado(true);
     }, 4000);
     return () => { vivo = false; clearInterval(renovar); clearInterval(conferir); };
-  }, [numero.id, qrInicial]);
+  }, [numero.id, qrInicial, tentativa]);
 
   useEffect(() => {
     if (!conectado) return;
@@ -65,6 +77,12 @@ function ConectarDialog({ numero, qrInicial, aoFechar }: { numero: Numero; qrIni
             <div className="text-center text-emerald-600">
               <CheckCircle2 className="mx-auto h-16 w-16" />
               <p className="mt-2 font-semibold">Conectado!</p>
+            </div>
+          ) : erro && !qr ? (
+            <div className="px-6 text-center text-sm text-zinc-700">
+              <p className="font-semibold text-rose-600">Não foi possível gerar o QR code</p>
+              <p className="mt-1">{erro}</p>
+              <Button className="mt-4" variant="outline" onClick={() => { setErro(null); setTentativa((t) => t + 1); }}>Tentar de novo</Button>
             </div>
           ) : qr ? (
             <img src={qr.startsWith('data:') ? qr : `data:image/png;base64,${qr}`} alt="QR code para conectar o WhatsApp" className="h-full w-full object-contain" />
@@ -126,6 +144,7 @@ export function NumerosPainel() {
   const acao = useAcaoNumero();
   const [novo, setNovo] = useState(false);
   const [conectando, setConectando] = useState<{ n: Numero; qr: string | null } | null>(null);
+  const [confirmar, setConfirmar] = useState<{ n: Numero; tipo: 'desconectar' | 'desativar' } | null>(null);
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-4">
@@ -169,8 +188,8 @@ export function NumerosPainel() {
                       {n.papel === 'principal' && <DropdownMenuItem onClick={() => acao.mutate({ acao: 'editar', id: n.id, papel: 'backup' })}>Tornar reserva</DropdownMenuItem>}
                       <DropdownMenuItem onClick={() => acao.mutate({ acao: 'webhook', id: n.id })}>Reaplicar webhook</DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      {n.status === 'aberto' && <DropdownMenuItem className="text-rose-600" onClick={() => acao.mutate({ acao: 'desconectar', id: n.id })}><Unplug className="mr-2 h-4 w-4" /> Desconectar aparelho</DropdownMenuItem>}
-                      <DropdownMenuItem onClick={() => acao.mutate({ acao: 'editar', id: n.id, ativo: !n.ativo })}>{n.ativo ? 'Desativar' : 'Reativar'}</DropdownMenuItem>
+                      {n.status === 'aberto' && <DropdownMenuItem className="text-rose-600" onClick={() => setConfirmar({ n, tipo: 'desconectar' })}><Unplug className="mr-2 h-4 w-4" /> Desconectar aparelho</DropdownMenuItem>}
+                      <DropdownMenuItem onClick={() => (n.ativo ? setConfirmar({ n, tipo: 'desativar' }) : acao.mutate({ acao: 'editar', id: n.id, ativo: true }))}>{n.ativo ? 'Desativar' : 'Reativar'}</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -195,6 +214,26 @@ export function NumerosPainel() {
       </div>
 
       <NovoNumeroDialog aberto={novo} aoFechar={() => setNovo(false)} aoCriar={(n, qr) => { setNovo(false); setConectando({ n, qr }); }} />
+      <AlertDialog open={!!confirmar} onOpenChange={(v) => !v && setConfirmar(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmar?.tipo === 'desconectar' ? `Desconectar “${confirmar?.n.nome}”?` : `Desativar “${confirmar?.n.nome}”?`}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmar?.tipo === 'desconectar'
+                ? 'O WhatsApp sai deste aparelho. Ninguém consegue responder por este número até ler o QR code de novo.'
+                : 'O número para de ser usado nas conversas. As conversas antigas continuam salvas e você pode reativar depois.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => {
+              if (!confirmar) return;
+              acao.mutate(confirmar.tipo === 'desconectar' ? { acao: 'desconectar', id: confirmar.n.id } : { acao: 'editar', id: confirmar.n.id, ativo: false });
+              setConfirmar(null);
+            }}>{confirmar?.tipo === 'desconectar' ? 'Desconectar' : 'Desativar'}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {conectando && <ConectarDialog numero={conectando.n} qrInicial={conectando.qr} aoFechar={() => setConectando(null)} />}
     </div>
   );

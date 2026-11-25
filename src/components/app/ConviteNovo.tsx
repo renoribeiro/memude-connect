@@ -24,6 +24,7 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
   const [recusando, setRecusando] = useState(false);
   const [motivo, setMotivo] = useState('');
   const avisados = useRef(new Set<string>());
+  const botaoAceitar = useRef<HTMLButtonElement>(null);
   const validos = useMemo(() => convites.filter((c) => new Date(c.prazo_em).getTime() > agora), [convites, agora]);
   const c = validos[0];
 
@@ -31,6 +32,9 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
     if (c && !avisados.current.has(c.convite_id)) {
       avisados.current.add(c.convite_id);
       tocarAviso(true);
+      // Fecha menus/gavetas abertos (Radix/Vaul bloqueiam toques fora deles) e leva o foco para "Aceitar"
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      setTimeout(() => botaoAceitar.current?.focus(), 150);
     }
   }, [c]);
   useEffect(() => { setRecusando(false); setMotivo(''); }, [c?.convite_id]);
@@ -74,15 +78,15 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
 
   return (
     <div role="alertdialog" aria-modal="true" aria-labelledby="convite-titulo"
-      className="fixed inset-0 z-[60] flex flex-col bg-gradient-to-b from-[hsl(252_51%_30%)] via-[hsl(252_51%_38%)] to-[hsl(300_45%_35%)] text-white animate-in fade-in duration-300">
+      className="pointer-events-auto fixed inset-0 z-[60] flex flex-col bg-gradient-to-b from-[hsl(252_51%_30%)] via-[hsl(252_51%_38%)] to-[hsl(300_45%_35%)] text-white animate-in fade-in duration-300">
       <div className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))]">
         <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
           {validos.length > 1 ? `${validos.length} clientes esperando` : 'Novo cliente para você'}
         </span>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <div className="relative mb-6 h-32 w-32">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-4 text-center">
+        <div className="relative mb-4 h-24 w-24 shrink-0 [@media(min-height:700px)]:mb-6 [@media(min-height:700px)]:h-32 [@media(min-height:700px)]:w-32">
           <span className="absolute inset-0 animate-ping rounded-full bg-white/10" aria-hidden />
           <svg viewBox="0 0 100 100" className="relative h-full w-full -rotate-90" aria-hidden>
             <circle cx="50" cy="50" r={R} fill="none" stroke="rgb(255 255 255 / 0.15)" strokeWidth="6" />
@@ -94,10 +98,10 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
             <span className="text-[11px] uppercase tracking-wide opacity-80">para aceitar</span>
           </span>
         </div>
-        <h1 id="convite-titulo" className="text-3xl font-bold leading-tight">{c.lead_nome}</h1>
+        <h1 id="convite-titulo" className="line-clamp-2 break-words text-2xl font-bold leading-tight [@media(min-height:700px)]:text-3xl">{c.lead_nome}</h1>
         <p className="mt-1 text-white/80">quer visitar um imóvel com você</p>
 
-        <div className="mt-6 w-full max-w-sm space-y-2.5 rounded-2xl bg-white/10 p-4 text-left text-[15px] backdrop-blur">
+        <div className="mt-4 w-full max-w-sm space-y-2.5 [@media(min-height:700px)]:mt-6 rounded-2xl bg-white/10 p-4 text-left text-[15px] backdrop-blur">
           {c.empreendimento && <p className="flex items-center gap-3"><Building2 className="h-5 w-5 shrink-0 opacity-80" />{c.empreendimento}</p>}
           <p className="flex items-center gap-3"><CalendarDays className="h-5 w-5 shrink-0 opacity-80" />{dataLonga(c.data_visita, c.horario_visita)}</p>
           {(c.local_nome || c.bairro) && <p className="flex items-center gap-3"><MapPin className="h-5 w-5 shrink-0 opacity-80" />{[c.local_nome, c.bairro].filter(Boolean).join(' · ')}</p>}
@@ -107,9 +111,9 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
         </div>
       </div>
 
-      <div className="space-y-3 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <div className="shrink-0 space-y-3 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
         {recusando ? (
-          <div className="space-y-2 rounded-2xl bg-white p-3 text-foreground">
+          <div className="space-y-2 rounded-2xl bg-card p-3 text-card-foreground">
             <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} maxLength={200} autoFocus placeholder="Por que não pode? (ex.: já tenho visita nesse horário)" className="text-base" />
             <div className="flex gap-2">
               <Button variant="ghost" className="flex-1" onClick={() => setRecusando(false)}><X className="h-4 w-4" /> Voltar</Button>
@@ -120,7 +124,7 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
           </div>
         ) : (
           <>
-            <Button size="lg" disabled={responder.isPending} onClick={() => responder.mutate(true)}
+            <Button ref={botaoAceitar} size="lg" disabled={responder.isPending} onClick={() => responder.mutate(true)}
               className="h-16 w-full rounded-2xl bg-white text-lg font-bold text-primary shadow-2xl hover:bg-white/90 active:scale-[0.98]">
               {responder.isPending ? <Loader2 className="h-6 w-6 animate-spin" /> : 'Aceitar cliente'}
             </Button>

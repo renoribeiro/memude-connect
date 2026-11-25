@@ -69,9 +69,11 @@ interface Props {
   aoAbrir: (id: string) => void;
   aoNova?: () => void;
   totais?: Partial<Record<Filtro, number>>;
+  erro?: boolean;
+  aoTentar?: () => void;
 }
 
-export function ListaConversas({ conversas, carregando, filtro, aoFiltrar, busca, aoBuscar, ativa, aoAbrir, aoNova, totais }: Props) {
+export function ListaConversas({ conversas, carregando, filtro, aoFiltrar, busca, aoBuscar, ativa, aoAbrir, aoNova, totais, erro, aoTentar }: Props) {
   const agora = useAgora(20_000);
   const [texto, setTexto] = useState(busca);
   const campo = useRef<HTMLInputElement>(null);
@@ -130,6 +132,12 @@ export function ListaConversas({ conversas, carregando, filtro, aoFiltrar, busca
               <div className="flex-1 space-y-2"><Skeleton className="h-4 w-2/3" /><Skeleton className="h-3 w-full" /></div>
             </div>
           ))
+        ) : erro && !conversas.length ? (
+          <div className="flex flex-col items-center px-6 py-14 text-center">
+            <p className="font-semibold">Não foi possível carregar as conversas</p>
+            <p className="mt-1 text-sm text-muted-foreground">Confira a internet e tente de novo.</p>
+            {aoTentar && <button type="button" onClick={aoTentar} className="mt-3 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground">Tentar de novo</button>}
+          </div>
         ) : conversas.length === 0 ? (
           <div className="flex flex-col items-center px-6 py-14 text-center">
             <span className="mb-3 rounded-full bg-primary/10 p-3"><Inbox className="h-6 w-6 text-primary" /></span>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
-  FileText, Loader2, Mic, Paperclip, SendHorizontal, Smile, Sparkles, StickyNote, Trash2, X, Zap,
+  FileText, Mic, Paperclip, SendHorizontal, Smile, Sparkles, StickyNote, Trash2, X, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -260,7 +260,7 @@ export function Composer({ conversaId, podeResponder, bloqueio, respondeA, limpa
           {podeEnviar || nota ? (
             <Button size="icon" className={cn('h-11 w-11 shrink-0 rounded-full shadow-md transition active:scale-95', nota && 'bg-amber-500 hover:bg-amber-600')}
               onClick={mandar} disabled={!podeEnviar} aria-label={nota ? 'Salvar nota' : 'Enviar'}>
-              {enviar.isPending && arquivo ? <Loader2 className="h-5 w-5 animate-spin" /> : <SendHorizontal className="h-5 w-5" />}
+              <SendHorizontal className="h-5 w-5" />
             </Button>
           ) : (
             <Button size="icon" className="h-11 w-11 shrink-0 rounded-full shadow-md transition active:scale-95" onClick={gravarOuParar} aria-label="Gravar áudio">

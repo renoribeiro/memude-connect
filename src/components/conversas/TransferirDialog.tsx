@@ -35,15 +35,20 @@ export function TransferirDialog({ aberto, aoFechar, conversaId, donoAtual }: {
     return lista.filter((d) => d.id !== donoAtual && (!t || d.nome.toLowerCase().includes(t)));
   }, [equipe, corretores, busca, donoAtual]);
 
+  // Só vale a escolha que está visível na lista agora (busca e dono atual mudam a lista)
+  const sel = destinos.find((d) => chave(d) === chave(escolhido)) ?? null;
+  const fechar = () => { setEscolhido(null); setMotivo(''); setBusca(''); aoFechar(); };
+
   const confirmar = () => {
+    const escolhido = sel;
     if (!escolhido) return;
     transferir.mutate({ id: conversaId, para: escolhido.id, papel: escolhido.papel, motivo: motivo.trim() || undefined, nome: escolhido.id ? escolhido.nome : undefined }, {
-      onSuccess: () => { setEscolhido(null); setMotivo(''); setBusca(''); aoFechar(); },
+      onSuccess: fechar,
     });
   };
 
   return (
-    <Dialog open={aberto} onOpenChange={(v) => !v && aoFechar()}>
+    <Dialog open={aberto} onOpenChange={(v) => !v && fechar()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Transferir conversa</DialogTitle>
@@ -69,10 +74,10 @@ export function TransferirDialog({ aberto, aoFechar, conversaId, donoAtual }: {
           ))}
           {!isLoading && destinos.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Ninguém encontrado.</p>}
         </div>
-        <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo (opcional) — fica no histórico" rows={2} maxLength={200} />
+        <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo (opcional) — fica no histórico" rows={2} maxLength={200} className="text-base sm:text-sm" />
         <DialogFooter>
-          <Button variant="ghost" onClick={aoFechar}>Cancelar</Button>
-          <Button onClick={confirmar} disabled={!escolhido || transferir.isPending}>
+          <Button variant="ghost" onClick={fechar}>Cancelar</Button>
+          <Button onClick={confirmar} disabled={!sel || transferir.isPending}>
             {transferir.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Transferir
           </Button>
         </DialogFooter>

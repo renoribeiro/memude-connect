@@ -120,10 +120,12 @@ export function useMensagens(conversaId: string | null, limite = 120) {
   return consulta;
 }
 
-export function useConversa(conversaId: string | null) {
+export function useConversa(conversaId: string | null, conferirCada?: number) {
   return useQuery({
     queryKey: ['conversas', 'uma', conversaId],
     enabled: !!conversaId,
+    // Quem perde a conversa (transferida) não recebe o evento em tempo real (RLS): confere de tempos em tempos
+    refetchInterval: conferirCada,
     queryFn: async () => {
       const { data, error } = await supabase.from('conversas')
         .select('*, conv_numeros(nome, status), leads(id, nome, status_atendimento, qualificacao, empreendimento_id, fonte, observacoes, empreendimentos(nome))')
@@ -180,6 +182,8 @@ export function useEnviarMensagem() {
           ? { ...m, status: 'erro', erro: mensagemErro(e) } : m)));
       }
       toast.error(mensagemErro(e));
+      // Sem permissão (ex.: conversa transferida): atualiza quem é o dono para a tela reagir
+      qc.invalidateQueries({ queryKey: ['conversas', 'uma', p.conversaId] });
     },
     onSettled: (_d, _e, p) => {
       qc.invalidateQueries({ queryKey: ['conversas', 'lista'] });
@@ -204,7 +208,7 @@ export function useMarcarLida() {
   const qc = useQueryClient();
   const ultima = useRef<string | null>(null);
   return useCallback((conversaId: string, ultimaMensagemId: string, noWhatsApp: boolean) => {
-    const chave = `${conversaId}:${ultimaMensagemId}`;
+    const chave = `${conversaId}:${ultimaMensagemId}:${noWhatsApp}`;
     if (ultima.current === chave) return;
     ultima.current = chave;
     supabase.rpc('conversa_marcar_lida', { p_conversa: conversaId }).then(() => qc.invalidateQueries({ queryKey: ['conversas', 'lista'] }));

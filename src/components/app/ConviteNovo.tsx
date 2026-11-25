@@ -47,10 +47,15 @@ export function ConviteNovo({ convites, aoAceitar, abrirId, aoFecharAberto }: {
       tocarAviso(true);
       // Fecha menus/gavetas abertos (Radix/Vaul bloqueiam toques fora deles) e leva o foco para "Aceitar"
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      // Foco no aviso (não no botão): uma tecla Enter/Espaço que a pessoa já vinha digitando não aceita sem querer
-      setTimeout(() => tela.current?.focus(), 150);
     }
   }, [c]);
+  // Foco no aviso (não no botão): uma tecla Enter/Espaço que a pessoa já vinha digitando não aceita sem querer.
+  // Vale também quando o convite é reaberto pela tela Hoje.
+  useEffect(() => {
+    if (!c?.convite_id) return;
+    const t = setTimeout(() => tela.current?.focus(), 150);
+    return () => clearTimeout(t);
+  }, [c?.convite_id]);
   useEffect(() => { setRecusando(false); setMotivo(''); }, [c?.convite_id]);
 
   const responder = useMutation({

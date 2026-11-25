@@ -24,7 +24,7 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
   const [recusando, setRecusando] = useState(false);
   const [motivo, setMotivo] = useState('');
   const avisados = useRef(new Set<string>());
-  const botaoAceitar = useRef<HTMLButtonElement>(null);
+  const tela = useRef<HTMLDivElement>(null);
   const validos = useMemo(() => convites.filter((c) => new Date(c.prazo_em).getTime() > agora), [convites, agora]);
   const c = validos[0];
 
@@ -34,7 +34,8 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
       tocarAviso(true);
       // Fecha menus/gavetas abertos (Radix/Vaul bloqueiam toques fora deles) e leva o foco para "Aceitar"
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      setTimeout(() => botaoAceitar.current?.focus(), 150);
+      // Foco no aviso (não no botão): uma tecla Enter/Espaço que a pessoa já vinha digitando não aceita sem querer
+      setTimeout(() => tela.current?.focus(), 150);
     }
   }, [c]);
   useEffect(() => { setRecusando(false); setMotivo(''); }, [c?.convite_id]);
@@ -77,8 +78,8 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
   const C = 2 * Math.PI * R;
 
   return (
-    <div role="alertdialog" aria-modal="true" aria-labelledby="convite-titulo"
-      className="pointer-events-auto fixed inset-0 z-[60] flex flex-col bg-gradient-to-b from-[hsl(252_51%_30%)] via-[hsl(252_51%_38%)] to-[hsl(300_45%_35%)] text-white animate-in fade-in duration-300">
+    <div ref={tela} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="convite-titulo"
+      className="pointer-events-auto fixed inset-0 z-[60] outline-none flex flex-col bg-gradient-to-b from-[hsl(252_51%_30%)] via-[hsl(252_51%_38%)] to-[hsl(300_45%_35%)] text-white animate-in fade-in duration-300">
       <div className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))]">
         <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
           {validos.length > 1 ? `${validos.length} clientes esperando` : 'Novo cliente para você'}
@@ -124,7 +125,7 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
           </div>
         ) : (
           <>
-            <Button ref={botaoAceitar} size="lg" disabled={responder.isPending} onClick={() => responder.mutate(true)}
+            <Button size="lg" disabled={responder.isPending} onClick={() => responder.mutate(true)}
               className="h-16 w-full rounded-2xl bg-white text-lg font-bold text-primary shadow-2xl hover:bg-white/90 active:scale-[0.98]">
               {responder.isPending ? <Loader2 className="h-6 w-6 animate-spin" /> : 'Aceitar cliente'}
             </Button>

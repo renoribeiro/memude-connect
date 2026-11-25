@@ -149,6 +149,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       if (session?.user) {
         setSession(session);
         setUser(session.user);
+        ultimoUsuario.current = session.user.id;
         fetchProfile(session.user.id).then(userProfile => {
           if (!active) return;
           setProfile(userProfile);

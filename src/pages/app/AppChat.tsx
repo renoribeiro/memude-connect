@@ -18,7 +18,7 @@ export default function AppChat() {
   const [painel, setPainel] = useState<'ficha' | 'imoveis' | null>(null);
 
   // Conversa que não é (mais) do corretor some da lista: volta para o início
-  if (!id || isError || (!isLoading && conv === null)) return <Navigate to="/app" replace />;
+  if (!id || (isError && !conv) || (!isLoading && conv === null)) return <Navigate to="/app" replace />;
   const lead = conv?.leads as unknown as { nome?: string } | null;
   const numero = conv?.conv_numeros as unknown as { nome?: string; status?: string } | null;
   const nome = lead?.nome || conv?.nome_contato || telefoneLegivel(conv?.telefone);

@@ -77,7 +77,7 @@ export default function AppConversas({ conversas, carregando, erro, tentar }: {
               <div className="flex-1 space-y-2"><Skeleton className="h-4 w-2/3" /><Skeleton className="h-3 w-full" /></div>
             </div>
           ))
-        ) : erro && filtro !== 'arquivadas' ? (
+        ) : erro && !conversas.length && filtro !== 'arquivadas' ? (
           <div className="flex flex-col items-center px-8 py-16 text-center">
             <span className="mb-3 rounded-full bg-rose-50 p-4 dark:bg-rose-950"><WifiOff className="h-7 w-7 text-rose-600" /></span>
             <p className="text-lg font-semibold">Não foi possível carregar</p>

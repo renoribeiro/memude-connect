@@ -54,7 +54,7 @@ export default function AppCorretor() {
             <Route index element={<AppConversas conversas={conversas} carregando={carregando} erro={erro} tentar={() => refetch()} />} />
             <Route path="c/:id" element={<AppChat />} />
             <Route path="hoje" element={<AppHoje />} />
-            <Route path="funil" element={<AppFunil conversas={conversas} carregando={carregando} />} />
+            <Route path="funil" element={<AppFunil conversas={conversas} carregando={carregando} erro={erro} tentar={() => refetch()} />} />
             <Route path="imoveis" element={<AppImoveis />} />
             <Route path="eu" element={<AppEu />} />
             <Route path="*" element={<AppConversas conversas={conversas} carregando={carregando} erro={erro} tentar={() => refetch()} />} />

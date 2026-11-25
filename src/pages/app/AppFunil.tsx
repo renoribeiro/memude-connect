@@ -10,7 +10,9 @@ import { nomeDaConversa, quandoNaLista } from '@/lib/conversas/formato';
 import { ETAPAS, type ConversaItem } from '@/lib/conversas/tipos';
 
 /** Mini-kanban do corretor: deslize entre as etapas; toque no cartão para abrir a conversa. */
-export default function AppFunil({ conversas, carregando }: { conversas: ConversaItem[]; carregando?: boolean }) {
+export default function AppFunil({ conversas, carregando, erro, tentar }: {
+  conversas: ConversaItem[]; carregando?: boolean; erro?: boolean; tentar?: () => void;
+}) {
   const navigate = useNavigate();
   const mover = useMoverEtapa();
   const agora = useAgora(30_000);
@@ -19,6 +21,12 @@ export default function AppFunil({ conversas, carregando }: { conversas: Convers
   return (
     <>
       <Topo titulo="Funil" subtitulo={`${conversas.length} ${conversas.length === 1 ? 'cliente' : 'clientes'} · deslize para o lado`} />
+      {erro && !conversas.length && (
+        <div className="mx-3 mt-3 flex items-center gap-3 rounded-2xl bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950 dark:text-rose-200">
+          <span className="flex-1">Não foi possível carregar seus clientes.</span>
+          <button type="button" onClick={tentar} className="rounded-full bg-rose-600 px-3 py-1.5 font-medium text-white">Tentar de novo</button>
+        </div>
+      )}
       <div className="flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain p-3 [scrollbar-width:none]">
         {colunas.map((e) => {
           const itens = conversas.filter((c) => c.etapa === e.valor || (e.valor === 'em_atendimento' && c.etapa === 'novo'));

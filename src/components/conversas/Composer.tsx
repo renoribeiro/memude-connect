@@ -55,6 +55,15 @@ export function Composer({ conversaId, podeResponder, bloqueio, respondeA, limpa
     return () => URL.revokeObjectURL(u);
   }, [arquivo]);
   useEffect(() => { if (grav.erro) toast.error(grav.erro); }, [grav.erro]);
+  // Chegou ao limite de 5 min: o áudio sai sozinho (não perde o que foi gravado)
+  const { noLimite, limparNoLimite } = grav;
+  useEffect(() => {
+    if (!noLimite) return;
+    limparNoLimite();
+    enviar.mutate({ conversaId, arquivo: noLimite, duracaoS: (noLimite as File & { duracao?: number }).duracao });
+    toast.info('Áudio de 5 minutos enviado. Para falar mais, grave outro.');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dispara só quando chega um áudio novo
+  }, [noLimite]);
 
   // Altura automática até 6 linhas
   useEffect(() => {

@@ -7,6 +7,9 @@ export function useGravador(limiteSeg = 300) {
   const [gravando, setGravando] = useState(false);
   const [segundos, setSegundos] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
+  /** Áudio que parou sozinho no limite de tempo (quem usa o gravador envia). */
+  const [noLimite, setNoLimite] = useState<File | null>(null);
+  const iniciando = useRef(false);
   const rec = useRef<MediaRecorder | null>(null);
   const partes = useRef<Blob[]>([]);
   const stream = useRef<MediaStream | null>(null);
@@ -33,7 +36,7 @@ export function useGravador(limiteSeg = 300) {
     if (r.state !== 'inactive') r.stop(); else resolve(null);
   }), []);
 
-  const iniciar = useCallback(async () => {
+  const comecar = useCallback(async () => {
     setErro(null);
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       setErro('Este navegador não grava áudio. Use o Chrome ou o app instalado.');
@@ -68,10 +71,23 @@ export function useGravador(limiteSeg = 300) {
     relogio.current = setInterval(() => {
       const s = Math.floor((Date.now() - inicio.current) / 1000);
       setSegundos(s);
-      if (s >= limiteSeg) r.stop();
+      if (s >= limiteSeg && r.state !== 'inactive') {
+        finalizar.current = (f) => setNoLimite(f);
+        r.stop();
+      }
     }, 250);
     return true;
   }, [limiteSeg, limpar]);
 
-  return { gravando, segundos, erro, iniciar, parar };
+  const iniciar = useCallback(async () => {
+    if (iniciando.current || rec.current) return false; // toque duplo no microfone
+    iniciando.current = true;
+    try {
+      return await comecar();
+    } finally {
+      iniciando.current = false;
+    }
+  }, [comecar]);
+
+  return { gravando, segundos, erro, iniciar, parar, noLimite, limparNoLimite: () => setNoLimite(null) };
 }

@@ -42,7 +42,19 @@ export async function ativarPush(): Promise<void> {
   if (error) throw error;
 }
 
+/** Garante que a inscrição deste aparelho pertence a quem está logado agora (troca de usuário no mesmo celular). */
+export async function revincularPush(): Promise<void> {
+  const reg = await navigator.serviceWorker.getRegistration('/');
+  const sub = await reg?.pushManager.getSubscription();
+  if (!sub || Notification.permission !== 'granted') return;
+  const j = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
+  await supabase.rpc('push_inscrever', {
+    p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_user_agent: navigator.userAgent.slice(0, 300),
+  });
+}
+
 export async function desativarPush(): Promise<void> {
+  if (!('serviceWorker' in navigator)) return;
   const reg = await navigator.serviceWorker.getRegistration('/');
   const sub = await reg?.pushManager.getSubscription();
   if (!sub) return;

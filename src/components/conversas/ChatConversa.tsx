@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { mesmoDia, separadorDia, telefoneLegivel } from '@/lib/conversas/formato';
 import type { MensagemLocal } from '@/lib/conversas/tipos';
-import { useMarcarLida, useMensagens, useReenviar, useSugestoes } from '@/hooks/conversas/dados';
+import { useQueryClient } from '@tanstack/react-query';
+import { cc, useEnviarMensagem, useMarcarLida, useMensagens, useReenviar, useSugestoes } from '@/hooks/conversas/dados';
 import { Bolha } from './Bolha';
 import { Composer } from './Composer';
 import { AvatarContato, EtapaBadge } from './pecas';
@@ -34,6 +35,8 @@ export function ChatConversa({
   const { data: msgs = [], isLoading, isFetching } = useMensagens(conversaId, limite);
   const { data: sugestoes = [] } = useSugestoes(conversaId);
   const reenviar = useReenviar();
+  const enviar = useEnviarMensagem();
+  const qc = useQueryClient();
   const marcarLida = useMarcarLida();
   const [respondeA, setRespondeA] = useState<MensagemLocal | null>(null);
   const [novasAbaixo, setNovasAbaixo] = useState(0);
@@ -47,11 +50,17 @@ export function ChatConversa({
   const porId = useMemo(() => new Map(msgs.map((m) => [m.id, m])), [msgs]);
   const ultimaEntrada = useMemo(() => [...msgs].reverse().find((m) => m.direcao === 'entrada')?.id, [msgs]);
 
-  // Marca como lida ao abrir e quando chega mensagem nova com a conversa na tela
+  // Marca como lida ao abrir, quando chega mensagem nova com a conversa na tela e ao voltar para a aba
   useEffect(() => {
-    if (!ultimaEntrada || document.visibilityState !== 'visible') return;
-    marcarLida(conversaId, ultimaEntrada, podeResponder);
+    if (!ultimaEntrada) return;
+    const marcar = () => { if (document.visibilityState === 'visible') marcarLida(conversaId, ultimaEntrada, podeResponder); };
+    marcar();
+    document.addEventListener('visibilitychange', marcar);
+    return () => document.removeEventListener('visibilitychange', marcar);
   }, [conversaId, ultimaEntrada, podeResponder, marcarLida]);
+
+  // "Carregar anteriores" que não trouxe nada novo não pode deixar a âncora de rolagem armada
+  useEffect(() => { if (!isFetching) alturaAntes.current = null; }, [isFetching]);
 
   // Rolagem: fica no fim enquanto a pessoa estiver lá; senão mostra "novas mensagens"
   useLayoutEffect(() => {
@@ -83,7 +92,16 @@ export function ChatConversa({
     setLimite((l) => l + 120);
   };
 
-  const sugestaoResposta = sugestoes.find((s) => s.tipo === 'resposta') ?? null;
+  // Resposta sugerida só faz sentido enquanto o cliente espera (última mensagem é dele)
+  const ultimaConversa = useMemo(() => [...msgs].reverse().find((m) => m.direcao !== 'nota'), [msgs]);
+  const sugestaoResposta = ultimaConversa?.direcao === 'entrada' ? sugestoes.find((s) => s.tipo === 'resposta') ?? null : null;
+  const tentarDeNovo = (m: MensagemLocal) => {
+    if (!m.local) { reenviar.mutate(m.id); return; }
+    // Falhou antes de chegar ao servidor: tira a bolha e manda de novo
+    qc.setQueryData<MensagemLocal[]>(cc.msgs(conversaId), (a) => (a ?? []).filter((x) => x.id !== m.id));
+    if (m.previaUrl) URL.revokeObjectURL(m.previaUrl);
+    enviar.mutate({ conversaId, texto: m.texto ?? undefined, arquivo: m.arquivo, duracaoS: m.duracao_s ?? undefined });
+  };
   const desconectado = numeroStatus && numeroStatus !== 'aberto';
   const variosAutores = useMemo(() => new Set(msgs.filter((m) => m.direcao === 'saida').map((m) => m.autor_id ?? m.origem)).size > 1, [msgs]);
 
@@ -153,7 +171,7 @@ export function ChatConversa({
                   <div className={cn(mudouAutor && i > 0 && 'mt-2')}>
                     <Bolha m={m} citada={m.responde_a ? porId.get(m.responde_a) : null}
                       mostrarAutor={variosAutores && mudouAutor} aoResponder={podeResponder ? setRespondeA : undefined}
-                      aoReenviar={(x) => reenviar.mutate(x.id)} reenviando={reenviar.isPending && reenviar.variables === m.id} />
+                      aoReenviar={tentarDeNovo} reenviando={reenviar.isPending && reenviar.variables === m.id} />
                   </div>
                 </Fragment>
               );

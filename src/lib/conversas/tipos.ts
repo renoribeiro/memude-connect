@@ -56,4 +56,4 @@ export const TIPO_ALERTA: Record<string, { rotulo: string; tom: 'perigo' | 'avis
 };
 
 /** Mensagem que ainda não voltou do servidor (envio otimista). */
-export interface MensagemLocal extends Mensagem { local?: true; previaUrl?: string }
+export interface MensagemLocal extends Mensagem { local?: true; previaUrl?: string; arquivo?: File }

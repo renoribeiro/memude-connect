@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode, useMe
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { desativarPush } from '@/lib/conversas/push';
 
 interface Profile {
   id: string;
@@ -239,6 +240,8 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
   }, [toast]);
 
   const signOut = useCallback(async () => {
+    // Aparelho para de receber avisos da pessoa que saiu (lead e prévia de mensagem são dados sensíveis)
+    await Promise.race([desativarPush().catch(() => undefined), new Promise((r) => setTimeout(r, 2500))]);
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);

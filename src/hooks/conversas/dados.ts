@@ -98,7 +98,11 @@ export function useMensagens(conversaId: string | null, limite = 120) {
       const { data, error } = await supabase.from('mensagens').select('*').eq('conversa_id', conversaId!)
         .order('criado_em', { ascending: false }).limit(limite);
       if (error) throw error;
-      return (data ?? []).reverse();
+      const servidor = (data ?? []).reverse() as MensagemLocal[];
+      // Mantém as bolhas otimistas que o servidor ainda não confirmou (enviando ou com erro antes de gravar)
+      const locais = (qc.getQueryData<MensagemLocal[]>(cc.msgs(conversaId!)) ?? []).filter((m) => m.local && !servidor.some((s) =>
+        s.origem === 'app' && s.autor_id === m.autor_id && s.tipo === m.tipo && (s.texto ?? '') === (m.texto ?? '')));
+      return [...servidor, ...locais];
     },
   });
   const { refetch } = consulta;
@@ -155,8 +159,9 @@ export function useEnviarMensagem() {
         duracao_s: p.duracaoS ?? null, responde_a: p.respondeA?.id ?? null,
       });
     },
-    onMutate: (p) => {
-      if (p.nota) return;
+    onMutate: async (p) => {
+      if (p.nota) return undefined;
+      await qc.cancelQueries({ queryKey: cc.msgs(p.conversaId) });
       const local: MensagemLocal = {
         id: `local-${crypto.randomUUID()}`, conversa_id: p.conversaId, wa_id: null, direcao: 'saida',
         tipo: p.arquivo ? tipoDoArquivo(p.arquivo.type) : 'texto', texto: p.texto?.trim() || null,
@@ -164,7 +169,7 @@ export function useEnviarMensagem() {
         duracao_s: p.duracaoS ?? null, transcricao: null, autor_id: user?.id ?? null,
         autor_nome: [profile?.first_name, profile?.last_name].filter(Boolean).join(' '), origem: 'app', status: 'pendente',
         erro: null, responde_a: p.respondeA?.id ?? null, criado_em: new Date().toISOString(), local: true,
-        previaUrl: p.arquivo ? URL.createObjectURL(p.arquivo) : undefined,
+        previaUrl: p.arquivo ? URL.createObjectURL(p.arquivo) : undefined, arquivo: p.arquivo,
       };
       qc.setQueryData<MensagemLocal[]>(cc.msgs(p.conversaId), (a) => [...(a ?? []), local]);
       return { localId: local.id };

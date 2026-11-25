@@ -190,7 +190,7 @@ export const Bolha = memo(function Bolha({ m, citada, mostrarAutor, aoResponder,
         {m.status === 'erro' && (
           <div className="mt-1 flex items-center gap-2 border-t border-white/20 pt-1 text-xs">
             <span className="flex-1">{m.erro ?? 'Não enviada'}</span>
-            {aoReenviar && !m.local && (
+            {aoReenviar && (m.status === 'erro') && (
               <Button size="sm" variant="secondary" className="h-7 px-2 text-xs" disabled={reenviando} onClick={() => aoReenviar(m)}>
                 {reenviando ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />} Tentar de novo
               </Button>

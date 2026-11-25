@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Topo } from '@/components/app/Topo';
 import { ItemConversa } from '@/components/conversas/ListaConversas';
 import { useAgora } from '@/hooks/conversas/useAgora';
+import { useListaConversas } from '@/hooks/conversas/dados';
 import { usePush } from '@/hooks/conversas/usePush';
 import { nomeDaConversa } from '@/lib/conversas/formato';
 import type { ConversaItem } from '@/lib/conversas/tipos';
@@ -15,6 +16,7 @@ const FILTROS = [
   { v: 'todas', r: 'Todas' },
   { v: 'aguardando', r: 'Aguardando' },
   { v: 'nao_lidas', r: 'Não lidas' },
+  { v: 'arquivadas', r: 'Arquivadas' },
 ] as const;
 
 export default function AppConversas({ conversas }: { conversas: ConversaItem[] }) {
@@ -23,13 +25,15 @@ export default function AppConversas({ conversas }: { conversas: ConversaItem[] 
   const push = usePush();
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]['v']>('todas');
   const [busca, setBusca] = useState('');
+  const { data: arquivadas = [] } = useListaConversas('arquivadas', '', filtro === 'arquivadas');
 
   const lista = useMemo(() => {
     const t = busca.trim().toLowerCase();
     const d = t.replace(/\D/g, '');
-    return conversas.filter((c) => (filtro === 'aguardando' ? !!c.aguardando_desde : filtro === 'nao_lidas' ? c.nao_lidas > 0 : true)
+    const base = filtro === 'arquivadas' ? arquivadas : conversas;
+    return base.filter((c) => (filtro === 'aguardando' ? !!c.aguardando_desde : filtro === 'nao_lidas' ? c.nao_lidas > 0 : true)
       && (!t || nomeDaConversa(c).toLowerCase().includes(t) || (d.length >= 3 && c.telefone.includes(d))));
-  }, [conversas, filtro, busca]);
+  }, [conversas, arquivadas, filtro, busca]);
   const aguardando = conversas.filter((c) => c.aguardando_desde).length;
 
   return (
@@ -53,10 +57,10 @@ export default function AppConversas({ conversas }: { conversas: ConversaItem[] 
             className="h-11 rounded-full border-0 bg-muted pl-10 text-base" inputMode="search" />
           {busca && <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 p-1" onClick={() => setBusca('')} aria-label="Limpar"><X className="h-4 w-4" /></button>}
         </div>
-        <div className="flex gap-2" role="tablist" aria-label="Filtro">
+        <div className="-mx-3 flex gap-2 overflow-x-auto px-3 [scrollbar-width:none]" role="tablist" aria-label="Filtro">
           {FILTROS.map((f) => (
             <button key={f.v} type="button" role="tab" aria-selected={filtro === f.v} onClick={() => setFiltro(f.v)}
-              className={cn('rounded-full px-3.5 py-1.5 text-sm font-medium transition', filtro === f.v ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+              className={cn('shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition', filtro === f.v ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
               {f.r}{f.v === 'aguardando' && aguardando ? ` · ${aguardando}` : ''}
             </button>
           ))}
@@ -66,9 +70,9 @@ export default function AppConversas({ conversas }: { conversas: ConversaItem[] 
         {lista.length === 0 ? (
           <div className="flex flex-col items-center px-8 py-16 text-center">
             <span className="mb-3 rounded-full bg-primary/10 p-4"><Inbox className="h-7 w-7 text-primary" /></span>
-            <p className="text-lg font-semibold">{busca ? 'Ninguém encontrado' : filtro === 'todas' ? 'Nenhum cliente ainda' : 'Tudo respondido 👏'}</p>
+            <p className="text-lg font-semibold">{busca ? 'Ninguém encontrado' : filtro === 'arquivadas' ? 'Nada arquivado' : filtro === 'todas' ? 'Nenhum cliente ainda' : 'Tudo respondido 👏'}</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {filtro === 'todas' && !busca ? 'Quando você aceitar um cliente novo, a conversa dele aparece aqui.' : 'Volte para "Todas" para ver seus clientes.'}
+              {filtro === 'arquivadas' && !busca ? 'Conversas arquivadas voltam sozinhas quando o cliente escreve.' : filtro === 'todas' && !busca ? 'Quando você aceitar um cliente novo, a conversa dele aparece aqui.' : 'Volte para "Todas" para ver seus clientes.'}
             </p>
           </div>
         ) : lista.map((c) => <ItemConversa key={c.id} c={c} ativa={false} agora={agora} aoAbrir={(id) => navigate(`/app/c/${id}`)} />)}

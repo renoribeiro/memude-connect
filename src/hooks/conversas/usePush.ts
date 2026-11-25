@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ativarPush, desativarPush, estadoPush, registrarServiceWorker, tocarAviso, type EstadoPush } from '@/lib/conversas/push';
+import { ativarPush, desativarPush, estadoPush, registrarServiceWorker, revincularPush, tocarAviso, type EstadoPush } from '@/lib/conversas/push';
 import { mensagemErro } from '@/lib/conversas/servidor';
 
 /** Estado das notificações deste aparelho + ações de ativar/desativar. */
 export function usePush() {
   const [estado, setEstado] = useState<EstadoPush>('carregando');
   const [ocupado, setOcupado] = useState(false);
-  const atualizar = useCallback(() => { estadoPush().then(setEstado).catch(() => setEstado('indisponivel')); }, []);
+  const atualizar = useCallback(() => {
+    estadoPush().then((e) => {
+      setEstado(e);
+      if (e === 'ativo') revincularPush().catch(() => undefined);
+    }).catch(() => setEstado('indisponivel'));
+  }, []);
   useEffect(() => { registrarServiceWorker().then(atualizar); }, [atualizar]);
 
   const ativar = async () => {

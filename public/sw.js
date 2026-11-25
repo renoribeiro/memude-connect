@@ -9,20 +9,28 @@ self.addEventListener('push', (e) => {
   const urgente = tag.startsWith('convite-');
   e.waitUntil((async () => {
     const janelas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    // App aberto e visível: avisa a tela (ela toca o som e mostra o aviso); a notificação aparece mesmo assim se for convite
-    const visivel = janelas.find((c) => c.visibilityState === 'visible');
+    const visivel = janelas.some((c) => c.visibilityState === 'visible');
+    // Com o app aberto, a própria tela toca o som e atualiza
     janelas.forEach((c) => c.postMessage({ tipo: 'push', ...d }));
-    if (visivel && !urgente) return;
+    // Todo push precisa mostrar uma notificação (o iPhone revoga a permissão se não mostrar).
+    // Com o app na tela e sem urgência, ela sai silenciosa e some sozinha.
+    const discreta = visivel && !urgente;
     await self.registration.showNotification(d.titulo || 'MeMude', {
       body: d.corpo || '',
       tag,
-      renotify: true,
+      renotify: !discreta,
+      silent: discreta,
       icon: '/icons/icon-192.png',
       badge: '/icons/badge-96.png',
       data: { url: d.url || '/' },
       requireInteraction: urgente,
-      vibrate: urgente ? [300, 120, 300, 120, 600] : [120, 60, 120],
+      vibrate: discreta ? undefined : urgente ? [300, 120, 300, 120, 600] : [120, 60, 120],
     });
+    if (discreta) {
+      await new Promise((r) => setTimeout(r, 4000));
+      const abertas = await self.registration.getNotifications({ tag });
+      abertas.forEach((n) => n.close());
+    }
   })());
 });
 
@@ -33,8 +41,15 @@ self.addEventListener('notificationclick', (e) => {
     const janelas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const minha = janelas.find((c) => new URL(c.url).origin === self.location.origin);
     if (minha) {
-      await minha.focus();
-      minha.postMessage({ tipo: 'navegar', url: destino });
+      // Leva a janela aberta direto para a tela certa (funciona em qualquer página do Connect)
+      try {
+        const nova = 'navigate' in minha ? await minha.navigate(destino) : null;
+        await (nova || minha).focus();
+        if (!nova) minha.postMessage({ tipo: 'navegar', url: destino });
+      } catch {
+        await minha.focus().catch(() => undefined);
+        minha.postMessage({ tipo: 'navegar', url: destino });
+      }
       return;
     }
     await self.clients.openWindow(destino);

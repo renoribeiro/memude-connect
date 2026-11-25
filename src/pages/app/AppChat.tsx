@@ -26,7 +26,7 @@ export default function AppChat() {
 
   return (
     <>
-      <ChatConversa conversaId={id} nome={conv ? nome : '…'} telefone={conv?.telefone ?? ''} etapa={conv?.etapa ?? 'novo'}
+      <ChatConversa key={id} conversaId={id} nome={conv ? nome : '…'} telefone={conv?.telefone ?? ''} etapa={conv?.etapa ?? 'novo'}
         numeroNome={numero?.nome} numeroStatus={numero?.status} podeResponder={!conv || conv.dono_id === user?.id}
         compacto aoVoltar={voltar} aoAbrirFicha={() => setPainel('ficha')}
         acoes={(

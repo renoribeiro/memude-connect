@@ -189,8 +189,7 @@ export function ChatConversa({
       </div>
 
       <Composer conversaId={conversaId} podeResponder={podeResponder} respondeA={respondeA} limparResposta={() => setRespondeA(null)}
-        sugestao={sugestaoResposta} compacto={compacto}
-        bloqueio={desconectado ? 'Número desconectado: a mensagem vai falhar até o número ser reconectado.' : null} />
+        sugestao={sugestaoResposta} compacto={compacto} />
     </div>
   );
 }

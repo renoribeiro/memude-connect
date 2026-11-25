@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Topo } from '@/components/app/Topo';
 import { supabase } from '@/integrations/supabase/client';
 import { cc, useIniciarConversa } from '@/hooks/conversas/dados';
+import { useConvites } from '@/hooks/conversas/useConvites';
 import { useAuth } from '@/hooks/useAuth';
 import { mensagemErro } from '@/lib/conversas/servidor';
 import { StatusVisitaBadge } from '@/components/comercial/ui';
@@ -72,6 +73,7 @@ export default function AppHoje() {
   });
 
   const iniciar = useIniciarConversa();
+  const { data: convites = [] } = useConvites(false); // mesmos dados do app (cache), sem outro canal
   const abrirOuIniciar = (leadId: string | null, conv: string | undefined) => {
     if (conv) { navigate(`/app/c/${conv}`); return; }
     if (!leadId) return;
@@ -140,10 +142,13 @@ export default function AppHoje() {
               {visitas.filter((v) => v.data_visita === d).map((v) => {
                 const conv = v.lead_id ? conversaDoLead[v.lead_id] : undefined;
                 // Convite ainda sem resposta: a conversa só abre depois de aceitar (tela Cliente novo)
-                const pendente = v.status === 'aguardando_corretor';
+                // Convite ainda sem resposta e sem conversa: abre o convite (mesmo com prazo esgotado) em vez da conversa
+                const pendente = v.status === 'aguardando_corretor' && !conv;
+                const convite = pendente ? convites.find((x) => x.visita_id === v.id) : undefined;
                 return (
-                  <button key={v.id} type="button" disabled={pendente || !v.lead_id || iniciar.isPending} onClick={() => abrirOuIniciar(v.lead_id, conv)}
-                    aria-label={conv ? `Abrir conversa com ${(v.leads as { nome?: string } | null)?.nome ?? 'o cliente'}` : `Iniciar conversa com ${(v.leads as { nome?: string } | null)?.nome ?? 'o cliente'}`}
+                  <button key={v.id} type="button" disabled={(pendente && !convite) || !v.lead_id || iniciar.isPending}
+                    onClick={() => (pendente ? convite && navigate(`/app?convite=${convite.convite_id}`) : abrirOuIniciar(v.lead_id, conv))}
+                    aria-label={pendente ? `Responder convite de ${(v.leads as { nome?: string } | null)?.nome ?? 'cliente'}` : conv ? `Abrir conversa com ${(v.leads as { nome?: string } | null)?.nome ?? 'o cliente'}` : `Iniciar conversa com ${(v.leads as { nome?: string } | null)?.nome ?? 'o cliente'}`}
                     className="flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left transition enabled:active:scale-[0.99]">
                     <span className="flex w-14 shrink-0 flex-col items-center rounded-lg bg-primary/10 py-1.5 text-primary">
                       <Clock className="h-3.5 w-3.5" />
@@ -157,7 +162,7 @@ export default function AppHoje() {
                       </span>
                       <StatusVisitaBadge status={v.status} className="mt-1" />
                     </span>
-                    {pendente ? <span className="shrink-0 text-xs font-medium text-amber-600">Aceite pendente</span>
+                    {pendente ? <span className="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-300">{convite ? 'Responder convite' : 'Aceite pendente'}</span>
                       : conv ? <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
                       : iniciar.isPending && iniciar.variables?.lead === v.lead_id ? <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
                         : <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary"><MessageSquarePlus className="h-4 w-4" /> Conversar</span>}

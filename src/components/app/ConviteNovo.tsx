@@ -18,15 +18,28 @@ const dataLonga = (d: string, h: string) => {
 };
 
 /** Tela cheia "Cliente novo": aceitar ou recusar antes do prazo (estilo app de corrida). */
-export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAceitar: (conversaId: string | null) => void }) {
+export function ConviteNovo({ convites, aoAceitar, abrirId, aoFecharAberto }: {
+  convites: Convite[]; aoAceitar: (conversaId: string | null) => void;
+  /** Convite aberto de propósito (pela tela Hoje ou pela notificação), mesmo com o prazo esgotado. */
+  abrirId?: string | null; aoFecharAberto?: () => void;
+}) {
   const qc = useQueryClient();
   const agora = useAgora(1000);
   const [recusando, setRecusando] = useState(false);
   const [motivo, setMotivo] = useState('');
   const avisados = useRef(new Set<string>());
   const tela = useRef<HTMLDivElement>(null);
-  const validos = useMemo(() => convites.filter((c) => new Date(c.prazo_em).getTime() > agora), [convites, agora]);
-  const c = validos[0];
+  const [fixado, setFixado] = useState<string | null>(null);
+  const [dispensados, setDispensados] = useState<Set<string>>(() => new Set());
+  // No prazo aparecem sozinhos; depois do prazo só se a pessoa abrir (ou se já estava decidindo na tela)
+  const validos = useMemo(() => convites.filter((x) => !dispensados.has(x.convite_id) && (
+    new Date(x.prazo_em).getTime() > agora || x.convite_id === abrirId || x.convite_id === fixado)), [convites, agora, abrirId, fixado, dispensados]);
+  const c = validos.find((x) => x.convite_id === abrirId) ?? validos.find((x) => x.convite_id === fixado) ?? validos[0];
+  useEffect(() => { setFixado(c?.convite_id ?? null); }, [c?.convite_id]);
+  const fechar = () => {
+    if (c) setDispensados((d) => new Set(d).add(c.convite_id));
+    aoFecharAberto?.();
+  };
 
   useEffect(() => {
     if (c && !avisados.current.has(c.convite_id)) {
@@ -56,6 +69,7 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
     },
     onSuccess: ({ aceitar, conversaId, aviso }) => {
       qc.invalidateQueries({ queryKey: cc.raiz });
+      aoFecharAberto?.();
       if (aceitar) {
         navigator.vibrate?.(60);
         if (conversaId) toast.success('Cliente é seu! Já pode conversar.');
@@ -74,6 +88,7 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
   const pct = resta / total;
   const min = Math.floor(resta / 60_000);
   const seg = Math.floor((resta % 60_000) / 1000);
+  const esgotado = resta === 0;
   const R = 46;
   const C = 2 * Math.PI * R;
 
@@ -82,25 +97,37 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
       className="pointer-events-auto fixed inset-0 z-[60] outline-none flex flex-col bg-gradient-to-b from-[hsl(252_51%_30%)] via-[hsl(252_51%_38%)] to-[hsl(300_45%_35%)] text-white animate-in fade-in duration-300">
       <div className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))]">
         <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
-          {validos.length > 1 ? `${validos.length} clientes esperando` : 'Novo cliente para você'}
+          {esgotado ? 'Prazo esgotado' : validos.length > 1 ? `${validos.length} clientes esperando` : 'Novo cliente para você'}
         </span>
+        {esgotado && (
+          <button type="button" onClick={fechar} aria-label="Fechar convite"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25">
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-4 text-center">
         <div className="relative mb-4 h-24 w-24 shrink-0 [@media(min-height:700px)]:mb-6 [@media(min-height:700px)]:h-32 [@media(min-height:700px)]:w-32">
-          <span className="absolute inset-0 animate-ping rounded-full bg-white/10" aria-hidden />
+          {!esgotado && <span className="absolute inset-0 animate-ping rounded-full bg-white/10" aria-hidden />}
           <svg viewBox="0 0 100 100" className="relative h-full w-full -rotate-90" aria-hidden>
             <circle cx="50" cy="50" r={R} fill="none" stroke="rgb(255 255 255 / 0.15)" strokeWidth="6" />
             <circle cx="50" cy="50" r={R} fill="none" stroke={pct < 0.25 ? '#fb7185' : '#fff'} strokeWidth="6" strokeLinecap="round"
               strokeDasharray={C} strokeDashoffset={C * (1 - pct)} className="transition-[stroke-dashoffset] duration-1000 ease-linear" />
           </svg>
           <span className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl font-bold tabular-nums">{min}:{String(seg).padStart(2, '0')}</span>
-            <span className="text-[11px] uppercase tracking-wide opacity-80">para aceitar</span>
+            {esgotado ? (
+              <span className="px-2 text-xs font-semibold leading-tight">Ainda pode aceitar</span>
+            ) : (
+              <>
+                <span className="text-3xl font-bold tabular-nums">{min}:{String(seg).padStart(2, '0')}</span>
+                <span className="text-[11px] uppercase tracking-wide opacity-80">para aceitar</span>
+              </>
+            )}
           </span>
         </div>
         <h1 id="convite-titulo" className="line-clamp-2 break-words text-2xl font-bold leading-tight [@media(min-height:700px)]:text-3xl">{c.lead_nome}</h1>
-        <p className="mt-1 text-white/80">quer visitar um imóvel com você</p>
+        <p className="mt-1 text-white/80">{esgotado ? 'O prazo passou, mas a visita ainda está com você até a SDR escolher outro corretor.' : 'quer visitar um imóvel com você'}</p>
 
         <div className="mt-4 w-full max-w-sm space-y-2.5 [@media(min-height:700px)]:mt-6 rounded-2xl bg-white/10 p-4 text-left text-[15px] backdrop-blur">
           {c.empreendimento && <p className="flex items-center gap-3"><Building2 className="h-5 w-5 shrink-0 opacity-80" />{c.empreendimento}</p>}

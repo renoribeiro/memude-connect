@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { Building2, CalendarCheck, Kanban, Loader2, MessagesSquare, UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -38,8 +38,14 @@ export default function AppCorretor() {
 
   const naoLidas = conversas.reduce((s, c) => s + (c.nao_lidas > 0 ? 1 : 0), 0);
 
-  // Notificação de convite abre /app?convite=…: o convite já aparece em tela cheia; limpa a URL
-  useEffect(() => { if (search.includes('convite=')) navigate('/app', { replace: true }); }, [search, navigate]);
+  // /app?convite=… (notificação ou tela Hoje) abre aquele convite em tela cheia, mesmo com o prazo esgotado
+  const [conviteAberto, setConviteAberto] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(search).get('convite');
+    if (!id) return;
+    setConviteAberto(id);
+    navigate(pathname, { replace: true });
+  }, [search, pathname, navigate]);
   // Ícone do app com contador (Android/desktop que suportam)
   useEffect(() => {
     const nav = navigator as Navigator & { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
@@ -86,7 +92,7 @@ export default function AppCorretor() {
         </nav>
       )}
 
-      <ConviteNovo convites={convites} aoAceitar={(id) => navigate(id ? `/app/c/${id}` : '/app/hoje')} />
+      <ConviteNovo convites={convites} abrirId={conviteAberto} aoFecharAberto={() => setConviteAberto(null)} aoAceitar={(id) => navigate(id ? `/app/c/${id}` : '/app/hoje')} />
     </div>
   );
 }

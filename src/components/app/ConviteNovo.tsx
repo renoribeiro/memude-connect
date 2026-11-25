@@ -32,7 +32,7 @@ export function ConviteNovo({ convites, aoAceitar, abrirId, aoFecharAberto }: {
   const [fixado, setFixado] = useState<string | null>(null);
   const [dispensados, setDispensados] = useState<Set<string>>(() => new Set());
   // No prazo aparecem sozinhos; depois do prazo só se a pessoa abrir (ou se já estava decidindo na tela)
-  const validos = useMemo(() => convites.filter((x) => !dispensados.has(x.convite_id) && (
+  const validos = useMemo(() => convites.filter((x) => (!dispensados.has(x.convite_id) || x.convite_id === abrirId) && (
     new Date(x.prazo_em).getTime() > agora || x.convite_id === abrirId || x.convite_id === fixado)), [convites, agora, abrirId, fixado, dispensados]);
   const c = validos.find((x) => x.convite_id === abrirId) ?? validos.find((x) => x.convite_id === fixado) ?? validos[0];
   useEffect(() => { setFixado(c?.convite_id ?? null); }, [c?.convite_id]);

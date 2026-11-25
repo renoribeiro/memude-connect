@@ -41,10 +41,12 @@ export default function AppCorretor() {
   // /app?convite=… (notificação ou tela Hoje) abre aquele convite em tela cheia, mesmo com o prazo esgotado
   const [conviteAberto, setConviteAberto] = useState<string | null>(null);
   useEffect(() => {
-    const id = new URLSearchParams(search).get('convite');
+    const params = new URLSearchParams(search);
+    const id = params.get('convite');
     if (!id) return;
     setConviteAberto(id);
-    navigate(pathname, { replace: true });
+    params.delete('convite');
+    navigate({ pathname, search: params.toString() ? `?${params}` : '' }, { replace: true });
   }, [search, pathname, navigate]);
   // Ícone do app com contador (Android/desktop que suportam)
   useEffect(() => {

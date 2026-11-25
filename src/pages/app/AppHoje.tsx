@@ -143,11 +143,11 @@ export default function AppHoje() {
                 const conv = v.lead_id ? conversaDoLead[v.lead_id] : undefined;
                 // Convite ainda sem resposta: a conversa só abre depois de aceitar (tela Cliente novo)
                 // Convite ainda sem resposta e sem conversa: abre o convite (mesmo com prazo esgotado) em vez da conversa
-                const pendente = v.status === 'aguardando_corretor' && !conv;
-                const convite = pendente ? convites.find((x) => x.visita_id === v.id) : undefined;
+                const convite = v.status === 'aguardando_corretor' ? convites.find((x) => x.visita_id === v.id) : undefined;
+                const pendente = !!convite || (v.status === 'aguardando_corretor' && !conv);
                 return (
                   <button key={v.id} type="button" disabled={(pendente && !convite) || !v.lead_id || iniciar.isPending}
-                    onClick={() => (pendente ? convite && navigate(`/app?convite=${convite.convite_id}`) : abrirOuIniciar(v.lead_id, conv))}
+                    onClick={() => (pendente ? convite && navigate({ search: `?convite=${convite.convite_id}` }) : abrirOuIniciar(v.lead_id, conv))}
                     aria-label={pendente ? `Responder convite de ${(v.leads as { nome?: string } | null)?.nome ?? 'cliente'}` : conv ? `Abrir conversa com ${(v.leads as { nome?: string } | null)?.nome ?? 'o cliente'}` : `Iniciar conversa com ${(v.leads as { nome?: string } | null)?.nome ?? 'o cliente'}`}
                     className="flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left transition enabled:active:scale-[0.99]">
                     <span className="flex w-14 shrink-0 flex-col items-center rounded-lg bg-primary/10 py-1.5 text-primary">

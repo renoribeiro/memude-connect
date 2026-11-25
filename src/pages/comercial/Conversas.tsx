@@ -43,7 +43,7 @@ function BotaoPush() {
 }
 
 export default function ConversasPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const mobile = useIsMobile();
   const [params, setParams] = useSearchParams();
   const aba = (params.get('aba') as Aba) || 'caixa';
@@ -66,8 +66,13 @@ export default function ConversasPage() {
     lead_nome: (detalhe.leads as unknown as { nome?: string } | null)?.nome ?? null,
     numero_nome: (detalhe.conv_numeros as unknown as { nome?: string } | null)?.nome ?? null,
     numero_status: (detalhe.conv_numeros as unknown as { status?: string } | null)?.status ?? null,
+    dono_id: detalhe.dono_id,
   } : null);
-  const aguardando = conversas.filter((c) => c.aguardando_desde).length;
+  // Contador de quem espera resposta vale para todas as conversas, não só para o filtro aberto
+  const { data: esperando = [] } = useListaConversas('sem_resposta', '');
+  const aguardando = esperando.length;
+  // Só manda o "lido" (✓✓ azul) ao cliente quem atende a conversa (ou a fila da SDR), não quem só está olhando
+  const lerNoWhatsApp = !!atual && (atual.dono_id == null || atual.dono_id === user?.id);
 
   const mudar = useCallback((novos: Record<string, string | null>) => {
     setParams((p) => {
@@ -87,7 +92,12 @@ export default function ConversasPage() {
 
   // Esc fecha a conversa
   useEffect(() => {
-    const ouvir = (e: KeyboardEvent) => { if (e.key === 'Escape' && ativa && !(e.target as HTMLElement)?.closest('[role="dialog"]')) mudar({ c: null }); };
+    const ouvir = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || !ativa || e.defaultPrevented) return;
+      // Esc dentro de campo, lista, menu ou janela fecha só aquilo, não a conversa
+      if ((e.target as HTMLElement)?.closest('input, textarea, select, [role="dialog"], [role="listbox"], [role="menu"], [data-radix-popper-content-wrapper]')) return;
+      mudar({ c: null });
+    };
     window.addEventListener('keydown', ouvir);
     return () => window.removeEventListener('keydown', ouvir);
   }, [ativa, mudar]);
@@ -113,7 +123,7 @@ export default function ConversasPage() {
                 className={cn('flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-sm font-medium transition',
                   aba === a.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
                 <a.icone className="h-4 w-4" aria-hidden />
-                <span className={cn(a.id !== 'caixa' && 'hidden sm:inline')}>{a.rotulo}</span>
+                <span className={cn(a.id !== 'caixa' && 'sr-only sm:not-sr-only')}>{a.rotulo}</span>
                 {!!a.badge && (
                   <span className={cn('rounded-full px-1.5 text-[11px] font-bold tabular-nums', a.id === 'alertas' ? 'bg-rose-500 text-white' : 'bg-secondary text-secondary-foreground')}>
                     {a.badge}
@@ -140,7 +150,7 @@ export default function ConversasPage() {
                     <div className="min-w-0 flex-1">
                       <ChatConversa key={ativa} conversaId={ativa}
                         nome={atual ? nomeDaConversa(atual) : 'Conversa'} telefone={atual?.telefone ?? ''} etapa={atual?.etapa ?? 'novo'}
-                        numeroNome={atual?.numero_nome} numeroStatus={atual?.numero_status} podeResponder
+                        numeroNome={atual?.numero_nome} numeroStatus={atual?.numero_status} podeResponder lerNoWhatsApp={lerNoWhatsApp}
                         aoVoltar={mobile ? () => mudar({ c: null }) : undefined}
                         aoAbrirFicha={() => (mobile || window.innerWidth < 1280 ? setFichaMovel(true) : setFichaAberta((v) => !v))}
                         acoes={(

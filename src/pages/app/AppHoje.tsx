@@ -1,13 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlarmClock, CalendarDays, Check, ChevronRight, Clock, MapPin, MessageCircle, PartyPopper } from 'lucide-react';
+import { AlarmClock, CalendarDays, Check, ChevronRight, Clock, Loader2, MapPin, MessageCircle, MessageSquarePlus, PartyPopper } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Topo } from '@/components/app/Topo';
 import { supabase } from '@/integrations/supabase/client';
-import { cc } from '@/hooks/conversas/dados';
+import { cc, useIniciarConversa } from '@/hooks/conversas/dados';
 import { useAuth } from '@/hooks/useAuth';
 import { mensagemErro } from '@/lib/conversas/servidor';
 import { StatusVisitaBadge } from '@/components/comercial/ui';
@@ -62,6 +62,14 @@ export default function AppHoje() {
     },
   });
 
+  const iniciar = useIniciarConversa();
+  const abrirOuIniciar = (leadId: string | null, conv: string | undefined) => {
+    if (conv) { navigate(`/app/c/${conv}`); return; }
+    if (!leadId) return;
+    iniciar.mutate({ lead: leadId }, { onSuccess: (id) => navigate(`/app/c/${String(id)}`) });
+  };
+  const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+
   const concluir = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.rpc('minha_atividade_concluir', { p_tarefa: id });
@@ -77,11 +85,11 @@ export default function AppHoje() {
 
   return (
     <>
-      <Topo titulo={saudacao(profile?.first_name)} subtitulo={`${visitas.filter((v) => v.data_visita === hojeISO()).length} visita(s) hoje · ${atividades.length} atividade(s)`} />
+      <Topo titulo={saudacao(profile?.first_name)} subtitulo={`${plural(visitas.filter((v) => v.data_visita === hojeISO()).length, 'visita', 'visitas')} hoje · ${plural(atividades.length, 'atividade', 'atividades')}`} />
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-4">
         <section className="space-y-2">
           <h2 className="flex items-center gap-2 text-sm font-semibold"><AlarmClock className="h-4 w-4 text-primary" /> Atividades
-            {atrasadas > 0 && <span className="rounded-full bg-rose-100 px-2 text-xs text-rose-700 dark:bg-rose-950 dark:text-rose-300">{atrasadas} atrasada(s)</span>}
+            {atrasadas > 0 && <span className="rounded-full bg-rose-100 px-2 text-xs text-rose-700 dark:bg-rose-950 dark:text-rose-300">{plural(atrasadas, 'atrasada', 'atrasadas')}</span>}
           </h2>
           {carregandoAtiv ? <Skeleton className="h-16 w-full rounded-xl" /> : !atividades.length ? (
             <p className="flex items-center gap-2 rounded-xl bg-muted/60 p-4 text-sm text-muted-foreground"><PartyPopper className="h-4 w-4" /> Nada pendente. Bom trabalho!</p>
@@ -119,7 +127,8 @@ export default function AppHoje() {
               {visitas.filter((v) => v.data_visita === d).map((v) => {
                 const conv = v.lead_id ? conversaDoLead[v.lead_id] : undefined;
                 return (
-                  <button key={v.id} type="button" disabled={!conv} onClick={() => conv && navigate(`/app/c/${conv}`)}
+                  <button key={v.id} type="button" disabled={!v.lead_id || iniciar.isPending} onClick={() => abrirOuIniciar(v.lead_id, conv)}
+                    aria-label={conv ? `Abrir conversa com ${(v.leads as { nome?: string } | null)?.nome ?? 'o cliente'}` : `Iniciar conversa com ${(v.leads as { nome?: string } | null)?.nome ?? 'o cliente'}`}
                     className="flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left transition enabled:active:scale-[0.99]">
                     <span className="flex w-14 shrink-0 flex-col items-center rounded-lg bg-primary/10 py-1.5 text-primary">
                       <Clock className="h-3.5 w-3.5" />
@@ -133,7 +142,9 @@ export default function AppHoje() {
                       </span>
                       <StatusVisitaBadge status={v.status} className="mt-1" />
                     </span>
-                    {conv && <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />}
+                    {conv ? <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+                      : iniciar.isPending && iniciar.variables?.lead === v.lead_id ? <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
+                        : <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary"><MessageSquarePlus className="h-4 w-4" /> Conversar</span>}
                   </button>
                 );
               })}

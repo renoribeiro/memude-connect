@@ -9,6 +9,8 @@ import { useEquipe } from '@/hooks/comercial/dados';
 import { useCorretoresComApp, useTransferir } from '@/hooks/conversas/dados';
 import { AvatarContato } from './pecas';
 
+const chave = (d: Destino | null) => (d ? `${d.papel}-${d.id ?? 'fila'}` : '');
+
 interface Destino { id: string | null; nome: string; papel: 'sdr' | 'closer' | 'corretor'; detalhe: string; inativo?: boolean }
 
 export function TransferirDialog({ aberto, aoFechar, conversaId, donoAtual }: {
@@ -54,10 +56,10 @@ export function TransferirDialog({ aberto, aoFechar, conversaId, donoAtual }: {
         <div className="max-h-72 space-y-1 overflow-y-auto pr-1" role="radiogroup" aria-label="Para quem">
           {isLoading && <Loader2 className="mx-auto my-6 h-5 w-5 animate-spin text-muted-foreground" />}
           {destinos.map((d) => (
-            <button key={`${d.papel}-${d.id ?? 'fila'}`} type="button" role="radio" aria-checked={escolhido === d} disabled={d.inativo}
+            <button key={chave(d)} type="button" role="radio" aria-checked={chave(escolhido) === chave(d)} disabled={d.inativo}
               onClick={() => setEscolhido(d)}
               className={cn('flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition disabled:opacity-50',
-                escolhido === d ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-transparent hover:bg-muted')}>
+                chave(escolhido) === chave(d) ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-transparent hover:bg-muted')}>
               <AvatarContato nome={d.nome} tamanho="sm" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{d.nome}</span>

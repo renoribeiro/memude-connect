@@ -39,7 +39,7 @@ export function useTempoRealConversas(ativo = true) {
       }, 400);
     };
     const canal = supabase.channel(`conversas-geral-${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversas' }, () => { agendar('lista'); agendar('clientes'); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversas' }, () => { agendar('lista'); agendar('clientes'); agendar('uma'); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ia_sugestoes' }, () => agendar('sugestoes'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conv_alertas' }, () => agendar('alertas'))
       .subscribe();

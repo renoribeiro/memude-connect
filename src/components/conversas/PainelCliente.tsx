@@ -237,7 +237,7 @@ export function PainelCliente({ conversaId, equipe }: { conversaId: string; equi
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><UserRoundPlus className="h-3.5 w-3.5" /> A equipe vincula o cliente ao CRM.</p>
       )}
 
-      <TransferirDialog aberto={transferindo} aoFechar={() => setTransferindo(false)} conversaId={conversaId} donoAtual={conv.dono_id} />
+      {equipe && <TransferirDialog aberto={transferindo} aoFechar={() => setTransferindo(false)} conversaId={conversaId} donoAtual={conv.dono_id} />}
       {lead && agendando && (
         <AgendarVisitaDialog aberto={agendando} onOpenChange={setAgendando}
           lead={{ id: lead.id, nome: lead.nome, empreendimento_id: lead.empreendimento_id, fonte: lead.fonte, observacoes: lead.observacoes }}

@@ -54,7 +54,7 @@ export const NAV_EQUIPE: EntradaNav[] = [
 
 export const NAV_CORRETOR: ItemNav[] = [
   { nome: 'App do corretor', href: '/app', icone: Smartphone, acesso: 'comercial' },
-  { nome: 'Dashboard', href: '/', icone: Home, acesso: 'comercial' },
+  { nome: 'Dashboard', href: '/dashboard', icone: Home, acesso: 'comercial' },
   { nome: 'Meus Leads', href: '/meus-leads', icone: Users, acesso: 'comercial' },
   { nome: 'Minhas Visitas', href: '/minhas-visitas', icone: Calendar, acesso: 'comercial' },
   { nome: 'Minhas Comissões', href: '/minhas-comissoes', icone: DollarSign, acesso: 'comercial' },

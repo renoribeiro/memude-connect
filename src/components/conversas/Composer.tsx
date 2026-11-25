@@ -100,7 +100,7 @@ export function Composer({ conversaId, podeResponder, bloqueio, respondeA, limpa
       if (e.key === 'ArrowDown') { e.preventDefault(); setIndiceAtalho((i) => (i + 1) % atalhos.length); return; }
       if (e.key === 'ArrowUp') { e.preventDefault(); setIndiceAtalho((i) => (i - 1 + atalhos.length) % atalhos.length); return; }
       if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); usarAtalho(atalhos[indiceAtalho].texto); return; }
-      if (e.key === 'Escape') { setTexto(''); return; }
+      if (e.key === 'Escape') { e.preventDefault(); setTexto(''); return; }
     }
     if (e.key === 'Enter' && !e.shiftKey && !ehToque() && !e.nativeEvent.isComposing) {
       e.preventDefault();
@@ -157,7 +157,7 @@ export function Composer({ conversaId, podeResponder, bloqueio, respondeA, limpa
       {respondeA && (
         <div className="mb-2 flex items-center gap-2 rounded-lg border-l-4 border-primary bg-muted px-3 py-1.5">
           <div className="min-w-0 flex-1 text-xs">
-            <p className="font-semibold text-primary">Respondendo {respondeA.direcao === 'entrada' ? 'ao cliente' : 'a você'}</p>
+            <p className="font-semibold text-primary">Respondendo {respondeA.direcao === 'entrada' ? 'ao cliente' : `a ${respondeA.autor_nome?.split(' ')[0] ?? 'equipe'}`}</p>
             <p className="truncate text-muted-foreground">{semAssinatura(respondeA.texto) || 'Anexo'}</p>
           </div>
           <button type="button" onClick={limparResposta} className="rounded-full p-1 hover:bg-background" aria-label="Cancelar resposta"><X className="h-4 w-4" /></button>
@@ -244,12 +244,12 @@ export function Composer({ conversaId, podeResponder, bloqueio, respondeA, limpa
             <textarea ref={area} rows={1} value={texto} onChange={(e) => setTexto(e.target.value)} onKeyDown={aoTeclar}
               placeholder={nota ? 'Nota interna — o cliente não vê' : arquivo ? 'Legenda (opcional)' : 'Mensagem  ·  / para respostas rápidas'}
               aria-label={nota ? 'Nota interna' : 'Mensagem para o cliente'} maxLength={4000} enterKeyHint={ehToque() ? 'enter' : 'send'}
-              className="max-h-40 min-h-[24px] w-full resize-none bg-transparent text-[15px] leading-6 outline-none placeholder:text-muted-foreground/80" />
+              className="max-h-40 min-h-[24px] w-full resize-none bg-transparent text-base leading-6 sm:text-[15px] outline-none placeholder:text-muted-foreground/80" />
             {permitirNota && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button type="button" onClick={() => setNota((v) => !v)} aria-pressed={nota} aria-label="Alternar nota interna"
-                    className={cn('ml-1 shrink-0 rounded-full p-1 transition', nota ? 'text-amber-600' : 'text-muted-foreground hover:text-foreground')}>
+                    className={cn('-my-1.5 -mr-2 ml-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition', nota ? 'text-amber-600' : 'text-muted-foreground hover:text-foreground')}>
                     <StickyNote className="h-[18px] w-[18px]" />
                   </button>
                 </TooltipTrigger>

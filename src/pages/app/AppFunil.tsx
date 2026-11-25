@@ -18,7 +18,7 @@ export default function AppFunil({ conversas }: { conversas: ConversaItem[] }) {
 
   return (
     <>
-      <Topo titulo="Funil" subtitulo={`${conversas.length} cliente(s) · deslize para o lado`} />
+      <Topo titulo="Funil" subtitulo={`${conversas.length} ${conversas.length === 1 ? 'cliente' : 'clientes'} · deslize para o lado`} />
       <div className="flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain p-3 [scrollbar-width:none]">
         {colunas.map((e) => {
           const itens = conversas.filter((c) => c.etapa === e.valor || (e.valor === 'em_atendimento' && c.etapa === 'novo'));
@@ -42,7 +42,7 @@ export default function AppFunil({ conversas }: { conversas: ConversaItem[] }) {
                         </span>
                       </button>
                       <DropdownMenu>
-                        <DropdownMenuTrigger className="-mr-1 rounded-full p-1.5 text-muted-foreground hover:bg-muted" aria-label={`Mover ${nomeDaConversa(c)}`}>
+                        <DropdownMenuTrigger className="-m-1.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" aria-label={`Mover ${nomeDaConversa(c)}`}>
                           <MoreHorizontal className="h-4 w-4" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">

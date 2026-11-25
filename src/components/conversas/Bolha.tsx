@@ -82,10 +82,10 @@ function Midia({ m, minha }: { m: MensagemLocal; minha: boolean }) {
   const { data: url } = useMidiaUrl(m.local ? null : m.midia_path);
   const src = m.previaUrl ?? url;
   const [ampliada, setAmpliada] = useState(false);
-  if (m.tipo === 'audio') return <PlayerAudio src={src} segundos={m.duracao_s} transcricao={m.transcricao} minha={minha} />;
   if (!m.midia_path && !m.previaUrl) {
-    return <p className="text-sm opacity-75">{m.erro ?? 'Baixando mídia…'}</p>;
+    return <p className="text-sm opacity-75">{m.erro ?? (m.tipo === 'audio' ? '🎤 Baixando áudio…' : 'Baixando mídia…')}</p>;
   }
+  if (m.tipo === 'audio') return <PlayerAudio src={src} segundos={m.duracao_s} transcricao={m.transcricao} minha={minha} />;
   if (m.tipo === 'imagem' || m.tipo === 'figurinha') {
     return (
       <>
@@ -151,7 +151,7 @@ export const Bolha = memo(function Bolha({ m, citada, mostrarAutor, aoResponder,
   if (m.tipo === 'reacao') {
     return (
       <div className={cn('my-0.5 flex', minha ? 'justify-end' : 'justify-start')}>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{minha ? 'Você' : 'Cliente'} reagiu {m.texto}</span>
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{minha ? (m.autor_nome?.split(' ')[0] ?? 'Equipe') : 'Cliente'} reagiu {m.texto}</span>
       </div>
     );
   }
@@ -160,7 +160,7 @@ export const Bolha = memo(function Bolha({ m, citada, mostrarAutor, aoResponder,
     <div className={cn('group my-0.5 flex items-end gap-1', minha ? 'justify-end' : 'justify-start')}>
       {minha && aoResponder && m.wa_id && (
         <button type="button" onClick={() => aoResponder(m)} aria-label="Responder esta mensagem"
-          className="mb-2 rounded-full p-1.5 text-muted-foreground opacity-0 transition hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100">
+          className="mb-2 rounded-full p-1.5 text-muted-foreground opacity-0 transition hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100 [@media(pointer:coarse)]:opacity-70">
           <Reply className="h-4 w-4" />
         </button>
       )}
@@ -175,7 +175,7 @@ export const Bolha = memo(function Bolha({ m, citada, mostrarAutor, aoResponder,
         )}
         {citada && (
           <div className={cn('mb-1.5 rounded-lg border-l-4 px-2 py-1 text-xs', minha ? 'border-white/60 bg-white/15' : 'border-primary bg-muted')}>
-            <p className="font-semibold">{citada.direcao === 'entrada' ? 'Cliente' : 'Você'}</p>
+            <p className="font-semibold">{citada.direcao === 'entrada' ? 'Cliente' : (citada.autor_nome?.split(' ')[0] ?? 'Equipe')}</p>
             <p className="line-clamp-2 opacity-80">{semAssinatura(citada.texto) || (citada.tipo === 'audio' ? '🎤 Áudio' : '📎 Anexo')}</p>
           </div>
         )}
@@ -200,7 +200,7 @@ export const Bolha = memo(function Bolha({ m, citada, mostrarAutor, aoResponder,
       </div>
       {!minha && aoResponder && m.wa_id && (
         <button type="button" onClick={() => aoResponder(m)} aria-label="Responder esta mensagem"
-          className="mb-2 rounded-full p-1.5 text-muted-foreground opacity-0 transition hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100">
+          className="mb-2 rounded-full p-1.5 text-muted-foreground opacity-0 transition hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100 [@media(pointer:coarse)]:opacity-70">
           <Reply className="h-4 w-4" />
         </button>
       )}

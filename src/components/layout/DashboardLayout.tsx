@@ -117,7 +117,7 @@ const DashboardLayout = ({ children, telaCheia = false }: DashboardLayoutProps) 
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-4rem)]">
+      <div className="flex h-[calc(100vh-4rem)] supports-[height:100dvh]:h-[calc(100dvh-4rem)]">
         <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-border bg-card/70 py-4 md:block">
           <MenuLateral entradas={entradas} />
         </aside>

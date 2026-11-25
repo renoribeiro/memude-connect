@@ -41,15 +41,12 @@ self.addEventListener('notificationclick', (e) => {
     const janelas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const minha = janelas.find((c) => new URL(c.url).origin === self.location.origin);
     if (minha) {
-      // Leva a janela aberta direto para a tela certa (funciona em qualquer página do Connect)
+      // Foca primeiro (a permissão do toque expira rápido) e depois leva para a tela certa
+      await minha.focus().catch(() => undefined);
       try {
-        const nova = 'navigate' in minha ? await minha.navigate(destino) : null;
-        await (nova || minha).focus();
-        if (!nova) minha.postMessage({ tipo: 'navegar', url: destino });
-      } catch {
-        await minha.focus().catch(() => undefined);
-        minha.postMessage({ tipo: 'navegar', url: destino });
-      }
+        if ('navigate' in minha && (await minha.navigate(destino))) return;
+      } catch { /* janela não controlada: a própria tela navega */ }
+      minha.postMessage({ tipo: 'navegar', url: destino });
       return;
     }
     await self.clients.openWindow(destino);

@@ -86,7 +86,7 @@ export default function AppCorretor() {
         </nav>
       )}
 
-      <ConviteNovo convites={convites} aoAceitar={() => navigate('/app')} />
+      <ConviteNovo convites={convites} aoAceitar={(id) => navigate(id ? `/app/c/${id}` : '/app/hoje')} />
     </div>
   );
 }

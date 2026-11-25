@@ -24,12 +24,14 @@ interface Props {
   aoVoltar?: () => void;
   aoAbrirFicha?: () => void;
   compacto?: boolean;
+  /** Manda o "lido" (✓✓ azul) ao cliente; padrão: quem pode responder. */
+  lerNoWhatsApp?: boolean;
 }
 
 const PERTO_DO_FIM = 160;
 
 export function ChatConversa({
-  conversaId, nome, telefone, etapa, numeroNome, numeroStatus, podeResponder, subtitulo, acoes, aoVoltar, aoAbrirFicha, compacto,
+  conversaId, nome, telefone, etapa, numeroNome, numeroStatus, podeResponder, subtitulo, acoes, aoVoltar, aoAbrirFicha, compacto, lerNoWhatsApp,
 }: Props) {
   const [limite, setLimite] = useState(120);
   const { data: msgs = [], isLoading, isFetching } = useMensagens(conversaId, limite);
@@ -53,11 +55,11 @@ export function ChatConversa({
   // Marca como lida ao abrir, quando chega mensagem nova com a conversa na tela e ao voltar para a aba
   useEffect(() => {
     if (!ultimaEntrada) return;
-    const marcar = () => { if (document.visibilityState === 'visible') marcarLida(conversaId, ultimaEntrada, podeResponder); };
+    const marcar = () => { if (document.visibilityState === 'visible') marcarLida(conversaId, ultimaEntrada, lerNoWhatsApp ?? podeResponder); };
     marcar();
     document.addEventListener('visibilitychange', marcar);
     return () => document.removeEventListener('visibilitychange', marcar);
-  }, [conversaId, ultimaEntrada, podeResponder, marcarLida]);
+  }, [conversaId, ultimaEntrada, podeResponder, lerNoWhatsApp, marcarLida]);
 
   // "Carregar anteriores" que não trouxe nada novo não pode deixar a âncora de rolagem armada
   useEffect(() => { if (!isFetching) alturaAntes.current = null; }, [isFetching]);
@@ -100,7 +102,7 @@ export function ChatConversa({
     // Falhou antes de chegar ao servidor: tira a bolha e manda de novo
     qc.setQueryData<MensagemLocal[]>(cc.msgs(conversaId), (a) => (a ?? []).filter((x) => x.id !== m.id));
     if (m.previaUrl) URL.revokeObjectURL(m.previaUrl);
-    enviar.mutate({ conversaId, texto: m.texto ?? undefined, arquivo: m.arquivo, duracaoS: m.duracao_s ?? undefined });
+    enviar.mutate({ conversaId, texto: m.texto ?? undefined, arquivo: m.arquivo, duracaoS: m.duracao_s ?? undefined, respondeA: m.responde_a ? porId.get(m.responde_a) ?? null : null });
   };
   const desconectado = numeroStatus && numeroStatus !== 'aberto';
   const variosAutores = useMemo(() => new Set(msgs.filter((m) => m.direcao === 'saida').map((m) => m.autor_id ?? m.origem)).size > 1, [msgs]);
@@ -133,7 +135,7 @@ export function ChatConversa({
         </div>
       )}
 
-      <div ref={lista} onScroll={aoRolar} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3 sm:px-4" aria-live="polite">
+      <div ref={lista} onScroll={aoRolar} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3 sm:px-4" role="log" aria-label="Mensagens da conversa">
         {isLoading ? (
           <div className="space-y-3 p-2">
             {[60, 40, 70, 50].map((w, i) => (

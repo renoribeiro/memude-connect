@@ -18,7 +18,7 @@ const dataLonga = (d: string, h: string) => {
 };
 
 /** Tela cheia "Cliente novo": aceitar ou recusar antes do prazo (estilo app de corrida). */
-export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAceitar: () => void }) {
+export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAceitar: (conversaId: string | null) => void }) {
   const qc = useQueryClient();
   const agora = useAgora(1000);
   const [recusando, setRecusando] = useState(false);
@@ -37,16 +37,25 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
 
   const responder = useMutation({
     mutationFn: async (aceitar: boolean) => {
-      const { error } = await supabase.rpc('corretor_responder_convite', { p_convite: c!.convite_id, p_aceitar: aceitar, p_observacao: motivo.trim() || null });
+      const convite = c!;
+      const { error } = await supabase.rpc('corretor_responder_convite', { p_convite: convite.convite_id, p_aceitar: aceitar, p_observacao: motivo.trim() || null });
       if (error) throw error;
-      return aceitar;
+      // Some da tela na hora (não dá para responder duas vezes)
+      qc.setQueryData<Convite[]>(cc.convites, (a) => (a ?? []).filter((x) => x.convite_id !== convite.convite_id));
+      if (!aceitar) return { aceitar, conversaId: null as string | null, aviso: null as string | null };
+      // Abre (ou cria) a conversa com o cliente pelo número da MeMude
+      const { data: visita } = await supabase.from('visitas').select('lead_id').eq('id', convite.visita_id).maybeSingle();
+      if (!visita?.lead_id) return { aceitar, conversaId: null, aviso: null };
+      const { data: conversaId, error: e2 } = await supabase.rpc('conversa_iniciar', { p_lead: visita.lead_id });
+      return { aceitar, conversaId: e2 ? null : String(conversaId), aviso: e2 ? mensagemErro(e2) : null };
     },
-    onSuccess: (aceitar) => {
+    onSuccess: ({ aceitar, conversaId, aviso }) => {
       qc.invalidateQueries({ queryKey: cc.raiz });
       if (aceitar) {
-        toast.success('Cliente é seu! A conversa já está na sua lista.');
         navigator.vibrate?.(60);
-        aoAceitar();
+        if (conversaId) toast.success('Cliente é seu! Já pode conversar.');
+        else toast.success('Cliente é seu! A visita está na sua agenda.', { description: aviso ?? undefined });
+        aoAceitar(conversaId);
       } else {
         toast('Convite recusado. A SDR escolhe outro corretor.');
       }
@@ -101,8 +110,7 @@ export function ConviteNovo({ convites, aoAceitar }: { convites: Convite[]; aoAc
       <div className="space-y-3 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         {recusando ? (
           <div className="space-y-2 rounded-2xl bg-white p-3 text-foreground">
-            <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} maxLength={200} autoFocus
-              placeholder="Por que não pode? (ex.: já tenho visita nesse horário)" className="text-[15px]" />
+            <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} maxLength={200} autoFocus placeholder="Por que não pode? (ex.: já tenho visita nesse horário)" className="text-base" />
             <div className="flex gap-2">
               <Button variant="ghost" className="flex-1" onClick={() => setRecusando(false)}><X className="h-4 w-4" /> Voltar</Button>
               <Button variant="destructive" className="flex-1" disabled={responder.isPending} onClick={() => responder.mutate(false)}>

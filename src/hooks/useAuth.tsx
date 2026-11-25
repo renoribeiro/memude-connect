@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode, useMemo, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { desativarPush } from '@/lib/conversas/push';
 
 interface Profile {
   id: string;
@@ -48,6 +50,8 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const ultimoUsuario = useRef<string | null>(null);
 
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     try {
@@ -102,6 +106,13 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
         if (event === 'INITIAL_SESSION') return;
         if (!active) return;
 
+        // Sessão expirou, saiu em outra aba ou trocou de pessoa: nada da anterior fica em cache
+        const novoUsuario = session?.user?.id ?? null;
+        if (event === 'SIGNED_OUT' || (ultimoUsuario.current && novoUsuario && novoUsuario !== ultimoUsuario.current)) {
+          queryClient.clear();
+        }
+        ultimoUsuario.current = novoUsuario;
+
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -138,6 +149,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       if (session?.user) {
         setSession(session);
         setUser(session.user);
+        ultimoUsuario.current = session.user.id;
         fetchProfile(session.user.id).then(userProfile => {
           if (!active) return;
           setProfile(userProfile);
@@ -159,7 +171,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       active = false;
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [fetchProfile, queryClient]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     setIsAuthenticating(true);
@@ -239,7 +251,12 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
   }, [toast]);
 
   const signOut = useCallback(async () => {
+    // Aparelho para de receber avisos da pessoa que saiu (lead e prévia de mensagem são dados sensíveis)
+    await Promise.race([desativarPush().catch(() => undefined), new Promise((r) => setTimeout(r, 2500))]);
     await supabase.auth.signOut();
+    // Celular compartilhado: nada da pessoa anterior fica na tela (conversas em cache e rascunhos)
+    queryClient.clear();
+    Object.keys(sessionStorage).filter((k) => k.startsWith('memude:rascunho:')).forEach((k) => sessionStorage.removeItem(k));
     setUser(null);
     setSession(null);
     setProfile(null);
@@ -248,7 +265,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       title: "Logout realizado",
       description: "Você foi desconectado com sucesso.",
     });
-  }, [toast]);
+  }, [toast, queryClient]);
 
   const isAdmin = useMemo(() => profile?.role === 'admin', [profile]);
   const isCorretor = useMemo(() => profile?.role === 'corretor', [profile]);

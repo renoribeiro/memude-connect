@@ -5921,6 +5921,366 @@ export type Database = {
           },
         ]
       }
+      conv_alertas: {
+        Row: {
+          conversa_id: string | null
+          criado_em: string
+          detalhe: string | null
+          id: string
+          lead_id: string | null
+          resolvido_em: string | null
+          resolvido_por: string | null
+          responsavel_id: string | null
+          tipo: string
+          titulo: string
+        }
+        Insert: {
+          conversa_id?: string | null
+          criado_em?: string
+          detalhe?: string | null
+          id?: string
+          lead_id?: string | null
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          responsavel_id?: string | null
+          tipo: string
+          titulo: string
+        }
+        Update: {
+          conversa_id?: string | null
+          criado_em?: string
+          detalhe?: string | null
+          id?: string
+          lead_id?: string | null
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          responsavel_id?: string | null
+          tipo?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
+      conv_numeros: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          criado_por: string | null
+          id: string
+          instancia: string
+          nome: string
+          papel: string
+          status: string
+          telefone: string | null
+          ultimo_evento_em: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          instancia: string
+          nome: string
+          papel?: string
+          status?: string
+          telefone?: string | null
+          ultimo_evento_em?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          instancia?: string
+          nome?: string
+          papel?: string
+          status?: string
+          telefone?: string | null
+          ultimo_evento_em?: string | null
+        }
+        Relationships: []
+      }
+      conversa_donos: {
+        Row: {
+          ator_id: string | null
+          conversa_id: string
+          criado_em: string
+          dono_id: string | null
+          dono_papel: string
+          id: string
+          motivo: string
+        }
+        Insert: {
+          ator_id?: string | null
+          conversa_id: string
+          criado_em?: string
+          dono_id?: string | null
+          dono_papel: string
+          id?: string
+          motivo: string
+        }
+        Update: {
+          ator_id?: string | null
+          conversa_id?: string
+          criado_em?: string
+          dono_id?: string | null
+          dono_papel?: string
+          id?: string
+          motivo?: string
+        }
+        Relationships: []
+      }
+      conversa_leituras: {
+        Row: {
+          conversa_id: string
+          lida_em: string
+          user_id: string
+        }
+        Insert: {
+          conversa_id: string
+          lida_em?: string
+          user_id: string
+        }
+        Update: {
+          conversa_id?: string
+          lida_em?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      conversas: {
+        Row: {
+          aguardando_desde: string | null
+          arquivada: boolean
+          criada_em: string
+          dono_id: string | null
+          dono_papel: string
+          etapa: string
+          ia_analisada_em: string | null
+          ia_pendente_desde: string | null
+          id: string
+          jid: string
+          lead_id: string | null
+          nome_contato: string | null
+          numero_id: string
+          resumo_ia: string | null
+          telefone: string
+          telefone_chave: string
+          temperatura: string | null
+          ultima_direcao: string | null
+          ultima_mensagem_em: string | null
+          ultima_previa: string | null
+        }
+        Insert: {
+          aguardando_desde?: string | null
+          arquivada?: boolean
+          criada_em?: string
+          dono_id?: string | null
+          dono_papel?: string
+          etapa?: string
+          ia_analisada_em?: string | null
+          ia_pendente_desde?: string | null
+          id?: string
+          jid: string
+          lead_id?: string | null
+          nome_contato?: string | null
+          numero_id: string
+          resumo_ia?: string | null
+          telefone: string
+          telefone_chave: string
+          temperatura?: string | null
+          ultima_direcao?: string | null
+          ultima_mensagem_em?: string | null
+          ultima_previa?: string | null
+        }
+        Update: {
+          aguardando_desde?: string | null
+          arquivada?: boolean
+          criada_em?: string
+          dono_id?: string | null
+          dono_papel?: string
+          etapa?: string
+          ia_analisada_em?: string | null
+          ia_pendente_desde?: string | null
+          id?: string
+          jid?: string
+          lead_id?: string | null
+          nome_contato?: string | null
+          numero_id?: string
+          resumo_ia?: string | null
+          telefone?: string
+          telefone_chave?: string
+          temperatura?: string | null
+          ultima_direcao?: string | null
+          ultima_mensagem_em?: string | null
+          ultima_previa?: string | null
+        }
+        Relationships: []
+      }
+      ia_sugestoes: {
+        Row: {
+          conteudo: Json
+          conversa_id: string
+          criada_em: string
+          decidida_em: string | null
+          decidida_por: string | null
+          id: string
+          lead_id: string | null
+          status: string
+          tipo: string
+          titulo: string
+        }
+        Insert: {
+          conteudo?: Json
+          conversa_id: string
+          criada_em?: string
+          decidida_em?: string | null
+          decidida_por?: string | null
+          id?: string
+          lead_id?: string | null
+          status?: string
+          tipo: string
+          titulo: string
+        }
+        Update: {
+          conteudo?: Json
+          conversa_id?: string
+          criada_em?: string
+          decidida_em?: string | null
+          decidida_por?: string | null
+          id?: string
+          lead_id?: string | null
+          status?: string
+          tipo?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
+      mensagens: {
+        Row: {
+          autor_id: string | null
+          autor_nome: string | null
+          conversa_id: string
+          criado_em: string
+          direcao: string
+          duracao_s: number | null
+          erro: string | null
+          id: string
+          midia_bytes: number | null
+          midia_mime: string | null
+          midia_nome: string | null
+          midia_path: string | null
+          origem: string
+          responde_a: string | null
+          status: string
+          texto: string | null
+          tipo: string
+          transcricao: string | null
+          wa_id: string | null
+        }
+        Insert: {
+          autor_id?: string | null
+          autor_nome?: string | null
+          conversa_id: string
+          criado_em?: string
+          direcao: string
+          duracao_s?: number | null
+          erro?: string | null
+          id?: string
+          midia_bytes?: number | null
+          midia_mime?: string | null
+          midia_nome?: string | null
+          midia_path?: string | null
+          origem?: string
+          responde_a?: string | null
+          status?: string
+          texto?: string | null
+          tipo?: string
+          transcricao?: string | null
+          wa_id?: string | null
+        }
+        Update: {
+          autor_id?: string | null
+          autor_nome?: string | null
+          conversa_id?: string
+          criado_em?: string
+          direcao?: string
+          duracao_s?: number | null
+          erro?: string | null
+          id?: string
+          midia_bytes?: number | null
+          midia_mime?: string | null
+          midia_nome?: string | null
+          midia_path?: string | null
+          origem?: string
+          responde_a?: string | null
+          status?: string
+          texto?: string | null
+          tipo?: string
+          transcricao?: string | null
+          wa_id?: string | null
+        }
+        Relationships: []
+      }
+      push_inscricoes: {
+        Row: {
+          auth: string
+          criado_em: string
+          endpoint: string
+          id: string
+          p256dh: string
+          ultimo_uso_em: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          criado_em?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          ultimo_uso_em?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          criado_em?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          ultimo_uso_em?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      respostas_rapidas: {
+        Row: {
+          atalho: string
+          criado_em: string
+          dono_id: string | null
+          id: string
+          texto: string
+          titulo: string
+        }
+        Insert: {
+          atalho: string
+          criado_em?: string
+          dono_id?: string | null
+          id?: string
+          texto: string
+          titulo: string
+        }
+        Update: {
+          atalho?: string
+          criado_em?: string
+          dono_id?: string | null
+          id?: string
+          texto?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       active_rate_limits: {
@@ -6807,6 +7167,168 @@ export type Database = {
           p_user_id?: string
         }
         Returns: string
+      }
+      conversas_listar: {
+        Args: { p_filtro?: string; p_busca?: string; p_limite?: number }
+        Returns: {
+          id: string
+          numero_id: string
+          numero_nome: string
+          numero_status: string
+          lead_id: string | null
+          lead_nome: string | null
+          lead_status: string | null
+          telefone: string
+          nome_contato: string | null
+          dono_id: string | null
+          dono_nome: string | null
+          dono_papel: string
+          etapa: string
+          ultima_mensagem_em: string | null
+          ultima_previa: string | null
+          ultima_direcao: string | null
+          aguardando_desde: string | null
+          nao_lidas: number
+          temperatura: string | null
+          resumo_ia: string | null
+          sugestoes_abertas: number
+          alertas_abertos: number
+          arquivada: boolean
+        }[]
+      }
+      conversa_marcar_lida: {
+        Args: { p_conversa: string }
+        Returns: undefined
+      }
+      conversa_assumir: {
+        Args: { p_conversa: string }
+        Returns: Json
+      }
+      conversa_transferir: {
+        Args: { p_conversa: string; p_para: string; p_papel: string; p_motivo?: string }
+        Returns: Json
+      }
+      conversa_nota: {
+        Args: { p_conversa: string; p_texto: string }
+        Returns: string
+      }
+      conversa_arquivar: {
+        Args: { p_conversa: string; p_arquivar: boolean }
+        Returns: undefined
+      }
+      conversa_mover_etapa: {
+        Args: { p_conversa: string; p_etapa: string }
+        Returns: undefined
+      }
+      conversa_vincular_lead: {
+        Args: { p_conversa: string; p_lead: string }
+        Returns: undefined
+      }
+      conversa_iniciar: {
+        Args: { p_lead: string; p_numero?: string }
+        Returns: string
+      }
+      conversa_preparar_envio: {
+        Args: { p_conversa: string }
+        Returns: Json
+      }
+      ia_sugestao_decidir: {
+        Args: { p_sugestao: string; p_aceitar: boolean; p_valor?: Json }
+        Returns: Json
+      }
+      conv_alerta_resolver: {
+        Args: { p_alerta: string }
+        Returns: undefined
+      }
+      resposta_rapida_salvar: {
+        Args: { p_id: string; p_atalho: string; p_titulo: string; p_texto: string; p_equipe?: boolean }
+        Returns: string
+      }
+      resposta_rapida_excluir: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      push_inscrever: {
+        Args: { p_endpoint: string; p_p256dh: string; p_auth: string; p_user_agent?: string }
+        Returns: undefined
+      }
+      push_remover: {
+        Args: { p_endpoint: string }
+        Returns: undefined
+      }
+      corretor_meus_convites: {
+        Args: never
+        Returns: {
+          convite_id: string
+          visita_id: string
+          enviado_em: string
+          prazo_em: string
+          lead_nome: string
+          empreendimento: string | null
+          bairro: string | null
+          data_visita: string
+          horario_visita: string
+          local_nome: string | null
+          perfil: string | null
+          renda: string | null
+          fonte: string | null
+        }[]
+      }
+      corretor_responder_convite: {
+        Args: { p_convite: string; p_aceitar: boolean; p_observacao?: string }
+        Returns: Json
+      }
+      corretor_meus_clientes: {
+        Args: never
+        Returns: {
+          conversa_id: string
+          lead_id: string | null
+          nome: string
+          telefone: string
+          etapa: string
+          temperatura: string | null
+          resumo_ia: string | null
+          ultima_mensagem_em: string | null
+          ultima_previa: string | null
+          ultima_direcao: string | null
+          aguardando_desde: string | null
+          proxima_visita: Json
+          empreendimento: string | null
+        }[]
+      }
+      conversas_desempenho: {
+        Args: { p_dias?: number }
+        Returns: {
+          user_id: string
+          nome: string | null
+          corretor_id: string
+          conversas_ativas: number
+          aguardando: number
+          tempo_medio_resposta_min: number | null
+          respondidas_15min_pct: number | null
+          mensagens_enviadas: number
+          visitas_agendadas: number
+          visitas_realizadas: number
+          vendas: number
+          alertas_sem_resposta: number
+          sem_contato_3d: number
+        }[]
+      }
+      minhas_atividades: {
+        Args: never
+        Returns: {
+          id: string
+          titulo: string
+          disponivel_em: string
+          vence_em: string
+          lead_id: string | null
+          lead_nome: string | null
+          conversa_id: string | null
+        }[]
+      }
+      minha_atividade_concluir: {
+        Args: { p_tarefa: string }
+        Returns: undefined
       }
     }
     Enums: {

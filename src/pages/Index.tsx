@@ -18,6 +18,11 @@ const Index = ({ semRedirecionar = false }: { semRedirecionar?: boolean }) => {
     return <Navigate to="/auth" replace />;
   }
 
+  // Corretor abre direto no app (conversas, cliente novo, agenda); o portal antigo segue em /dashboard
+  if (!semRedirecionar && isCorretor && !isComercial) {
+    return <Navigate to="/app" replace />;
+  }
+
   // A tela Hoje é a primeira tela de quem opera Leads e Visitas (SDR, closer e responsáveis configurados).
   const operaComercial = profile.role === 'sdr' || profile.role === 'closer'
     || cfg?.closer_user_id === user.id || (cfg?.responsaveis ?? []).includes(user.id);

@@ -142,3 +142,19 @@ verify_jwt = false
 [functions.delete-sale]
 
 verify_jwt = false
+
+# MeMude Conversas (autenticação feita dentro de cada função)
+[functions.conversas-webhook]
+verify_jwt = false
+
+[functions.conversas-enviar]
+verify_jwt = false
+
+[functions.conversas-numeros]
+verify_jwt = false
+
+[functions.conversas-ia]
+verify_jwt = false
+
+[functions.conversas-push]
+verify_jwt = false

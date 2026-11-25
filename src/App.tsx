@@ -37,6 +37,8 @@ const LeadsGrade = lazy(() => import("./pages/comercial/Leads"));
 const LeadPerfil = lazy(() => import("./pages/comercial/LeadPerfil"));
 const Agenda = lazy(() => import("./pages/comercial/Agenda"));
 const AjustesComercial = lazy(() => import("./pages/comercial/Ajustes"));
+const Conversas = lazy(() => import("./pages/comercial/Conversas"));
+const AppCorretor = lazy(() => import("./pages/app/AppCorretor"));
 
 const queryClient = new QueryClient();
 
@@ -94,6 +96,17 @@ const App = () => (
                 <Route path="/leads/:id" element={
                   <ProtectedRoute requireComercial>
                     <LeadPerfil />
+                  </ProtectedRoute>
+                } />
+                <Route path="/conversas" element={
+                  <ProtectedRoute requireComercial>
+                    <Conversas />
+                  </ProtectedRoute>
+                } />
+                {/* App do corretor (PWA): conversas, convites "Cliente novo", agenda e funil */}
+                <Route path="/app/*" element={
+                  <ProtectedRoute>
+                    <AppCorretor />
                   </ProtectedRoute>
                 } />
                 <Route path="/agenda" element={

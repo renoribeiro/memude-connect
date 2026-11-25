@@ -101,6 +101,9 @@ export function ImoveisParaCliente({ conversaId, aoEnviar }: { conversaId?: stri
         </div>
         {isLoading ? <Loader2 className="mx-auto my-6 h-5 w-5 animate-spin text-muted-foreground" />
           : filtrados.map((i) => <CartaoImovel key={i.id} i={i} aoEnviar={mandar} enviando={enviandoId === i.id} />)}
+        {!isLoading && !busca.trim() && imoveis.length > filtrados.length && (
+          <p className="py-2 text-center text-xs text-muted-foreground">Mostrando {filtrados.length} de {imoveis.length}. Busque pelo nome ou bairro para ver os outros.</p>
+        )}
         {!isLoading && !filtrados.length && <p className="py-6 text-center text-sm text-muted-foreground">Nenhum imóvel encontrado.</p>}
       </section>
     </div>

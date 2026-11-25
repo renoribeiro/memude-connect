@@ -107,6 +107,7 @@ function instrucoes() {
     `Agora: ${agora()} (horário de Fortaleza).`,
     'Regras:',
     '- Use somente o que está escrito na conversa. Nunca invente renda, prazo ou interesse. Na dúvida, null.',
+    '- "resumo": só fatos confirmados. Cliente pedir ou sugerir visita NÃO é visita agendada; diga "quer visitar". Não repita o nome do cliente.',
     '- "etapa": só sugira se a conversa mostra claramente que a etapa atual ficou para trás; senão null. Significados:',
     '  em_atendimento = conversando; proposta = proposta ou simulação enviada, em negociação; documentacao = cliente enviando documentos;',
     '  vendido = assinou/fechou; perdido = cliente desistiu claramente. (Visita marcada e visitou o sistema registra sozinho.)',

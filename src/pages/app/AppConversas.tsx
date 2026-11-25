@@ -28,7 +28,12 @@ export default function AppConversas({ conversas, carregando, erro, tentar }: {
   const push = usePush();
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]['v']>('todas');
   const [busca, setBusca] = useState('');
-  const { data: arquivadas = [] } = useListaConversas('arquivadas', '', filtro === 'arquivadas');
+  const arq = useListaConversas('arquivadas', '', filtro === 'arquivadas');
+  const arquivadas = useMemo(() => arq.data ?? [], [arq.data]);
+  const verArquivadas = filtro === 'arquivadas';
+  const carregandoLista = verArquivadas ? arq.isLoading : carregando;
+  const erroLista = verArquivadas ? arq.isError : erro;
+  const temDados = verArquivadas ? arquivadas.length > 0 : conversas.length > 0;
 
   const lista = useMemo(() => {
     const t = busca.trim().toLowerCase();
@@ -70,19 +75,19 @@ export default function AppConversas({ conversas, carregando, erro, tentar }: {
         </div>
       </div>
       <div className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {carregando && filtro !== 'arquivadas' ? (
+        {carregandoLista ? (
           Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3 border-b px-3 py-3">
               <Skeleton className="h-11 w-11 rounded-full" />
               <div className="flex-1 space-y-2"><Skeleton className="h-4 w-2/3" /><Skeleton className="h-3 w-full" /></div>
             </div>
           ))
-        ) : erro && !conversas.length && filtro !== 'arquivadas' ? (
+        ) : erroLista && !temDados ? (
           <div className="flex flex-col items-center px-8 py-16 text-center">
             <span className="mb-3 rounded-full bg-rose-50 p-4 dark:bg-rose-950"><WifiOff className="h-7 w-7 text-rose-600" /></span>
             <p className="text-lg font-semibold">Não foi possível carregar</p>
             <p className="mt-1 text-sm text-muted-foreground">Confira a internet e tente de novo.</p>
-            <Button className="mt-4" onClick={tentar}>Tentar de novo</Button>
+            <Button className="mt-4" onClick={() => (verArquivadas ? arq.refetch() : tentar?.())}>Tentar de novo</Button>
           </div>
         ) : lista.length === 0 ? (
           <div className="flex flex-col items-center px-8 py-16 text-center">

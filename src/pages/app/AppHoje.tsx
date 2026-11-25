@@ -28,12 +28,21 @@ function saudacao(nome?: string) {
   return `${h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'}${nome ? `, ${nome}` : ''}`;
 }
 
+function FalhaCarregar({ aoTentar }: { aoTentar: () => void }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950 dark:text-rose-200">
+      <span className="flex-1">Não foi possível carregar. Confira a internet.</span>
+      <button type="button" onClick={aoTentar} className="rounded-full bg-rose-600 px-3 py-1.5 font-medium text-white">Tentar de novo</button>
+    </div>
+  );
+}
+
 export default function AppHoje() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { data: atividades = [], isLoading: carregandoAtiv } = useQuery({
+  const { data: atividades = [], isLoading: carregandoAtiv, isError: erroAtiv, refetch: recarregarAtiv } = useQuery({
     queryKey: cc.atividades,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('minhas_atividades');
@@ -41,7 +50,7 @@ export default function AppHoje() {
       return data ?? [];
     },
   });
-  const { data: visitas = [], isLoading: carregandoVis } = useQuery({
+  const { data: visitas = [], isLoading: carregandoVis, isError: erroVis, refetch: recarregarVis } = useQuery({
     queryKey: ['conversas', 'minhas-visitas'],
     queryFn: async () => {
       const ate = new Intl.DateTimeFormat('en-CA', { timeZone: FUSO }).format(new Date(Date.now() + 7 * 86_400_000));
@@ -91,7 +100,9 @@ export default function AppHoje() {
           <h2 className="flex items-center gap-2 text-sm font-semibold"><AlarmClock className="h-4 w-4 text-primary" /> Atividades
             {atrasadas > 0 && <span className="rounded-full bg-rose-100 px-2 text-xs text-rose-700 dark:bg-rose-950 dark:text-rose-300">{plural(atrasadas, 'atrasada', 'atrasadas')}</span>}
           </h2>
-          {carregandoAtiv ? <Skeleton className="h-16 w-full rounded-xl" /> : !atividades.length ? (
+          {carregandoAtiv ? <Skeleton className="h-16 w-full rounded-xl" /> : erroAtiv && !atividades.length ? (
+            <FalhaCarregar aoTentar={() => recarregarAtiv()} />
+          ) : !atividades.length ? (
             <p className="flex items-center gap-2 rounded-xl bg-muted/60 p-4 text-sm text-muted-foreground"><PartyPopper className="h-4 w-4" /> Nada pendente. Bom trabalho!</p>
           ) : atividades.map((a) => {
             const atrasada = new Date(a.vence_em).getTime() < agora;
@@ -119,15 +130,19 @@ export default function AppHoje() {
 
         <section className="space-y-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold"><CalendarDays className="h-4 w-4 text-primary" /> Próximas visitas</h2>
-          {carregandoVis ? <Skeleton className="h-20 w-full rounded-xl" /> : !visitas.length ? (
+          {carregandoVis ? <Skeleton className="h-20 w-full rounded-xl" /> : erroVis && !visitas.length ? (
+            <FalhaCarregar aoTentar={() => recarregarVis()} />
+          ) : !visitas.length ? (
             <p className="rounded-xl bg-muted/60 p-4 text-sm text-muted-foreground">Nenhuma visita nos próximos 7 dias.</p>
           ) : dias.map((d) => (
             <div key={d} className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{diaRotulo(d)}</p>
               {visitas.filter((v) => v.data_visita === d).map((v) => {
                 const conv = v.lead_id ? conversaDoLead[v.lead_id] : undefined;
+                // Convite ainda sem resposta: a conversa só abre depois de aceitar (tela Cliente novo)
+                const pendente = v.status === 'aguardando_corretor';
                 return (
-                  <button key={v.id} type="button" disabled={!v.lead_id || iniciar.isPending} onClick={() => abrirOuIniciar(v.lead_id, conv)}
+                  <button key={v.id} type="button" disabled={pendente || !v.lead_id || iniciar.isPending} onClick={() => abrirOuIniciar(v.lead_id, conv)}
                     aria-label={conv ? `Abrir conversa com ${(v.leads as { nome?: string } | null)?.nome ?? 'o cliente'}` : `Iniciar conversa com ${(v.leads as { nome?: string } | null)?.nome ?? 'o cliente'}`}
                     className="flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left transition enabled:active:scale-[0.99]">
                     <span className="flex w-14 shrink-0 flex-col items-center rounded-lg bg-primary/10 py-1.5 text-primary">
@@ -142,7 +157,8 @@ export default function AppHoje() {
                       </span>
                       <StatusVisitaBadge status={v.status} className="mt-1" />
                     </span>
-                    {conv ? <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+                    {pendente ? <span className="shrink-0 text-xs font-medium text-amber-600">Aceite pendente</span>
+                      : conv ? <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
                       : iniciar.isPending && iniciar.variables?.lead === v.lead_id ? <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
                         : <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary"><MessageSquarePlus className="h-4 w-4" /> Conversar</span>}
                   </button>

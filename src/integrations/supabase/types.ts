@@ -2577,6 +2577,9 @@ export type Database = {
           site_url: string
           updated_at: string
           updated_by: string | null
+          chamado_automatico: boolean
+          chamado_reaviso_min: number
+          chamado_tentativas: number
         }
         Insert: {
           closer_user_id?: string | null
@@ -2596,6 +2599,9 @@ export type Database = {
           site_url?: string
           updated_at?: string
           updated_by?: string | null
+          chamado_automatico?: boolean
+          chamado_reaviso_min?: number
+          chamado_tentativas?: number
         }
         Update: {
           closer_user_id?: string | null
@@ -2615,6 +2621,9 @@ export type Database = {
           site_url?: string
           updated_at?: string
           updated_by?: string | null
+          chamado_automatico?: boolean
+          chamado_reaviso_min?: number
+          chamado_tentativas?: number
         }
         Relationships: []
       }
@@ -4857,6 +4866,7 @@ export type Database = {
           summary_sent_at: string | null
           updated_at: string
           visita_id: string
+          chamado_automatico: boolean
         }
         Insert: {
           attendance_overdue?: boolean
@@ -4880,6 +4890,7 @@ export type Database = {
           summary_sent_at?: string | null
           updated_at?: string
           visita_id: string
+          chamado_automatico?: boolean
         }
         Update: {
           attendance_overdue?: boolean
@@ -4903,6 +4914,7 @@ export type Database = {
           summary_sent_at?: string | null
           updated_at?: string
           visita_id?: string
+          chamado_automatico?: boolean
         }
         Relationships: [
           {
@@ -5543,6 +5555,8 @@ export type Database = {
           resposta: string | null
           score: number | null
           visita_id: string
+          automatico: boolean
+          reavisos: number
         }
         Insert: {
           corretor_id: string
@@ -5554,6 +5568,8 @@ export type Database = {
           resposta?: string | null
           score?: number | null
           visita_id: string
+          automatico?: boolean
+          reavisos?: number
         }
         Update: {
           corretor_id?: string
@@ -5565,6 +5581,8 @@ export type Database = {
           resposta?: string | null
           score?: number | null
           visita_id?: string
+          automatico?: boolean
+          reavisos?: number
         }
         Relationships: [
           {

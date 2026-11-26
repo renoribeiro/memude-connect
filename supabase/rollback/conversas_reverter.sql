@@ -16,3 +16,7 @@ drop policy if exists "Conversas: dono da conversa vê o lead" on public.leads;
 
 -- Os números "conversas-*" continuam conectados na Evolution; para parar de receber,
 -- desconecte-os em Conversas → Números (ou desative-os ali).
+
+-- Chamados automáticos (26/11): para o reaviso e a passagem automática ao próximo corretor.
+select cron.unschedule('chamados-corretor') where exists (select 1 from cron.job where jobname = 'chamados-corretor');
+update public.fase1_config set chamado_automatico = false;

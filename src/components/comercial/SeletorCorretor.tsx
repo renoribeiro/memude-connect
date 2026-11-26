@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDown, Info, UserRoundSearch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,7 +28,7 @@ function corScore(s: number | null) {
   return 'text-muted-foreground';
 }
 
-export function SeletorCorretor({ empreendimentoId, data, hora, visitaId, excluir, valor, onChange, quantidade = 3 }: {
+export function SeletorCorretor({ empreendimentoId, data, hora, visitaId, excluir, valor, onChange, quantidade = 3, autoSelecionar = false }: {
   empreendimentoId: string | null;
   data: string | null;
   hora: string | null;
@@ -37,9 +37,16 @@ export function SeletorCorretor({ empreendimentoId, data, hora, visitaId, exclui
   valor: string | null;
   onChange: (c: CorretorEscolhido) => void;
   quantidade?: number;
+  /** Já deixa marcado o melhor corretor livre (a SDR só confere). */
+  autoSelecionar?: boolean;
 }) {
   const [todos, setTodos] = useState(false);
   const { data: lista = [], isLoading, isError } = useSugestoesCorretor({ empreendimentoId, data, hora, visitaId, excluir });
+  const melhor = lista.find((c) => c.disponivel && !c.ja_convidado);
+  useEffect(() => {
+    if (!autoSelecionar || valor || !melhor) return;
+    onChange({ id: melhor.corretor_id, nome: melhor.nome, score: melhor.score === null ? null : Number(melhor.score), motivo: melhor.motivo });
+  }, [autoSelecionar, valor, melhor, onChange]);
 
   if (!empreendimentoId) {
     return <EstadoVazio icone={UserRoundSearch} titulo="Selecione o empreendimento" descricao="As sugestões de corretor dependem do empreendimento e do horário." />;

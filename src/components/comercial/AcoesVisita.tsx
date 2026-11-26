@@ -21,7 +21,7 @@ type Visita = {
   proximo_passo: string | null; data_venda: string | null; tentativas_remarcar: number; ultima_tentativa_remarcar: string | null;
   no_show_em: string | null; escalada_em: string | null; motivo_cancelamento: string | null; updated_at: string | null;
 };
-type Convite = { id: string; corretor_id: string; enviado_em: string; resposta: string | null; corretores?: { profiles?: { first_name?: string | null; last_name?: string | null } | null } | null };
+type Convite = { id: string; corretor_id: string; enviado_em: string; resposta: string | null; automatico?: boolean; corretores?: { profiles?: { first_name?: string | null; last_name?: string | null } | null } | null };
 type Tarefa = {
   id: string; tipo: string; status: string; vence_em: string; disponivel_em: string; concluida_em: string | null;
   observacao: string | null; titulo?: string | null;
@@ -72,7 +72,12 @@ export function AcoesVisita({ visita, convites, tarefas, onMensagens }: {
         <Cartao tom={atrasado ? 'perigo' : 'alerta'} icone={AlarmClock} titulo="Corretor aceitou?">
           <p className="text-sm">
             Convite para <strong>{nome(pendente)}</strong> enviado {relativo(pendente.enviado_em, new Date(agora))}.
-            {atrasado && <span className="mt-1 block font-semibold text-rose-700">Sem resposta há {minutos} min: troque de corretor.</span>}
+            {pendente.automatico ? (
+              <span className="mt-1 block text-muted-foreground">
+                Chamado automático · {convites.length}º de até {cfg?.chamado_tentativas ?? 3} corretores.
+                {atrasado ? ' Passando para o próximo…' : ` Se não aceitar em ${Math.max(1, (cfg?.prazo_aceite_min ?? 15) - minutos)} min, o sistema chama o próximo.`}
+              </span>
+            ) : atrasado && <span className="mt-1 block font-semibold text-rose-700">Sem resposta há {minutos} min: troque de corretor.</span>}
           </p>
           <div className="grid grid-cols-2 gap-2">
             <Button disabled={ocupado} onClick={() => executar('visita_resposta_corretor', { p_aceitou: true }, 'Corretor confirmado · visita agendada', true)}>

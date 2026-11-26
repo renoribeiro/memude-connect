@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { useAcaoVisita, useEmpreendimentos, useConfigComercial } from '@/hooks/comercial/dados';
@@ -32,10 +33,16 @@ export function AgendarVisitaDialog({ aberto, onOpenChange, lead, onAgendada }: 
   const [bairro, setBairro] = useState('');
   const [perfil, setPerfil] = useState(lead.observacoes ?? '');
   const [corretor, setCorretor] = useState<CorretorEscolhido | null>(null);
+  // Modo automático: começa com o padrão de Ajustes; a SDR pode trocar nesta visita
+  const [autoEscolhido, setAutoEscolhido] = useState<boolean | null>(null);
+  const automatico = autoEscolhido ?? !!config?.chamado_automatico;
   const [tentou, setTentou] = useState(false);
   const [sugeridos, setSugeridos] = useState({ endereco: false, bairro: false, perfil: !!lead.observacoes });
 
   const emp = useMemo(() => empreendimentos.find((e) => e.id === empId) ?? null, [empreendimentos, empId]);
+
+  // Data, horário ou empreendimento novos mudam quem está livre: a sugestão é refeita
+  useEffect(() => { setCorretor(null); }, [data, hora]);
 
   // Sugere endereço e bairro do empreendimento sem sobrescrever o que o usuário digitou
   useEffect(() => {
@@ -59,7 +66,7 @@ export function AgendarVisitaDialog({ aberto, onOpenChange, lead, onAgendada }: 
     local: local.trim().length < 2 ? 'Informe o local' : null,
     endereco: endereco.trim().length < 5 ? 'Informe o endereço' : null,
     bairro: bairro.trim().length < 2 ? 'Informe o bairro' : null,
-    corretor: !corretor ? 'Escolha o corretor' : null,
+    corretor: !corretor && !automatico ? 'Escolha o corretor' : null,
   };
   const valido = Object.values(erros).every((e) => !e);
   const link = linkEmpreendimento(emp?.wp_post_id, config?.site_url);
@@ -70,12 +77,12 @@ export function AgendarVisitaDialog({ aberto, onOpenChange, lead, onAgendada }: 
     if (!valido) return;
     const r = await agendar.mutateAsync({
       rpc: 'visita_agendar',
-      sucesso: 'Visita criada · aguardando aceite do corretor',
+      sucesso: automatico ? 'Visita criada · corretor sendo chamado' : 'Visita criada · aguardando aceite do corretor',
       args: {
         p_dados: {
           lead_id: lead.id, data, hora, empreendimento_id: empId, local_nome: local.trim(), endereco: endereco.trim(),
-          bairro: bairro.trim(), corretor_id: corretor!.id, perfil: perfil.trim() || null,
-          score: corretor!.score, motivo_sugestao: corretor!.motivo,
+          bairro: bairro.trim(), corretor_id: corretor?.id ?? null, perfil: perfil.trim() || null,
+          score: corretor?.score ?? null, motivo_sugestao: corretor?.motivo ?? null, automatico,
         },
       },
     }).catch(() => null);
@@ -165,10 +172,21 @@ export function AgendarVisitaDialog({ aberto, onOpenChange, lead, onAgendada }: 
               <p className="text-xs text-muted-foreground">Origem do lead: <strong className="text-foreground">{lead.fonte ?? '—'}</strong></p>
             </div>
 
-            <div className="grid content-start gap-2">
-              <Label>Corretor *</Label>
+            <div className="grid content-start gap-3">
+              <label htmlFor="av-auto" className={cn('flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition-colors',
+                automatico ? 'border-primary bg-accent' : 'hover:bg-muted')}>
+                <Switch id="av-auto" checked={automatico} onCheckedChange={setAutoEscolhido} className="mt-0.5" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold">Chamar automaticamente</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Começa pelo corretor marcado abaixo. Se ele recusar ou não aceitar em {config?.prazo_aceite_min ?? 15} min,
+                    o sistema chama o próximo pelo rating (até {config?.chamado_tentativas ?? 3} corretores) e avisa você se ninguém aceitar.
+                  </span>
+                </span>
+              </label>
+              <Label>Corretor{automatico ? ' (primeiro a ser chamado)' : ' *'}</Label>
               <SeletorCorretor empreendimentoId={empId} data={data || null} hora={hora || null}
-                valor={corretor?.id ?? null} onChange={setCorretor} />
+                valor={corretor?.id ?? null} onChange={setCorretor} autoSelecionar />
               {erro('corretor')}
             </div>
           </div>
@@ -176,7 +194,7 @@ export function AgendarVisitaDialog({ aberto, onOpenChange, lead, onAgendada }: 
           <DialogFooter className="mt-6 gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button type="submit" disabled={agendar.isPending}>
-              {agendar.isPending && <Loader2 className="animate-spin" />} Criar visita e convidar corretor
+              {agendar.isPending && <Loader2 className="animate-spin" />} {automatico ? 'Criar visita e chamar corretor' : 'Criar visita e convidar corretor'}
             </Button>
           </DialogFooter>
         </form>

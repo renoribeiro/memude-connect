@@ -14,8 +14,9 @@ export function descreverEvento(e: { kind: string; payload: unknown }): { titulo
   const p = (e.payload ?? {}) as Record<string, string | number | boolean | null>;
   switch (e.kind) {
     case 'f1_criada': return { titulo: p.reagendamento_de ? 'Nova visita (reagendamento)' : 'Visita criada', detalhe: `${formatarData(String(p.data))} às ${String(p.hora ?? '').slice(0, 5)}` };
-    case 'f1_convite': return { titulo: `Convite enviado a ${p.corretor ?? 'corretor'}` };
-    case 'f1_resposta_corretor': return { titulo: `${p.corretor ?? 'Corretor'} ${p.resposta === 'recusou' ? 'recusou' : 'não respondeu (trocado)'}` };
+    case 'f1_convite': return { titulo: `${p.automatico ? 'Chamado automático' : 'Convite enviado'} a ${p.corretor ?? 'corretor'}` };
+    case 'f1_resposta_corretor': return { titulo: `${p.corretor ?? 'Corretor'} ${p.resposta === 'recusou' ? 'recusou' : p.via === 'prazo' ? 'não respondeu no prazo' : 'não respondeu (trocado)'}` };
+    case 'f1_chamado_esgotado': return { titulo: 'Chamado automático encerrado', detalhe: `${p.convites ?? 0} convite(s) sem aceite · escolha o corretor manualmente` };
     case 'f1_status': return {
       titulo: `${ROTULO_STATUS_VISITA[String(p.de)] ?? p.de ?? '—'} → ${ROTULO_STATUS_VISITA[String(p.para)] ?? p.para}`,
       detalhe: [p.corretor && `Corretor: ${p.corretor}`, p.etapa && `Etapa ${p.etapa}`, p.observacao].filter(Boolean).join(' · ') || undefined,

@@ -50,10 +50,10 @@ O catálogo de **Imóveis** fica no atalho do Início e no ícone de prédio den
 
 A sua primeira mensagem sai assinada como *Seu nome · Corretor(a)*. Nas 4 horas seguintes, sai sem assinatura.
 
-### Sugestões da IA
+### A IA e a ficha do cliente
 
-A IA lê a conversa e **só sugere**: resposta, etapa, dados da ficha, lembrete e imóveis que combinam.
-Nada muda sem você tocar em **Usar** ou **Aplicar**. A resposta sugerida só preenche a caixa de texto; você revisa antes de enviar.
+Você **não precisa preencher nada no CRM**. A IA lê a conversa e atualiza sozinha a ficha do cliente (renda, entrada/FGTS, prazo, finalidade, região, status) e a etapa, sempre com o trecho da conversa que comprova.
+Resposta sugerida, lembrete e imóveis que combinam continuam como sugestão: **Usar** só preenche a caixa de texto; você revisa antes de enviar.
 
 ## 5. Combinados
 

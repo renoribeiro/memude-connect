@@ -17,6 +17,7 @@ import { FONTES, STATUS_ATENDIMENTO } from '@/lib/comercial/constantes';
 import { formatarData, formatarDataHora, formatarHora } from '@/lib/comercial/datas';
 import { telefoneCanonico } from '@/lib/comercial/telefone';
 import { AgendarVisitaDialog } from '@/components/comercial/AgendarVisitaDialog';
+import { AcompanhamentoIA, type ConversaIA, type MudancaIA } from '@/components/comercial/AcompanhamentoIA';
 import { VisitaPainel } from '@/components/comercial/VisitaPainel';
 import { useAbrirVisita } from '@/hooks/comercial/useAbrirVisita';
 import { ComboboxBusca, EstadoVazio, StatusAtendimentoBadge, StatusVisitaBadge } from '@/components/comercial/ui';
@@ -151,6 +152,9 @@ export default function LeadPerfilPage() {
           </section>
 
           <div className="space-y-5">
+            <AcompanhamentoIA leadId={lead.id} conversa={data.conversa as ConversaIA | null}
+              qualificacao={(lead.qualificacao ?? null) as Record<string, unknown> | null} mudancas={data.mudancasIa as MudancaIA[]} nomes={nomes} />
+
             <section className="rounded-xl border bg-card p-5 shadow-sm">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold"><CalendarDays className="h-4 w-4 text-primary" /> Visitas</h2>
               {!data.visitas.length ? (
@@ -204,6 +208,7 @@ export default function LeadPerfilPage() {
                         {e.tipo === 'nota' ? <><strong>Nota</strong>: {e.observacao}</>
                           : e.campo ? <><strong>{e.campo}</strong>: {e.de ?? '—'} → {e.para ?? '—'}</> : e.observacao}
                       </p>
+                      {e.campo && e.tipo !== 'nota' && e.observacao && <p className="text-xs text-muted-foreground">{e.observacao}</p>}
                       <p className="text-xs text-muted-foreground">{formatarDataHora(e.criado_em)}{e.ator_id && ` · ${nomes.get(e.ator_id) ?? 'equipe'}`}</p>
                     </li>
                   ))}

@@ -1,7 +1,10 @@
-// MeMude Conversas — IA que lê as conversas e SÓ SUGERE (nada é gravado no CRM sem uma pessoa aceitar).
+// MeMude Conversas — IA que lê as conversas e ATUALIZA a ficha do cliente sozinha (o corretor não preenche nada).
+// Travas: só o que o cliente disse (com o trecho como evidência), nunca sobre o que uma pessoa preencheu, status só para
+// frente até INTERESSADO, etapa só para frente; mudanças graves (desistiu, sem renda, vendido, perdido) viram sugestão +
+// alerta para o closer confirmar. Tudo pode ser desfeito na ficha do lead (ia_mudanca_desfazer).
 // Roda pelo pg_cron a cada minuto (x-internal-secret). Em cada rodada:
 //   1) transcreve áudios novos;
-//   2) analisa conversas paradas há 60 s: resumo, temperatura, sugestões (ficha do CRM, etapa, resposta,
+//   2) analisa conversas paradas há 60 s: resumo, o que falta, temperatura, ficha e etapa (aplicadas), sugestões (resposta,
 //      lembrete, imóveis que combinam) e alertas (sinal de compra, contato pessoal fora do número da MeMude).
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { autorizar, json, preflight, responderErro } from '../_shared/fase1-http.ts';
@@ -12,6 +15,12 @@ const MODELO = 'gpt-4o-mini';
 const FUSO = 'America/Fortaleza';
 // Visita marcada e Visitou andam sozinhas (aceite do corretor e resultado da visita); a IA não sugere essas duas.
 const ETAPAS_IA = ETAPAS.filter((e) => !['novo', 'visita_marcada', 'visitou'].includes(e));
+// Etapas que a IA move sozinha (só para frente). Vendido e Perdido pedem a confirmação do closer.
+const ETAPAS_AUTO = ['em_atendimento', 'proposta', 'documentacao'];
+const ETAPAS_GRAVES = ['vendido', 'perdido'];
+const CAMPOS_FICHA: Record<string, string> = {
+  status_atendimento: 'status', renda: 'renda', entrada_fgts: 'entrada/FGTS', prazo: 'prazo', finalidade: 'finalidade', regiao: 'região',
+};
 const ROTULO_ETAPA: Record<string, string> = {
   novo: 'Novo', em_atendimento: 'Em atendimento', visita_marcada: 'Visita marcada', visitou: 'Visitou', proposta: 'Proposta',
   documentacao: 'Documentação', vendido: 'Vendido', perdido: 'Perdido',
@@ -65,9 +74,11 @@ const ESQUEMA = {
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['resumo', 'temperatura', 'etapa', 'status_crm', 'qualificacao', 'resposta', 'lembrete', 'busca_imovel', 'sinal_compra', 'contato_pessoal'],
+    required: ['resumo', 'falta', 'temperatura', 'etapa', 'status_crm', 'qualificacao', 'evidencias', 'resposta', 'lembrete', 'busca_imovel',
+      'sinal_compra', 'contato_pessoal'],
     properties: {
       resumo: { type: 'string', description: 'Até 2 frases: quem é o cliente, o que busca e em que pé está.' },
+      falta: { ...nulo('string'), description: 'O que falta para a venda avançar (1 frase curta) ou null.' },
       temperatura: { type: 'string', enum: ['quente', 'morno', 'frio'] },
       etapa: enumNulo(ETAPAS_IA),
       status_crm: enumNulo(STATUS_CRM),
@@ -77,6 +88,12 @@ const ESQUEMA = {
           renda: enumNulo(RENDAS), entrada_fgts: enumNulo(ENTRADAS), prazo: enumNulo(PRAZOS), finalidade: enumNulo(FINALIDADES),
           regiao: nulo('string'),
         },
+      },
+      evidencias: {
+        type: 'object', additionalProperties: false,
+        required: ['renda', 'entrada_fgts', 'prazo', 'finalidade', 'regiao', 'status_crm', 'etapa'],
+        properties: Object.fromEntries(['renda', 'entrada_fgts', 'prazo', 'finalidade', 'regiao', 'status_crm', 'etapa']
+          .map((k) => [k, { ...nulo('string'), description: 'Trecho literal curto da conversa que comprova (até 120 caracteres) ou null.' }])),
       },
       resposta: nulo('string'),
       lembrete: {
@@ -91,8 +108,8 @@ const ESQUEMA = {
 };
 
 interface Analise {
-  resumo: string; temperatura: 'quente' | 'morno' | 'frio'; etapa: string | null; status_crm: string | null;
-  qualificacao: Record<string, string | null>; resposta: string | null; lembrete: { atividade: string; quando: string } | null;
+  resumo: string; falta: string | null; temperatura: 'quente' | 'morno' | 'frio'; etapa: string | null; status_crm: string | null;
+  qualificacao: Record<string, string | null>; evidencias: Record<string, string | null>; resposta: string | null; lembrete: { atividade: string; quando: string } | null;
   busca_imovel: string | null; sinal_compra: { ha: boolean; motivo: string }; contato_pessoal: { ha: boolean; motivo: string };
 }
 
@@ -103,7 +120,8 @@ const hora = (iso: string) => new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO,
 
 function instrucoes() {
   return [
-    'Você é assistente de uma equipe de vendas de imóveis na planta em Fortaleza (MeMude). Lê a conversa de WhatsApp e SUGERE; uma pessoa decide.',
+    'Você é assistente de uma equipe de vendas de imóveis na planta em Fortaleza (MeMude). Lê a conversa de WhatsApp e mantém a ficha do',
+    'cliente no CRM em dia: o que você preencher é gravado automaticamente, por isso a precisão vale mais que a quantidade.',
     `Agora: ${agora()} (horário de Fortaleza).`,
     'Regras:',
     '- Use somente o que está escrito na conversa. Nunca invente renda, prazo ou interesse. Na dúvida, null.',
@@ -115,6 +133,9 @@ function instrucoes() {
     '  VISITA AGENDADA só com visita confirmada; SEM RENDA = renda insuficiente declarada; NÃO INTERESSADO = recusou.',
     '- "qualificacao": preencha só os campos que o cliente informou e que diferem da ficha atual; o resto null.',
     '  entrada_fgts: "Tem entrada" (só entrada), "Entrada + FGTS" (tem os dois), "Só FGTS", "Ainda não tem". renda = renda familiar mensal.',
+    '- "evidencias": para cada campo de qualificacao, status_crm e etapa que você preencheu, copie o trecho exato da conversa que comprova',
+    '  (até 120 caracteres, sem inventar). Campo sem trecho que comprove deve ficar null também na qualificacao/status/etapa.',
+    '- "falta": o próximo passo concreto para a venda avançar (ex.: "enviar simulação", "cliente mandar documentos", "marcar visita").',
     '- "resposta": se a última mensagem é do cliente, escreva a próxima resposta da equipe: curta (até 3 linhas), calorosa, natural, em português',
     '  do Brasil, avançando a conversa (ex.: propor horários de visita, pedir a informação que falta). Não prometa preço, condição ou aprovação',
     '  de crédito; no máximo 1 emoji; não assine. Se a última mensagem é da equipe, null.',
@@ -192,21 +213,64 @@ async function aplicar(db: SupabaseClient, chave: string, c: Conversa, res: NonN
   let imoveis = 0;
   let erroImoveis: string | null = null;
   const nome = lead?.nome ?? c.nome_contato ?? c.telefone;
-  await db.from('conversas').update({ resumo_ia: a.resumo.slice(0, 600), temperatura: a.temperatura }).eq('id', c.id);
+  // Prova vazia, "null" escrito por extenso ou só aspas não vale como prova
+  const ev: Record<string, string | null> = Object.fromEntries(Object.entries(a.evidencias ?? {}).map(([k, v]) => {
+    const t = typeof v === 'string' ? v.trim().replace(/^["'“”]+|["'“”]+$/g, '').trim() : '';
+    return [k, t && t.toLowerCase() !== 'null' ? t.slice(0, 300) : null];
+  }));
+  await db.from('conversas').update({
+    resumo_ia: a.resumo.slice(0, 600), temperatura: a.temperatura, ia_falta: a.falta ? a.falta.slice(0, 200) : null,
+  }).eq('id', c.id);
+  const closer = async () => (await db.from('fase1_config').select('closer_user_id').eq('id', true).maybeSingle()).data?.closer_user_id ?? null;
+  const confirmar = async (titulo: string, detalhe: string) => {
+    const { error } = await db.from('conv_alertas').insert({
+      tipo: 'confirmar_ia', conversa_id: c.id, lead_id: c.lead_id, responsavel_id: await closer(),
+      titulo: titulo.slice(0, 160), detalhe: detalhe.slice(0, 400),
+    });
+    if (error && error.code !== '23505') throw error; // já existe um aberto para esta conversa
+  };
+  let ficha: { aplicados: { campo: string }[]; conferir: Record<string, string>; grave: string | null } | null = null;
 
   if (c.lead_id && lead) {
-    const atual = (lead.qualificacao ?? {}) as Record<string, unknown>;
-    const novos = Object.fromEntries(Object.entries(a.qualificacao ?? {}).filter(([k, v]) => v && v !== atual[k]));
-    const status = a.status_crm && a.status_crm !== lead.status_atendimento ? a.status_crm : null;
-    if (Object.keys(novos).length || status) {
-      const partes = [status ? `status ${status}` : null, ...Object.values(novos)].filter(Boolean);
-      await sugerir(db, c, 'crm', `Atualizar ficha: ${partes.join(' · ')}`, {
-        ...(status ? { status_atendimento: status } : {}), ...(Object.keys(novos).length ? { qualificacao: novos } : {}),
+    // Só entra o que tem trecho da conversa que comprova
+    const qualificacao = Object.fromEntries(Object.entries(a.qualificacao ?? {}).filter(([k, v]) => v && ev[k]));
+    const status = a.status_crm && ev.status_crm ? a.status_crm : null;
+    if (Object.keys(qualificacao).length || status) {
+      const { data, error } = await db.rpc('ia_aplicar_ficha', {
+        p_conversa: c.id, p_lead: c.lead_id, p_status: status, p_qualificacao: qualificacao, p_evidencias: ev,
       });
+      if (error) throw error;
+      ficha = data as typeof ficha;
+      const conferir = ficha?.conferir ?? {};
+      if (Object.keys(conferir).length || ficha?.grave) {
+        const partes = [ficha?.grave ? `status ${ficha.grave}` : null, ...Object.values(conferir)].filter(Boolean);
+        await sugerir(db, c, 'crm', `Conferir ficha: ${partes.join(' · ')}`, {
+          ...(ficha?.grave ? { status_atendimento: ficha.grave } : {}), ...(Object.keys(conferir).length ? { qualificacao: conferir } : {}),
+        });
+      }
+      if (ficha?.grave) {
+        await confirmar(`${nome}: a IA entendeu ${ficha.grave === 'SEM RENDA' ? 'que a renda não basta' : 'que o cliente não tem interesse'}`,
+          ev.status_crm ? `"${ev.status_crm}"` : 'Confira na conversa');
+      }
     }
   }
-  if (a.etapa && a.etapa !== c.etapa && ETAPAS_IA.includes(a.etapa)) {
-    await sugerir(db, c, 'etapa', `Mover para ${ROTULO_ETAPA[a.etapa]}`, { etapa: a.etapa });
+  if (a.etapa && a.etapa !== c.etapa && ETAPAS_IA.includes(a.etapa) && ev.etapa) {
+    const frente = ETAPAS.indexOf(a.etapa) > ETAPAS.indexOf(c.etapa) && !ETAPAS_GRAVES.includes(c.etapa);
+    if (ETAPAS_AUTO.includes(a.etapa) && frente) {
+      await db.from('conversas').update({ etapa: a.etapa }).eq('id', c.id).eq('etapa', c.etapa);
+      if (c.lead_id) {
+        await db.from('lead_eventos').insert({
+          lead_id: c.lead_id, tipo: 'alteracao', campo: 'Etapa da conversa', de: ROTULO_ETAPA[c.etapa] ?? c.etapa, para: ROTULO_ETAPA[a.etapa],
+          observacao: `Atualizado pela IA a partir da conversa: "${String(ev.etapa).slice(0, 200)}"`,
+        });
+      }
+    } else {
+      await sugerir(db, c, 'etapa', `Mover para ${ROTULO_ETAPA[a.etapa]}`, { etapa: a.etapa });
+      if (ETAPAS_GRAVES.includes(a.etapa)) {
+        await confirmar(`${nome}: a IA entendeu que ${a.etapa === 'vendido' ? 'a venda fechou' : 'o cliente desistiu'}`,
+          `"${String(ev.etapa).slice(0, 300)}"`);
+      }
+    }
   }
   if (a.resposta && res.clienteEsperando) await sugerir(db, c, 'resposta', 'Resposta sugerida', { texto: a.resposta.slice(0, 1000) });
   if (a.lembrete?.atividade && c.lead_id) {
@@ -250,7 +314,7 @@ async function aplicar(db: SupabaseClient, chave: string, c: Conversa, res: NonN
     await alertar(db, c, 'contato_pessoal', `${nome}: possível contato fora do número da MeMude`,
       a.contato_pessoal?.motivo || `Mensagem de ${regra?.autor_nome ?? 'quem atende'}: "${(regra?.texto ?? '').slice(0, 160)}"`);
   }
-  return { conversa: c.id, busca: Boolean(a.busca_imovel), imoveis, erroImoveis };
+  return { conversa: c.id, ficha: (ficha?.aplicados ?? []).map((m) => CAMPOS_FICHA[m.campo] ?? m.campo), busca: Boolean(a.busca_imovel), imoveis, erroImoveis };
 }
 
 Deno.serve(async (req) => {

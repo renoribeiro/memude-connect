@@ -54,6 +54,7 @@ export const TIPO_ALERTA: Record<string, { rotulo: string; tom: 'perigo' | 'avis
   sinal_compra: { rotulo: 'Sinal de compra', tom: 'sucesso' },
   contato_pessoal: { rotulo: 'Contato pessoal', tom: 'perigo' },
   numero_caiu: { rotulo: 'Número caiu', tom: 'perigo' },
+  confirmar_ia: { rotulo: 'Confirme o que a IA entendeu', tom: 'aviso' },
 };
 
 /** Mensagem que ainda não voltou do servidor (envio otimista). */

@@ -1688,6 +1688,250 @@ export type Database = {
         }
         Relationships: []
       }
+      conv_alertas: {
+        Row: {
+          conversa_id: string | null
+          criado_em: string
+          detalhe: string | null
+          id: string
+          lead_id: string | null
+          resolvido_em: string | null
+          resolvido_por: string | null
+          responsavel_id: string | null
+          tipo: string
+          titulo: string
+        }
+        Insert: {
+          conversa_id?: string | null
+          criado_em?: string
+          detalhe?: string | null
+          id?: string
+          lead_id?: string | null
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          responsavel_id?: string | null
+          tipo: string
+          titulo: string
+        }
+        Update: {
+          conversa_id?: string | null
+          criado_em?: string
+          detalhe?: string | null
+          id?: string
+          lead_id?: string | null
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          responsavel_id?: string | null
+          tipo?: string
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conv_alertas_conversa_id_fkey"
+            columns: ["conversa_id"]
+            isOneToOne: false
+            referencedRelation: "conversas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conv_alertas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conv_numeros: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          criado_por: string | null
+          id: string
+          instancia: string
+          nome: string
+          papel: string
+          status: string
+          telefone: string | null
+          ultimo_evento_em: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          instancia: string
+          nome: string
+          papel?: string
+          status?: string
+          telefone?: string | null
+          ultimo_evento_em?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          instancia?: string
+          nome?: string
+          papel?: string
+          status?: string
+          telefone?: string | null
+          ultimo_evento_em?: string | null
+        }
+        Relationships: []
+      }
+      conversa_donos: {
+        Row: {
+          ator_id: string | null
+          conversa_id: string
+          criado_em: string
+          dono_id: string | null
+          dono_papel: string
+          id: string
+          motivo: string
+        }
+        Insert: {
+          ator_id?: string | null
+          conversa_id: string
+          criado_em?: string
+          dono_id?: string | null
+          dono_papel: string
+          id?: string
+          motivo: string
+        }
+        Update: {
+          ator_id?: string | null
+          conversa_id?: string
+          criado_em?: string
+          dono_id?: string | null
+          dono_papel?: string
+          id?: string
+          motivo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversa_donos_conversa_id_fkey"
+            columns: ["conversa_id"]
+            isOneToOne: false
+            referencedRelation: "conversas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversa_leituras: {
+        Row: {
+          conversa_id: string
+          lida_em: string
+          user_id: string
+        }
+        Insert: {
+          conversa_id: string
+          lida_em?: string
+          user_id: string
+        }
+        Update: {
+          conversa_id?: string
+          lida_em?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversa_leituras_conversa_id_fkey"
+            columns: ["conversa_id"]
+            isOneToOne: false
+            referencedRelation: "conversas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversas: {
+        Row: {
+          aguardando_desde: string | null
+          arquivada: boolean
+          criada_em: string
+          dono_id: string | null
+          dono_papel: string
+          etapa: string
+          ia_analisada_em: string | null
+          ia_falta: string | null
+          ia_pendente_desde: string | null
+          id: string
+          jid: string
+          lead_id: string | null
+          nome_contato: string | null
+          numero_id: string
+          resumo_ia: string | null
+          telefone: string
+          telefone_chave: string
+          temperatura: string | null
+          ultima_direcao: string | null
+          ultima_mensagem_em: string | null
+          ultima_previa: string | null
+        }
+        Insert: {
+          aguardando_desde?: string | null
+          arquivada?: boolean
+          criada_em?: string
+          dono_id?: string | null
+          dono_papel?: string
+          etapa?: string
+          ia_analisada_em?: string | null
+          ia_falta?: string | null
+          ia_pendente_desde?: string | null
+          id?: string
+          jid: string
+          lead_id?: string | null
+          nome_contato?: string | null
+          numero_id: string
+          resumo_ia?: string | null
+          telefone: string
+          telefone_chave: string
+          temperatura?: string | null
+          ultima_direcao?: string | null
+          ultima_mensagem_em?: string | null
+          ultima_previa?: string | null
+        }
+        Update: {
+          aguardando_desde?: string | null
+          arquivada?: boolean
+          criada_em?: string
+          dono_id?: string | null
+          dono_papel?: string
+          etapa?: string
+          ia_analisada_em?: string | null
+          ia_falta?: string | null
+          ia_pendente_desde?: string | null
+          id?: string
+          jid?: string
+          lead_id?: string | null
+          nome_contato?: string | null
+          numero_id?: string
+          resumo_ia?: string | null
+          telefone?: string
+          telefone_chave?: string
+          temperatura?: string | null
+          ultima_direcao?: string | null
+          ultima_mensagem_em?: string | null
+          ultima_previa?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversas_numero_id_fkey"
+            columns: ["numero_id"]
+            isOneToOne: false
+            referencedRelation: "conv_numeros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_sentiment_log: {
         Row: {
           confidence: number | null
@@ -2560,6 +2804,9 @@ export type Database = {
       }
       fase1_config: {
         Row: {
+          chamado_automatico: boolean
+          chamado_reaviso_min: number
+          chamado_tentativas: number
           closer_user_id: string | null
           escalar_horas: number
           escalar_tentativas: number
@@ -2577,11 +2824,11 @@ export type Database = {
           site_url: string
           updated_at: string
           updated_by: string | null
-          chamado_automatico: boolean
-          chamado_reaviso_min: number
-          chamado_tentativas: number
         }
         Insert: {
+          chamado_automatico?: boolean
+          chamado_reaviso_min?: number
+          chamado_tentativas?: number
           closer_user_id?: string | null
           escalar_horas?: number
           escalar_tentativas?: number
@@ -2599,11 +2846,11 @@ export type Database = {
           site_url?: string
           updated_at?: string
           updated_by?: string | null
-          chamado_automatico?: boolean
-          chamado_reaviso_min?: number
-          chamado_tentativas?: number
         }
         Update: {
+          chamado_automatico?: boolean
+          chamado_reaviso_min?: number
+          chamado_tentativas?: number
           closer_user_id?: string | null
           escalar_horas?: number
           escalar_tentativas?: number
@@ -2621,9 +2868,6 @@ export type Database = {
           site_url?: string
           updated_at?: string
           updated_by?: string | null
-          chamado_automatico?: boolean
-          chamado_reaviso_min?: number
-          chamado_tentativas?: number
         }
         Relationships: []
       }
@@ -2689,6 +2933,60 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "agent_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ia_sugestoes: {
+        Row: {
+          conteudo: Json
+          conversa_id: string
+          criada_em: string
+          decidida_em: string | null
+          decidida_por: string | null
+          id: string
+          lead_id: string | null
+          status: string
+          tipo: string
+          titulo: string
+        }
+        Insert: {
+          conteudo?: Json
+          conversa_id: string
+          criada_em?: string
+          decidida_em?: string | null
+          decidida_por?: string | null
+          id?: string
+          lead_id?: string | null
+          status?: string
+          tipo: string
+          titulo: string
+        }
+        Update: {
+          conteudo?: Json
+          conversa_id?: string
+          criada_em?: string
+          decidida_em?: string | null
+          decidida_por?: string | null
+          id?: string
+          lead_id?: string | null
+          status?: string
+          tipo?: string
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ia_sugestoes_conversa_id_fkey"
+            columns: ["conversa_id"]
+            isOneToOne: false
+            referencedRelation: "conversas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ia_sugestoes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
         ]
@@ -3389,6 +3687,60 @@ export type Database = {
           },
         ]
       }
+      lead_ia_mudancas: {
+        Row: {
+          campo: string
+          conversa_id: string | null
+          criado_em: string
+          de: string | null
+          desfeita_em: string | null
+          desfeita_por: string | null
+          evidencia: string | null
+          id: string
+          lead_id: string
+          para: string
+        }
+        Insert: {
+          campo: string
+          conversa_id?: string | null
+          criado_em?: string
+          de?: string | null
+          desfeita_em?: string | null
+          desfeita_por?: string | null
+          evidencia?: string | null
+          id?: string
+          lead_id: string
+          para: string
+        }
+        Update: {
+          campo?: string
+          conversa_id?: string | null
+          criado_em?: string
+          de?: string | null
+          desfeita_em?: string | null
+          desfeita_por?: string | null
+          evidencia?: string | null
+          id?: string
+          lead_id?: string
+          para?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_ia_mudancas_conversa_id_fkey"
+            columns: ["conversa_id"]
+            isOneToOne: false
+            referencedRelation: "conversas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ia_mudancas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_score_history: {
         Row: {
           bant_authority: number | null
@@ -3473,6 +3825,7 @@ export type Database = {
           observacoes: string | null
           origem: string | null
           planilha_extra: Json | null
+          qualificacao: Json | null
           responsavel_id: string | null
           status: Database["public"]["Enums"]["lead_status"] | null
           status_atendimento: string
@@ -3498,6 +3851,7 @@ export type Database = {
           observacoes?: string | null
           origem?: string | null
           planilha_extra?: Json | null
+          qualificacao?: Json | null
           responsavel_id?: string | null
           status?: Database["public"]["Enums"]["lead_status"] | null
           status_atendimento?: string
@@ -3523,6 +3877,7 @@ export type Database = {
           observacoes?: string | null
           origem?: string | null
           planilha_extra?: Json | null
+          qualificacao?: Json | null
           responsavel_id?: string | null
           status?: Database["public"]["Enums"]["lead_status"] | null
           status_atendimento?: string
@@ -3641,6 +3996,87 @@ export type Database = {
             columns: ["media_id"]
             isOneToOne: false
             referencedRelation: "property_media"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mensagens: {
+        Row: {
+          autor_id: string | null
+          autor_nome: string | null
+          conversa_id: string
+          criado_em: string
+          direcao: string
+          duracao_s: number | null
+          erro: string | null
+          id: string
+          midia_bytes: number | null
+          midia_mime: string | null
+          midia_nome: string | null
+          midia_path: string | null
+          origem: string
+          responde_a: string | null
+          status: string
+          texto: string | null
+          tipo: string
+          transcricao: string | null
+          wa_id: string | null
+        }
+        Insert: {
+          autor_id?: string | null
+          autor_nome?: string | null
+          conversa_id: string
+          criado_em?: string
+          direcao: string
+          duracao_s?: number | null
+          erro?: string | null
+          id?: string
+          midia_bytes?: number | null
+          midia_mime?: string | null
+          midia_nome?: string | null
+          midia_path?: string | null
+          origem?: string
+          responde_a?: string | null
+          status?: string
+          texto?: string | null
+          tipo?: string
+          transcricao?: string | null
+          wa_id?: string | null
+        }
+        Update: {
+          autor_id?: string | null
+          autor_nome?: string | null
+          conversa_id?: string
+          criado_em?: string
+          direcao?: string
+          duracao_s?: number | null
+          erro?: string | null
+          id?: string
+          midia_bytes?: number | null
+          midia_mime?: string | null
+          midia_nome?: string | null
+          midia_path?: string | null
+          origem?: string
+          responde_a?: string | null
+          status?: string
+          texto?: string | null
+          tipo?: string
+          transcricao?: string | null
+          wa_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_conversa_id_fkey"
+            columns: ["conversa_id"]
+            isOneToOne: false
+            referencedRelation: "conversas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_responde_a_fkey"
+            columns: ["responde_a"]
+            isOneToOne: false
+            referencedRelation: "mensagens"
             referencedColumns: ["id"]
           },
         ]
@@ -4018,6 +4454,39 @@ export type Database = {
           },
         ]
       }
+      push_inscricoes: {
+        Row: {
+          auth: string
+          criado_em: string
+          endpoint: string
+          id: string
+          p256dh: string
+          ultimo_uso_em: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          criado_em?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          ultimo_uso_em?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          criado_em?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          ultimo_uso_em?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       rate_limit_config: {
         Row: {
           created_at: string | null
@@ -4283,6 +4752,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      respostas_rapidas: {
+        Row: {
+          atalho: string
+          criado_em: string
+          dono_id: string | null
+          id: string
+          texto: string
+          titulo: string
+        }
+        Insert: {
+          atalho: string
+          criado_em?: string
+          dono_id?: string | null
+          id?: string
+          texto: string
+          titulo: string
+        }
+        Update: {
+          atalho?: string
+          criado_em?: string
+          dono_id?: string | null
+          id?: string
+          texto?: string
+          titulo?: string
+        }
+        Relationships: []
       }
       sale_deletion_requests: {
         Row: {
@@ -4848,6 +5344,7 @@ export type Database = {
           attendance_overdue: boolean
           broker_confirmed: boolean | null
           broker_feedback_at: string | null
+          chamado_automatico: boolean
           client_confirmed: boolean | null
           confirmation_overdue: boolean
           created_at: string
@@ -4866,12 +5363,12 @@ export type Database = {
           summary_sent_at: string | null
           updated_at: string
           visita_id: string
-          chamado_automatico: boolean
         }
         Insert: {
           attendance_overdue?: boolean
           broker_confirmed?: boolean | null
           broker_feedback_at?: string | null
+          chamado_automatico?: boolean
           client_confirmed?: boolean | null
           confirmation_overdue?: boolean
           created_at?: string
@@ -4890,12 +5387,12 @@ export type Database = {
           summary_sent_at?: string | null
           updated_at?: string
           visita_id: string
-          chamado_automatico?: boolean
         }
         Update: {
           attendance_overdue?: boolean
           broker_confirmed?: boolean | null
           broker_feedback_at?: string | null
+          chamado_automatico?: boolean
           client_confirmed?: boolean | null
           confirmation_overdue?: boolean
           created_at?: string
@@ -4914,7 +5411,6 @@ export type Database = {
           summary_sent_at?: string | null
           updated_at?: string
           visita_id?: string
-          chamado_automatico?: boolean
         }
         Relationships: [
           {
@@ -5546,43 +6042,43 @@ export type Database = {
       }
       visita_convites: {
         Row: {
+          automatico: boolean
           corretor_id: string
           criado_por: string | null
           enviado_em: string
           id: string
           motivo_sugestao: string | null
+          reavisos: number
           respondido_em: string | null
           resposta: string | null
           score: number | null
           visita_id: string
-          automatico: boolean
-          reavisos: number
         }
         Insert: {
+          automatico?: boolean
           corretor_id: string
           criado_por?: string | null
           enviado_em?: string
           id?: string
           motivo_sugestao?: string | null
+          reavisos?: number
           respondido_em?: string | null
           resposta?: string | null
           score?: number | null
           visita_id: string
-          automatico?: boolean
-          reavisos?: number
         }
         Update: {
+          automatico?: boolean
           corretor_id?: string
           criado_por?: string | null
           enviado_em?: string
           id?: string
           motivo_sugestao?: string | null
+          reavisos?: number
           respondido_em?: string | null
           resposta?: string | null
           score?: number | null
           visita_id?: string
-          automatico?: boolean
-          reavisos?: number
         }
         Relationships: [
           {
@@ -5939,366 +6435,6 @@ export type Database = {
           },
         ]
       }
-      conv_alertas: {
-        Row: {
-          conversa_id: string | null
-          criado_em: string
-          detalhe: string | null
-          id: string
-          lead_id: string | null
-          resolvido_em: string | null
-          resolvido_por: string | null
-          responsavel_id: string | null
-          tipo: string
-          titulo: string
-        }
-        Insert: {
-          conversa_id?: string | null
-          criado_em?: string
-          detalhe?: string | null
-          id?: string
-          lead_id?: string | null
-          resolvido_em?: string | null
-          resolvido_por?: string | null
-          responsavel_id?: string | null
-          tipo: string
-          titulo: string
-        }
-        Update: {
-          conversa_id?: string | null
-          criado_em?: string
-          detalhe?: string | null
-          id?: string
-          lead_id?: string | null
-          resolvido_em?: string | null
-          resolvido_por?: string | null
-          responsavel_id?: string | null
-          tipo?: string
-          titulo?: string
-        }
-        Relationships: []
-      }
-      conv_numeros: {
-        Row: {
-          ativo: boolean
-          criado_em: string
-          criado_por: string | null
-          id: string
-          instancia: string
-          nome: string
-          papel: string
-          status: string
-          telefone: string | null
-          ultimo_evento_em: string | null
-        }
-        Insert: {
-          ativo?: boolean
-          criado_em?: string
-          criado_por?: string | null
-          id?: string
-          instancia: string
-          nome: string
-          papel?: string
-          status?: string
-          telefone?: string | null
-          ultimo_evento_em?: string | null
-        }
-        Update: {
-          ativo?: boolean
-          criado_em?: string
-          criado_por?: string | null
-          id?: string
-          instancia?: string
-          nome?: string
-          papel?: string
-          status?: string
-          telefone?: string | null
-          ultimo_evento_em?: string | null
-        }
-        Relationships: []
-      }
-      conversa_donos: {
-        Row: {
-          ator_id: string | null
-          conversa_id: string
-          criado_em: string
-          dono_id: string | null
-          dono_papel: string
-          id: string
-          motivo: string
-        }
-        Insert: {
-          ator_id?: string | null
-          conversa_id: string
-          criado_em?: string
-          dono_id?: string | null
-          dono_papel: string
-          id?: string
-          motivo: string
-        }
-        Update: {
-          ator_id?: string | null
-          conversa_id?: string
-          criado_em?: string
-          dono_id?: string | null
-          dono_papel?: string
-          id?: string
-          motivo?: string
-        }
-        Relationships: []
-      }
-      conversa_leituras: {
-        Row: {
-          conversa_id: string
-          lida_em: string
-          user_id: string
-        }
-        Insert: {
-          conversa_id: string
-          lida_em?: string
-          user_id: string
-        }
-        Update: {
-          conversa_id?: string
-          lida_em?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      conversas: {
-        Row: {
-          aguardando_desde: string | null
-          arquivada: boolean
-          criada_em: string
-          dono_id: string | null
-          dono_papel: string
-          etapa: string
-          ia_analisada_em: string | null
-          ia_pendente_desde: string | null
-          id: string
-          jid: string
-          lead_id: string | null
-          nome_contato: string | null
-          numero_id: string
-          resumo_ia: string | null
-          telefone: string
-          telefone_chave: string
-          temperatura: string | null
-          ultima_direcao: string | null
-          ultima_mensagem_em: string | null
-          ultima_previa: string | null
-        }
-        Insert: {
-          aguardando_desde?: string | null
-          arquivada?: boolean
-          criada_em?: string
-          dono_id?: string | null
-          dono_papel?: string
-          etapa?: string
-          ia_analisada_em?: string | null
-          ia_pendente_desde?: string | null
-          id?: string
-          jid: string
-          lead_id?: string | null
-          nome_contato?: string | null
-          numero_id: string
-          resumo_ia?: string | null
-          telefone: string
-          telefone_chave: string
-          temperatura?: string | null
-          ultima_direcao?: string | null
-          ultima_mensagem_em?: string | null
-          ultima_previa?: string | null
-        }
-        Update: {
-          aguardando_desde?: string | null
-          arquivada?: boolean
-          criada_em?: string
-          dono_id?: string | null
-          dono_papel?: string
-          etapa?: string
-          ia_analisada_em?: string | null
-          ia_pendente_desde?: string | null
-          id?: string
-          jid?: string
-          lead_id?: string | null
-          nome_contato?: string | null
-          numero_id?: string
-          resumo_ia?: string | null
-          telefone?: string
-          telefone_chave?: string
-          temperatura?: string | null
-          ultima_direcao?: string | null
-          ultima_mensagem_em?: string | null
-          ultima_previa?: string | null
-        }
-        Relationships: []
-      }
-      ia_sugestoes: {
-        Row: {
-          conteudo: Json
-          conversa_id: string
-          criada_em: string
-          decidida_em: string | null
-          decidida_por: string | null
-          id: string
-          lead_id: string | null
-          status: string
-          tipo: string
-          titulo: string
-        }
-        Insert: {
-          conteudo?: Json
-          conversa_id: string
-          criada_em?: string
-          decidida_em?: string | null
-          decidida_por?: string | null
-          id?: string
-          lead_id?: string | null
-          status?: string
-          tipo: string
-          titulo: string
-        }
-        Update: {
-          conteudo?: Json
-          conversa_id?: string
-          criada_em?: string
-          decidida_em?: string | null
-          decidida_por?: string | null
-          id?: string
-          lead_id?: string | null
-          status?: string
-          tipo?: string
-          titulo?: string
-        }
-        Relationships: []
-      }
-      mensagens: {
-        Row: {
-          autor_id: string | null
-          autor_nome: string | null
-          conversa_id: string
-          criado_em: string
-          direcao: string
-          duracao_s: number | null
-          erro: string | null
-          id: string
-          midia_bytes: number | null
-          midia_mime: string | null
-          midia_nome: string | null
-          midia_path: string | null
-          origem: string
-          responde_a: string | null
-          status: string
-          texto: string | null
-          tipo: string
-          transcricao: string | null
-          wa_id: string | null
-        }
-        Insert: {
-          autor_id?: string | null
-          autor_nome?: string | null
-          conversa_id: string
-          criado_em?: string
-          direcao: string
-          duracao_s?: number | null
-          erro?: string | null
-          id?: string
-          midia_bytes?: number | null
-          midia_mime?: string | null
-          midia_nome?: string | null
-          midia_path?: string | null
-          origem?: string
-          responde_a?: string | null
-          status?: string
-          texto?: string | null
-          tipo?: string
-          transcricao?: string | null
-          wa_id?: string | null
-        }
-        Update: {
-          autor_id?: string | null
-          autor_nome?: string | null
-          conversa_id?: string
-          criado_em?: string
-          direcao?: string
-          duracao_s?: number | null
-          erro?: string | null
-          id?: string
-          midia_bytes?: number | null
-          midia_mime?: string | null
-          midia_nome?: string | null
-          midia_path?: string | null
-          origem?: string
-          responde_a?: string | null
-          status?: string
-          texto?: string | null
-          tipo?: string
-          transcricao?: string | null
-          wa_id?: string | null
-        }
-        Relationships: []
-      }
-      push_inscricoes: {
-        Row: {
-          auth: string
-          criado_em: string
-          endpoint: string
-          id: string
-          p256dh: string
-          ultimo_uso_em: string | null
-          user_agent: string | null
-          user_id: string
-        }
-        Insert: {
-          auth: string
-          criado_em?: string
-          endpoint: string
-          id?: string
-          p256dh: string
-          ultimo_uso_em?: string | null
-          user_agent?: string | null
-          user_id: string
-        }
-        Update: {
-          auth?: string
-          criado_em?: string
-          endpoint?: string
-          id?: string
-          p256dh?: string
-          ultimo_uso_em?: string | null
-          user_agent?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      respostas_rapidas: {
-        Row: {
-          atalho: string
-          criado_em: string
-          dono_id: string | null
-          id: string
-          texto: string
-          titulo: string
-        }
-        Insert: {
-          atalho: string
-          criado_em?: string
-          dono_id?: string | null
-          id?: string
-          texto: string
-          titulo: string
-        }
-        Update: {
-          atalho?: string
-          criado_em?: string
-          dono_id?: string | null
-          id?: string
-          texto?: string
-          titulo?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       active_rate_limits: {
@@ -6505,6 +6641,176 @@ export type Database = {
       complete_crm_sale: {
         Args: { p_crm_lead_id: string; p_sale: Json }
         Returns: string
+      }
+      conv_alerta_resolver: { Args: { p_alerta: string }; Returns: undefined }
+      conv_atualizar_status: {
+        Args: { p_instancia: string; p_status: string; p_wa_id: string }
+        Returns: undefined
+      }
+      conv_ia_proximas: {
+        Args: { p_limite?: number }
+        Returns: {
+          aguardando_desde: string | null
+          arquivada: boolean
+          criada_em: string
+          dono_id: string | null
+          dono_papel: string
+          etapa: string
+          ia_analisada_em: string | null
+          ia_falta: string | null
+          ia_pendente_desde: string | null
+          id: string
+          jid: string
+          lead_id: string | null
+          nome_contato: string | null
+          numero_id: string
+          resumo_ia: string | null
+          telefone: string
+          telefone_chave: string
+          temperatura: string | null
+          ultima_direcao: string | null
+          ultima_mensagem_em: string | null
+          ultima_previa: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "conversas"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      conv_mensagem_resultado: {
+        Args: { p_erro?: string; p_id: string; p_wa_id: string }
+        Returns: undefined
+      }
+      conv_mensagem_saida: { Args: { p: Json }; Returns: string }
+      conv_numero_status: {
+        Args: { p_instancia: string; p_status: string; p_telefone?: string }
+        Returns: undefined
+      }
+      conv_registrar_mensagem: { Args: { p: Json }; Returns: Json }
+      conv_segredo: { Args: { p_nome: string }; Returns: string }
+      conv_segredo_salvar: {
+        Args: { p_nome: string; p_valor: string }
+        Returns: string
+      }
+      conversa_arquivar: {
+        Args: { p_arquivar: boolean; p_conversa: string }
+        Returns: undefined
+      }
+      conversa_assumir: { Args: { p_conversa: string }; Returns: Json }
+      conversa_iniciar: {
+        Args: { p_lead: string; p_numero?: string }
+        Returns: string
+      }
+      conversa_marcar_lida: { Args: { p_conversa: string }; Returns: undefined }
+      conversa_mover_etapa: {
+        Args: { p_conversa: string; p_etapa: string }
+        Returns: undefined
+      }
+      conversa_nota: {
+        Args: { p_conversa: string; p_texto: string }
+        Returns: string
+      }
+      conversa_preparar_envio: { Args: { p_conversa: string }; Returns: Json }
+      conversa_transferir: {
+        Args: {
+          p_conversa: string
+          p_motivo?: string
+          p_papel: string
+          p_para: string
+        }
+        Returns: Json
+      }
+      conversa_vincular_lead: {
+        Args: { p_conversa: string; p_lead: string }
+        Returns: undefined
+      }
+      conversas_desempenho: {
+        Args: { p_dias?: number }
+        Returns: {
+          aguardando: number
+          alertas_sem_resposta: number
+          conversas_ativas: number
+          corretor_id: string
+          mensagens_enviadas: number
+          nome: string
+          respondidas_15min_pct: number
+          sem_contato_3d: number
+          tempo_medio_resposta_min: number
+          user_id: string
+          vendas: number
+          visitas_agendadas: number
+          visitas_realizadas: number
+        }[]
+      }
+      conversas_listar: {
+        Args: { p_busca?: string; p_filtro?: string; p_limite?: number }
+        Returns: {
+          aguardando_desde: string
+          alertas_abertos: number
+          arquivada: boolean
+          dono_id: string
+          dono_nome: string
+          dono_papel: string
+          etapa: string
+          id: string
+          lead_id: string
+          lead_nome: string
+          lead_status: string
+          nao_lidas: number
+          nome_contato: string
+          numero_id: string
+          numero_nome: string
+          numero_status: string
+          resumo_ia: string
+          sugestoes_abertas: number
+          telefone: string
+          temperatura: string
+          ultima_direcao: string
+          ultima_mensagem_em: string
+          ultima_previa: string
+        }[]
+      }
+      corretor_meus_clientes: {
+        Args: never
+        Returns: {
+          aguardando_desde: string
+          conversa_id: string
+          empreendimento: string
+          etapa: string
+          lead_id: string
+          nome: string
+          proxima_visita: Json
+          resumo_ia: string
+          telefone: string
+          temperatura: string
+          ultima_direcao: string
+          ultima_mensagem_em: string
+          ultima_previa: string
+        }[]
+      }
+      corretor_meus_convites: {
+        Args: never
+        Returns: {
+          bairro: string
+          convite_id: string
+          data_visita: string
+          empreendimento: string
+          enviado_em: string
+          fonte: string
+          horario_visita: string
+          lead_nome: string
+          local_nome: string
+          perfil: string
+          prazo_em: string
+          renda: string
+          visita_id: string
+        }[]
+      }
+      corretor_responder_convite: {
+        Args: { p_aceitar: boolean; p_convite: string; p_observacao?: string }
+        Returns: Json
       }
       corretores_ranking: {
         Args: never
@@ -6721,6 +7027,21 @@ export type Database = {
         }
         Returns: boolean
       }
+      ia_aplicar_ficha: {
+        Args: {
+          p_conversa: string
+          p_evidencias: Json
+          p_lead: string
+          p_qualificacao: Json
+          p_status: string
+        }
+        Returns: Json
+      }
+      ia_mudanca_desfazer: { Args: { p_mudanca: string }; Returns: Json }
+      ia_sugestao_decidir: {
+        Args: { p_aceitar: boolean; p_sugestao: string; p_valor?: Json }
+        Returns: Json
+      }
       import_conflito_resolver: { Args: { p_id: string }; Returns: undefined }
       increment_rate_limit: {
         Args: { p_key: string; p_max?: number; p_window_seconds?: number }
@@ -6729,12 +7050,6 @@ export type Database = {
           is_allowed: boolean
         }[]
       }
-      leads_em_massa: {
-        Args: { p_campos: Json; p_ids: string[] }
-        Returns: Json
-      }
-      leads_excluir: { Args: { p_ids: string[] }; Returns: Json }
-      leads_restaurar: { Args: { p_ids: string[] }; Returns: Json }
       lead_adicionar_nota: {
         Args: { p_lead_id: string; p_texto: string }
         Returns: Json
@@ -6745,6 +7060,15 @@ export type Database = {
       }
       lead_buscar_por_telefone: { Args: { p_telefone: string }; Returns: Json }
       lead_criar: { Args: { p_dados: Json }; Returns: Json }
+      lead_lembrete: {
+        Args: { p_dias: number; p_lead_id: string; p_observacao?: string }
+        Returns: Json
+      }
+      leads_em_massa: {
+        Args: { p_campos: Json; p_ids: string[] }
+        Returns: Json
+      }
+      leads_excluir: { Args: { p_ids: string[] }; Returns: Json }
       leads_responsaveis_pendentes: {
         Args: never
         Returns: {
@@ -6752,6 +7076,7 @@ export type Database = {
           quantidade: number
         }[]
       }
+      leads_restaurar: { Args: { p_ids: string[] }; Returns: Json }
       leads_vincular_responsavel_importado: {
         Args: { p_nome_planilha: string; p_user: string }
         Returns: number
@@ -6801,6 +7126,22 @@ export type Database = {
         }
         Returns: undefined
       }
+      minha_atividade_concluir: {
+        Args: { p_tarefa: string }
+        Returns: undefined
+      }
+      minhas_atividades: {
+        Args: never
+        Returns: {
+          conversa_id: string
+          disponivel_em: string
+          id: string
+          lead_id: string
+          lead_nome: string
+          titulo: string
+          vence_em: string
+        }[]
+      }
       normalize_brazilian_phone: {
         Args: { phone_input: string }
         Returns: string
@@ -6816,15 +7157,35 @@ export type Database = {
       normalize_phone_canonical: { Args: { raw: string }; Returns: string }
       normalize_phone_display: { Args: { raw: string }; Returns: string }
       normalize_phone_key: { Args: { raw: string }; Returns: string }
+      painel_apresentacao: {
+        Args: { p_ate: string; p_de: string }
+        Returns: Json
+      }
       painel_comercial: { Args: { p_ate: string; p_de: string }; Returns: Json }
-      painel_historico: { Args: { p_ate: string; p_meses?: number }; Returns: Json }
-      painel_apresentacao: { Args: { p_ate: string; p_de: string }; Returns: Json }
-      planilha_sincronizar_agora: { Args: never; Returns: Json }
+      painel_historico: {
+        Args: { p_ate: string; p_meses?: number }
+        Returns: Json
+      }
       permanently_delete_lead: { Args: { p_lead_id: string }; Returns: boolean }
       planilha_importar_lote: {
         Args: { p_aba: string; p_linhas: Json }
         Returns: Json
       }
+      planilha_puxar: {
+        Args: { p_aba: string; p_aplicar?: boolean; p_linhas: Json }
+        Returns: Json
+      }
+      planilha_sincronizar_agora: { Args: never; Returns: Json }
+      push_inscrever: {
+        Args: {
+          p_auth: string
+          p_endpoint: string
+          p_p256dh: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
+      push_remover: { Args: { p_endpoint: string }; Returns: undefined }
       relatorio_salvar: {
         Args: { p_dados: Json; p_id: string }
         Returns: undefined
@@ -6836,6 +7197,17 @@ export type Database = {
           _venda_id: string
         }
         Returns: Json
+      }
+      resposta_rapida_excluir: { Args: { p_id: string }; Returns: undefined }
+      resposta_rapida_salvar: {
+        Args: {
+          p_atalho: string
+          p_equipe?: boolean
+          p_id: string
+          p_texto: string
+          p_titulo: string
+        }
+        Returns: string
       }
       restore_visita: { Args: { visita_id: string }; Returns: undefined }
       save_crm_pipeline_configuration: {
@@ -7185,168 +7557,6 @@ export type Database = {
           p_user_id?: string
         }
         Returns: string
-      }
-      conversas_listar: {
-        Args: { p_filtro?: string; p_busca?: string; p_limite?: number }
-        Returns: {
-          id: string
-          numero_id: string
-          numero_nome: string
-          numero_status: string
-          lead_id: string | null
-          lead_nome: string | null
-          lead_status: string | null
-          telefone: string
-          nome_contato: string | null
-          dono_id: string | null
-          dono_nome: string | null
-          dono_papel: string
-          etapa: string
-          ultima_mensagem_em: string | null
-          ultima_previa: string | null
-          ultima_direcao: string | null
-          aguardando_desde: string | null
-          nao_lidas: number
-          temperatura: string | null
-          resumo_ia: string | null
-          sugestoes_abertas: number
-          alertas_abertos: number
-          arquivada: boolean
-        }[]
-      }
-      conversa_marcar_lida: {
-        Args: { p_conversa: string }
-        Returns: undefined
-      }
-      conversa_assumir: {
-        Args: { p_conversa: string }
-        Returns: Json
-      }
-      conversa_transferir: {
-        Args: { p_conversa: string; p_para: string; p_papel: string; p_motivo?: string }
-        Returns: Json
-      }
-      conversa_nota: {
-        Args: { p_conversa: string; p_texto: string }
-        Returns: string
-      }
-      conversa_arquivar: {
-        Args: { p_conversa: string; p_arquivar: boolean }
-        Returns: undefined
-      }
-      conversa_mover_etapa: {
-        Args: { p_conversa: string; p_etapa: string }
-        Returns: undefined
-      }
-      conversa_vincular_lead: {
-        Args: { p_conversa: string; p_lead: string }
-        Returns: undefined
-      }
-      conversa_iniciar: {
-        Args: { p_lead: string; p_numero?: string }
-        Returns: string
-      }
-      conversa_preparar_envio: {
-        Args: { p_conversa: string }
-        Returns: Json
-      }
-      ia_sugestao_decidir: {
-        Args: { p_sugestao: string; p_aceitar: boolean; p_valor?: Json }
-        Returns: Json
-      }
-      conv_alerta_resolver: {
-        Args: { p_alerta: string }
-        Returns: undefined
-      }
-      resposta_rapida_salvar: {
-        Args: { p_id: string; p_atalho: string; p_titulo: string; p_texto: string; p_equipe?: boolean }
-        Returns: string
-      }
-      resposta_rapida_excluir: {
-        Args: { p_id: string }
-        Returns: undefined
-      }
-      push_inscrever: {
-        Args: { p_endpoint: string; p_p256dh: string; p_auth: string; p_user_agent?: string }
-        Returns: undefined
-      }
-      push_remover: {
-        Args: { p_endpoint: string }
-        Returns: undefined
-      }
-      corretor_meus_convites: {
-        Args: never
-        Returns: {
-          convite_id: string
-          visita_id: string
-          enviado_em: string
-          prazo_em: string
-          lead_nome: string
-          empreendimento: string | null
-          bairro: string | null
-          data_visita: string
-          horario_visita: string
-          local_nome: string | null
-          perfil: string | null
-          renda: string | null
-          fonte: string | null
-        }[]
-      }
-      corretor_responder_convite: {
-        Args: { p_convite: string; p_aceitar: boolean; p_observacao?: string }
-        Returns: Json
-      }
-      corretor_meus_clientes: {
-        Args: never
-        Returns: {
-          conversa_id: string
-          lead_id: string | null
-          nome: string
-          telefone: string
-          etapa: string
-          temperatura: string | null
-          resumo_ia: string | null
-          ultima_mensagem_em: string | null
-          ultima_previa: string | null
-          ultima_direcao: string | null
-          aguardando_desde: string | null
-          proxima_visita: Json
-          empreendimento: string | null
-        }[]
-      }
-      conversas_desempenho: {
-        Args: { p_dias?: number }
-        Returns: {
-          user_id: string
-          nome: string | null
-          corretor_id: string
-          conversas_ativas: number
-          aguardando: number
-          tempo_medio_resposta_min: number | null
-          respondidas_15min_pct: number | null
-          mensagens_enviadas: number
-          visitas_agendadas: number
-          visitas_realizadas: number
-          vendas: number
-          alertas_sem_resposta: number
-          sem_contato_3d: number
-        }[]
-      }
-      minhas_atividades: {
-        Args: never
-        Returns: {
-          id: string
-          titulo: string
-          disponivel_em: string
-          vence_em: string
-          lead_id: string | null
-          lead_nome: string | null
-          conversa_id: string | null
-        }[]
-      }
-      minha_atividade_concluir: {
-        Args: { p_tarefa: string }
-        Returns: undefined
       }
     }
     Enums: {

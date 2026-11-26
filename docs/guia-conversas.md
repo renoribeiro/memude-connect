@@ -4,7 +4,7 @@ Guias por público: [corretor](guias/guia-corretor.md) · [SDR](guias/guia-sdr.m
 Identidade visual desta área: [identidade-visual.md](identidade-visual.md).
 
 O cliente fala sempre com **o número da MeMude**. Por dentro, quem atende muda: SDR → corretor → closer.
-A IA lê as conversas e **só sugere**. Nada muda no CRM sem alguém tocar em "Aplicar".
+A IA lê as conversas e **mantém a ficha do cliente em dia sozinha** (com prova e botão Desfazer). Mudanças graves pedem confirmação do closer.
 
 ## 1. Primeiro passo (admin, uma vez só)
 
@@ -35,10 +35,14 @@ Os números que já existiam (avisos e visitas) **não são tocados**.
 **Assinatura automática.** A primeira mensagem de cada pessoa sai com *Nome · Atendimento*, *Nome · Corretor(a)* ou *Nome · Especialista*.
 Depois, nas 4 horas seguintes, sai sem assinatura.
 
-**IA (só sugere):**
-- resumo e temperatura (quente, morno, frio);
-- campos da ficha (renda, entrada/FGTS, prazo, finalidade, região);
-- etapa;
+**IA aplica sozinha:**
+- resumo, próximo passo e temperatura (quente, morno, frio);
+- campos da ficha (renda, entrada/FGTS, prazo, finalidade, região), só o que o cliente disse e nunca por cima do que uma pessoa preencheu;
+- status até *Interessado* e etapa até *Documentação*, só para frente;
+- *Não interessado*, *Sem renda*, *Vendido* e *Perdido* viram alerta para o closer confirmar;
+- tudo aparece na página do lead, em **O que está acontecendo**, com **Desfazer**.
+
+**IA sugere:**
 - resposta sugerida (aparece acima da caixa de texto: **Usar** só preenche, você revisa e envia);
 - lembrete;
 - imóveis que combinam.

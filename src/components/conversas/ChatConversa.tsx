@@ -26,12 +26,14 @@ interface Props {
   compacto?: boolean;
   /** Manda o "lido" (✓✓ azul) ao cliente; padrão: quem pode responder. */
   lerNoWhatsApp?: boolean;
+  /** Conteúdo fixo no topo da conversa (ex.: resumo do atendimento anterior para o corretor). */
+  topo?: ReactNode;
 }
 
 const PERTO_DO_FIM = 160;
 
 export function ChatConversa({
-  conversaId, nome, telefone, etapa, numeroNome, numeroStatus, podeResponder, subtitulo, acoes, aoVoltar, aoAbrirFicha, compacto, lerNoWhatsApp,
+  conversaId, nome, telefone, etapa, numeroNome, numeroStatus, podeResponder, subtitulo, acoes, aoVoltar, aoAbrirFicha, compacto, lerNoWhatsApp, topo,
 }: Props) {
   const [limite, setLimite] = useState(120);
   const { data: msgs = [], isLoading, isFetching } = useMensagens(conversaId, limite);
@@ -156,6 +158,7 @@ export function ChatConversa({
             <div className="mx-auto mb-3 flex max-w-sm items-center justify-center gap-1.5 rounded-[14px] bg-mm-lilas px-3 py-1.5 text-center text-[11px] font-semibold text-primary">
               <Lock className="h-3 w-3 shrink-0" aria-hidden /> Conversa pelo número da MeMude. A equipe acompanha para te ajudar.
             </div>
+            {topo}
             {msgs.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Nenhuma mensagem ainda. Mande a primeira.</p>}
             {msgs.map((m, i) => {
               const anterior = msgs[i - 1];

@@ -1,4 +1,4 @@
-import { AlertTriangle, BellRing, CheckCircle2, Flame, PhoneOff, Snowflake, UserX } from 'lucide-react';
+import { AlertTriangle, BellRing, CheckCircle2, Flame, PhoneOff, Snowflake, Sparkles, UserX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,9 +9,9 @@ import { useAlertas, useResolverAlerta } from '@/hooks/conversas/dados';
 import { useAgora } from '@/hooks/conversas/useAgora';
 
 const ICONE: Record<string, typeof AlertTriangle> = {
-  sem_resposta: AlertTriangle, pos_visita_esquecido: Snowflake, sinal_compra: Flame, contato_pessoal: UserX, numero_caiu: PhoneOff,
+  sem_resposta: AlertTriangle, pos_visita_esquecido: Snowflake, sinal_compra: Flame, contato_pessoal: UserX, numero_caiu: PhoneOff, confirmar_ia: Sparkles,
 };
-const ORDEM = ['numero_caiu', 'contato_pessoal', 'sem_resposta', 'sinal_compra', 'pos_visita_esquecido'];
+const ORDEM = ['numero_caiu', 'contato_pessoal', 'sem_resposta', 'confirmar_ia', 'sinal_compra', 'pos_visita_esquecido'];
 
 /** Central de alertas do closer: quem está sem resposta, clientes esfriando, sinais de compra. */
 export function AlertasPainel({ aoAbrirConversa }: { aoAbrirConversa: (id: string) => void }) {

@@ -212,6 +212,23 @@ export function useAtualizarLead() {
   });
 }
 
+/** Desfaz uma atualização que a IA fez na ficha (a IA não refaz o que foi desfeito). */
+export function useDesfazerMudancaIA() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; leadId: string }) => {
+      const { error } = await supabase.rpc('ia_mudanca_desfazer', { p_mudanca: id });
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      toast.success('Desfeito. A IA não vai preencher esse valor de novo.');
+      qc.invalidateQueries({ queryKey: chaves.leads });
+      qc.invalidateQueries({ queryKey: chaves.lead(v.leadId) });
+    },
+    onError: (e) => toast.error(mensagemErro(e)),
+  });
+}
+
 export interface ResultadoCriarLead {
   criado: boolean;
   duplicado: boolean;
@@ -245,7 +262,7 @@ export function useLead(id: string | undefined) {
     queryKey: chaves.lead(id ?? ''),
     enabled: !!id,
     queryFn: async () => {
-      const [lead, eventos, visitas, oportunidades] = await Promise.all([
+      const [lead, eventos, visitas, oportunidades, conversa, mudancasIa] = await Promise.all([
         supabase.from('leads').select('*, empreendimentos(id, nome, wp_post_id)').eq('id', id!).single(),
         supabase.from('lead_eventos').select('*').eq('lead_id', id!).order('criado_em', { ascending: false }).limit(200),
         supabase.from('visitas')
@@ -254,6 +271,11 @@ export function useLead(id: string | undefined) {
         supabase.from('crm_leads')
           .select('id, valor_estimado, tag, created_at, moved_at, crm_stages(nome, cor), crm_pipelines(nome), empreendimentos(nome)')
           .eq('lead_id', id!).order('created_at', { ascending: false }),
+        // Conversa mais recente: o que a IA entendeu (resumo, o que falta, temperatura)
+        supabase.from('conversas').select('id, resumo_ia, ia_falta, temperatura, etapa, ia_analisada_em, ultima_mensagem_em')
+          .eq('lead_id', id!).order('ultima_mensagem_em', { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
+        supabase.from('lead_ia_mudancas').select('id, campo, de, para, evidencia, criado_em, desfeita_em, desfeita_por, conversa_id')
+          .eq('lead_id', id!).order('criado_em', { ascending: false }).limit(100),
       ]);
       if (lead.error) throw lead.error;
       return {
@@ -261,6 +283,8 @@ export function useLead(id: string | undefined) {
         eventos: eventos.data ?? [],
         visitas: visitas.data ?? [],
         oportunidades: oportunidades.error ? [] : oportunidades.data ?? [],
+        conversa: conversa.error ? null : conversa.data,
+        mudancasIa: mudancasIa.error ? [] : mudancasIa.data ?? [],
       };
     },
   });

@@ -198,7 +198,7 @@ export function PainelCliente({ conversaId, equipe }: { conversaId: string; equi
       )}
 
       {outras.length > 0 && (
-        <Secao titulo="Sugestões da IA" icone={Sparkles} extra={<span className="text-[11px] text-muted-foreground">nada muda sem você aceitar</span>}>
+        <Secao titulo="Sugestões da IA" icone={Sparkles} extra={<span className="text-[11px] text-muted-foreground">a ficha se atualiza sozinha; estas dependem de você</span>}>
           <div className="space-y-2">{outras.map((s) => <CartaoSugestao key={s.id} s={s} />)}</div>
         </Secao>
       )}

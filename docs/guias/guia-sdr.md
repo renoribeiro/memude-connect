@@ -20,7 +20,7 @@ O selo de tempo muda de cor: verde até 5 minutos, amarelo até 15, rosa depois 
 ## 2. Rotina do dia
 
 1. Abra o filtro **Aguardando** e responda quem está esperando, do mais antigo para o mais novo.
-2. Qualifique: renda, entrada/FGTS, prazo, finalidade e região. A IA sugere esses campos na ficha; confira e toque em **Aplicar**.
+2. Qualifique: pergunte renda, entrada/FGTS, prazo, finalidade e região. A IA grava as respostas do cliente na ficha sozinha.
 3. Cliente sem lead no CRM: na ficha, em **Lead no CRM**, procure pelo nome ou telefone e vincule.
 4. Visita combinada: ficha → **Agendar visita**. O corretor recebe a tela **Cliente novo** no app e, ao aceitar, a conversa passa para ele.
 
@@ -41,10 +41,12 @@ Se o corretor recusar, o convite volta para você escolher outro. Se o cliente f
 
 A primeira mensagem de cada pessoa sai assinada como *Seu nome · Atendimento*. Nas 4 horas seguintes, sai sem assinatura.
 
-## 4. IA: só sugere
+## 4. IA: atualiza a ficha sozinha
 
-Na ficha e acima da caixa de texto aparecem: resumo, temperatura (quente, morno, frio), campos da ficha, etapa, lembrete, imóveis que combinam e resposta sugerida.
-Nada muda no CRM sem alguém tocar em **Aplicar**. **Usar** só preenche a caixa de texto para você revisar.
+A IA grava na ficha o que o cliente disse (renda, entrada/FGTS, prazo, finalidade, região), avança o status até **Interessado** e a etapa até **Documentação**, sempre guardando o trecho da conversa como prova.
+Ela **nunca** troca um campo que uma pessoa preencheu (sugere **Conferir ficha**) e **nunca** marca sozinha *Não interessado*, *Sem renda*, *Vendido* ou *Perdido*: isso vira alerta **Confirme o que a IA entendeu** para o closer.
+Na página do lead, em **O que está acontecendo**, ficam o resumo, o próximo passo e tudo o que a IA mudou, com botão **Desfazer**.
+Resposta sugerida, lembrete e imóveis continuam como sugestão: **Usar** só preenche a caixa de texto para você revisar.
 
 ## 5. Para não bloquear o número
 

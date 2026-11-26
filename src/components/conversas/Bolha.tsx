@@ -20,7 +20,7 @@ function TextoFormatado({ texto, className }: { texto: string; className?: strin
         if (t.tipo === 'negrito') return <strong key={i} className="font-semibold">{t.valor}</strong>;
         if (t.tipo === 'italico') return <em key={i}>{t.valor}</em>;
         if (t.tipo === 'riscado') return <s key={i}>{t.valor}</s>;
-        if (t.tipo === 'codigo') return <code key={i} className="rounded bg-black/5 px-1 font-mono text-[0.85em] dark:bg-white/10">{t.valor}</code>;
+        if (t.tipo === 'codigo') return <code key={i} className="rounded-md bg-black/5 px-1 font-mono text-[0.85em] dark:bg-white/10">{t.valor}</code>;
         return <span key={i}>{t.valor}</span>;
       })}
     </p>
@@ -83,7 +83,7 @@ function Midia({ m, minha }: { m: MensagemLocal; minha: boolean }) {
   const src = m.previaUrl ?? url;
   const [ampliada, setAmpliada] = useState(false);
   if (!m.midia_path && !m.previaUrl) {
-    return <p className="text-sm opacity-75">{m.erro ?? (m.tipo === 'audio' ? '🎤 Baixando áudio…' : 'Baixando mídia…')}</p>;
+    return <p className="text-sm opacity-75">{m.erro ?? (m.tipo === 'audio' ? 'Baixando áudio…' : 'Baixando mídia…')}</p>;
   }
   if (m.tipo === 'audio') return <PlayerAudio src={src} segundos={m.duracao_s} transcricao={m.transcricao} minha={minha} />;
   if (m.tipo === 'imagem' || m.tipo === 'figurinha') {
@@ -138,8 +138,8 @@ export const Bolha = memo(function Bolha({ m, citada, mostrarAutor, aoResponder,
   }
   if (m.direcao === 'nota') {
     return (
-      <div className="mx-auto my-2 max-w-[85%] rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 shadow-sm dark:border-amber-900 dark:bg-amber-950/60 dark:text-amber-100">
-        <div className="mb-0.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+      <div className="mx-auto my-2 max-w-[85%] rounded-[14px] border border-mm-alerta/20 bg-mm-alerta-fundo px-3 py-2 text-sm text-foreground">
+        <div className="mb-0.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-mm-alerta">
           <StickyNote className="h-3 w-3" aria-hidden /> Nota interna · {m.autor_nome ?? 'Equipe'} · {horaCurta(m.criado_em)}
         </div>
         <TextoFormatado texto={m.texto ?? ''} />
@@ -165,9 +165,9 @@ export const Bolha = memo(function Bolha({ m, citada, mostrarAutor, aoResponder,
         </button>
       )}
       <div className={cn(
-        'relative max-w-[82%] rounded-2xl px-3 py-1.5 text-[15px] leading-snug shadow-sm sm:max-w-[68%]',
-        minha ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-bl-md border border-border/60 bg-card text-card-foreground',
-        m.status === 'erro' && 'ring-2 ring-rose-400',
+        'relative max-w-[82%] rounded-[18px] px-3 py-1.5 text-[15px] leading-snug sm:max-w-[68%]',
+        minha ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-bl-md border border-mm-borda-suave bg-card text-card-foreground',
+        m.status === 'erro' && 'ring-2 ring-mm-rosa',
         m.local && m.status === 'pendente' && 'opacity-80',
       )}>
         {mostrarAutor && minha && (
@@ -176,7 +176,7 @@ export const Bolha = memo(function Bolha({ m, citada, mostrarAutor, aoResponder,
         {citada && (
           <div className={cn('mb-1.5 rounded-lg border-l-4 px-2 py-1 text-xs', minha ? 'border-white/60 bg-white/15' : 'border-primary bg-muted')}>
             <p className="font-semibold">{citada.direcao === 'entrada' ? 'Cliente' : (citada.autor_nome?.split(' ')[0] ?? 'Equipe')}</p>
-            <p className="line-clamp-2 opacity-80">{semAssinatura(citada.texto) || (citada.tipo === 'audio' ? '🎤 Áudio' : '📎 Anexo')}</p>
+            <p className="line-clamp-2 opacity-80">{semAssinatura(citada.texto) || (citada.tipo === 'audio' ? 'Áudio' : 'Anexo')}</p>
           </div>
         )}
         {m.tipo === 'localizacao' && <MapPin className="mb-1 h-4 w-4" aria-hidden />}
@@ -191,7 +191,7 @@ export const Bolha = memo(function Bolha({ m, citada, mostrarAutor, aoResponder,
           <div className="mt-1 flex items-center gap-2 border-t border-white/20 pt-1 text-xs">
             <span className="flex-1">{m.erro ?? 'Não enviada'}</span>
             {aoReenviar && (m.status === 'erro') && (
-              <Button size="sm" variant="secondary" className="h-7 px-2 text-xs" disabled={reenviando} onClick={() => aoReenviar(m)}>
+              <Button size="sm" variant="acao" className="h-7 px-2.5 text-xs" disabled={reenviando} onClick={() => aoReenviar(m)}>
                 {reenviando ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />} Tentar de novo
               </Button>
             )}

@@ -21,9 +21,9 @@ import { useAcaoNumero, useNumeros } from '@/hooks/conversas/dados';
 type RespostaNumero = { numero?: Numero; qr?: string };
 
 const STATUS: Record<string, { rotulo: string; cor: string; icone: typeof Wifi }> = {
-  aberto: { rotulo: 'Conectado', cor: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950', icone: Wifi },
-  conectando: { rotulo: 'Aguardando QR code', cor: 'text-amber-700 bg-amber-50 dark:bg-amber-950', icone: QrCode },
-  desconectado: { rotulo: 'Desconectado', cor: 'text-rose-600 bg-rose-50 dark:bg-rose-950', icone: WifiOff },
+  aberto: { rotulo: 'Conectado', cor: 'text-mm-sucesso bg-mm-sucesso-fundo', icone: Wifi },
+  conectando: { rotulo: 'Aguardando QR code', cor: 'text-mm-alerta bg-mm-alerta-fundo', icone: QrCode },
+  desconectado: { rotulo: 'Desconectado', cor: 'text-mm-rosa-texto bg-mm-rosa-claro', icone: WifiOff },
 };
 
 /** Janela do QR code: renova sozinho a cada 30 s e fecha quando o celular conecta. */
@@ -67,22 +67,22 @@ function ConectarDialog({ numero, qrInicial, aoFechar }: { numero: Numero; qrIni
 
   return (
     <Dialog open onOpenChange={(v) => !v && aoFechar()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="tema-memude max-w-md">
         <DialogHeader>
           <DialogTitle>Conectar “{numero.nome}”</DialogTitle>
           <DialogDescription>No celular do número: WhatsApp → Configurações → Dispositivos conectados → Conectar dispositivo.</DialogDescription>
         </DialogHeader>
-        <div className="flex aspect-square w-full items-center justify-center rounded-xl border bg-white p-4">
+        <div className="flex aspect-square w-full items-center justify-center rounded-2xl border border-mm-borda-suave bg-white p-4">
           {conectado ? (
-            <div className="text-center text-emerald-600">
+            <div className="text-center text-[#1F7A4D]">
               <CheckCircle2 className="mx-auto h-16 w-16" />
-              <p className="mt-2 font-semibold">Conectado!</p>
+              <p className="mt-2 font-extrabold">Conectado</p>
             </div>
           ) : erro && !qr ? (
-            <div className="px-6 text-center text-sm text-zinc-700">
-              <p className="font-semibold text-rose-600">Não foi possível gerar o QR code</p>
+            <div className="px-6 text-center text-sm text-[#4A4266]">
+              <p className="font-bold text-[#B0164A]">Não foi possível gerar o QR code</p>
               <p className="mt-1">{erro}</p>
-              <Button className="mt-4" variant="outline" onClick={() => { setErro(null); setTentativa((t) => t + 1); }}>Tentar de novo</Button>
+              <Button className="mt-4" variant="acao" onClick={() => { setErro(null); setTentativa((t) => t + 1); }}>Tentar de novo</Button>
             </div>
           ) : qr ? (
             <img src={qr.startsWith('data:') ? qr : `data:image/png;base64,${qr}`} alt="QR code para conectar o WhatsApp" className="h-full w-full object-contain" />
@@ -105,7 +105,7 @@ function NovoNumeroDialog({ aberto, aoFechar, aoCriar }: { aberto: boolean; aoFe
   });
   return (
     <Dialog open={aberto} onOpenChange={(v) => !v && aoFechar()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="tema-memude max-w-md">
         <DialogHeader>
           <DialogTitle>Novo número de WhatsApp</DialogTitle>
           <DialogDescription>Cria uma conexão nova no servidor da MeMude. Os números que já existem (avisos e visitas) não são alterados.</DialogDescription>
@@ -113,15 +113,15 @@ function NovoNumeroDialog({ aberto, aoFechar, aoCriar }: { aberto: boolean; aoFe
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="nome-numero">Nome</Label>
-            <Input id="nome-numero" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Atendimento MeMude" maxLength={60} autoFocus />
+            <Input id="nome-numero" className="h-12" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Atendimento MeMude" maxLength={60} autoFocus />
           </div>
           <RadioGroup value={papel} onValueChange={(v) => setPapel(v as 'principal' | 'backup')} className="grid grid-cols-2 gap-2">
             {[
               { v: 'principal', t: 'Principal', d: 'Recebe e inicia as conversas' },
               { v: 'backup', t: 'Reserva', d: 'Fica pronto caso o principal caia' },
             ].map((o) => (
-              <Label key={o.v} htmlFor={`papel-${o.v}`} className={cn('cursor-pointer rounded-xl border p-3', papel === o.v && 'border-primary bg-primary/5 ring-1 ring-primary')}>
-                <span className="flex items-center gap-2 font-medium"><RadioGroupItem id={`papel-${o.v}`} value={o.v} />{o.t}</span>
+              <Label key={o.v} htmlFor={`papel-${o.v}`} className={cn('cursor-pointer rounded-2xl border border-border p-3', papel === o.v && 'border-primary bg-mm-lilas ring-1 ring-primary')}>
+                <span className="flex items-center gap-2 font-bold"><RadioGroupItem id={`papel-${o.v}`} value={o.v} />{o.t}</span>
                 <span className="mt-1 block text-xs font-normal text-muted-foreground">{o.d}</span>
               </Label>
             ))}
@@ -129,7 +129,7 @@ function NovoNumeroDialog({ aberto, aoFechar, aoCriar }: { aberto: boolean; aoFe
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={aoFechar}>Cancelar</Button>
-          <Button onClick={criar} disabled={nome.trim().length < 2 || acao.isPending}>
+          <Button variant="acao" onClick={criar} disabled={nome.trim().length < 2 || acao.isPending}>
             {acao.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Criar e mostrar QR code
           </Button>
         </DialogFooter>
@@ -150,31 +150,31 @@ export function NumerosPainel() {
     <div className="mx-auto max-w-4xl space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Números da MeMude</h2>
+          <h2 className="text-2xl">Números da MeMude</h2>
           <p className="text-sm text-muted-foreground">O cliente sempre fala com o mesmo número; quem atende muda por dentro.</p>
         </div>
-        <Button onClick={() => setNovo(true)}><Plus className="h-4 w-4" /> Novo número</Button>
+        <Button variant="acao" onClick={() => setNovo(true)}><Plus className="h-4 w-4" /> Novo número</Button>
       </div>
 
-      {isLoading ? <Skeleton className="h-32 w-full rounded-xl" /> : !numeros.length ? (
+      {isLoading ? <Skeleton className="h-32 w-full rounded-2xl" /> : !numeros.length ? (
         <EstadoVazio icone={Smartphone} titulo="Nenhum número conectado" descricao="Conecte o chip da MeMude para começar a receber as conversas aqui e no app dos corretores."
-          acao={<Button onClick={() => setNovo(true)}><Plus className="h-4 w-4" /> Conectar o primeiro número</Button>} />
+          acao={<Button variant="acao" onClick={() => setNovo(true)}><Plus className="h-4 w-4" /> Conectar o primeiro número</Button>} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {numeros.map((n) => {
             const st = STATUS[n.status] ?? STATUS.desconectado;
             const Icone = st.icone;
             return (
-              <div key={n.id} className={cn('rounded-xl border bg-card p-4 shadow-sm', !n.ativo && 'opacity-60')}>
+              <div key={n.id} className={cn('rounded-2xl border border-mm-borda-suave bg-card p-4', !n.ativo && 'opacity-60')}>
                 <div className="flex items-start gap-3">
-                  <span className={cn('rounded-full p-2', st.cor)}><Icone className="h-5 w-5" /></span>
+                  <span className={cn('rounded-xl p-2', st.cor)}><Icone className="h-5 w-5" /></span>
                   <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1.5 font-semibold">
+                    <p className="flex items-center gap-1.5 font-extrabold">
                       {n.nome}
-                      {n.papel === 'principal' && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-label="Principal" />}
+                      {n.papel === 'principal' && <Star className="h-3.5 w-3.5 fill-mm-rosa text-mm-rosa" aria-label="Principal" />}
                     </p>
                     <p className="text-sm text-muted-foreground">{n.telefone ? telefoneLegivel(n.telefone) : 'Telefone aparece ao conectar'}</p>
-                    <p className={cn('mt-1 text-xs font-medium', st.cor.split(' ')[0])}>
+                    <p className={cn('mt-1 text-xs font-bold', st.cor.split(' ')[0])}>
                       {n.ativo ? st.rotulo : 'Desativado'}{n.ultimo_evento_em ? ` · ${haQuanto(n.ultimo_evento_em)}` : ''}
                     </p>
                   </div>
@@ -182,19 +182,19 @@ export function NumerosPainel() {
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" aria-label={`Opções de ${n.nome}`}><MoreVertical className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="tema-memude rounded-2xl">
                       <DropdownMenuItem onClick={() => acao.mutate({ acao: 'estado', id: n.id })}><RefreshCw className="mr-2 h-4 w-4" /> Atualizar status</DropdownMenuItem>
                       {n.papel !== 'principal' && <DropdownMenuItem onClick={() => acao.mutate({ acao: 'editar', id: n.id, papel: 'principal' })}><Star className="mr-2 h-4 w-4" /> Tornar principal</DropdownMenuItem>}
                       {n.papel === 'principal' && <DropdownMenuItem onClick={() => acao.mutate({ acao: 'editar', id: n.id, papel: 'backup' })}>Tornar reserva</DropdownMenuItem>}
                       <DropdownMenuItem onClick={() => acao.mutate({ acao: 'webhook', id: n.id })}>Reaplicar webhook</DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      {n.status === 'aberto' && <DropdownMenuItem className="text-rose-600" onClick={() => setConfirmar({ n, tipo: 'desconectar' })}><Unplug className="mr-2 h-4 w-4" /> Desconectar aparelho</DropdownMenuItem>}
+                      {n.status === 'aberto' && <DropdownMenuItem className="text-mm-rosa-texto" onClick={() => setConfirmar({ n, tipo: 'desconectar' })}><Unplug className="mr-2 h-4 w-4" /> Desconectar aparelho</DropdownMenuItem>}
                       <DropdownMenuItem onClick={() => (n.ativo ? setConfirmar({ n, tipo: 'desativar' }) : acao.mutate({ acao: 'editar', id: n.id, ativo: true }))}>{n.ativo ? 'Desativar' : 'Reativar'}</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
                 {n.ativo && n.status !== 'aberto' && (
-                  <Button className="mt-3 w-full" variant={n.status === 'desconectado' ? 'default' : 'outline'} onClick={() => setConectando({ n, qr: null })}>
+                  <Button className="mt-3 w-full" variant={n.status === 'desconectado' ? 'acao' : 'contorno'} onClick={() => setConectando({ n, qr: null })}>
                     <QrCode className="h-4 w-4" /> {n.status === 'desconectado' ? 'Reconectar com QR code' : 'Mostrar QR code'}
                   </Button>
                 )}
@@ -204,8 +204,8 @@ export function NumerosPainel() {
         </div>
       )}
 
-      <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-        <p className="font-medium text-foreground">Boas práticas para não bloquear o número</p>
+      <div className="rounded-2xl bg-mm-lilas p-4 text-sm text-foreground">
+        <p className="font-extrabold text-primary">Boas práticas para não bloquear o número</p>
         <ul className="mt-1 list-disc space-y-0.5 pl-5">
           <li>Sem disparo em massa: o Connect limita 40 conversas novas por dia e 40 mensagens por minuto em cada número.</li>
           <li>Deixe um número reserva conectado. Se o principal cair, o cliente que escrever no reserva continua com o mesmo atendente.</li>
@@ -215,7 +215,7 @@ export function NumerosPainel() {
 
       <NovoNumeroDialog aberto={novo} aoFechar={() => setNovo(false)} aoCriar={(n, qr) => { setNovo(false); setConectando({ n, qr }); }} />
       <AlertDialog open={!!confirmar} onOpenChange={(v) => !v && setConfirmar(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="tema-memude">
           <AlertDialogHeader>
             <AlertDialogTitle>{confirmar?.tipo === 'desconectar' ? `Desconectar “${confirmar?.n.nome}”?` : `Desativar “${confirmar?.n.nome}”?`}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -225,8 +225,8 @@ export function NumerosPainel() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => {
+            <AlertDialogCancel className="rounded-full font-bold">Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="rounded-full bg-destructive font-bold text-destructive-foreground hover:bg-destructive/90" onClick={() => {
               if (!confirmar) return;
               acao.mutate(confirmar.tipo === 'desconectar' ? { acao: 'desconectar', id: confirmar.n.id } : { acao: 'editar', id: confirmar.n.id, ativo: false });
               setConfirmar(null);

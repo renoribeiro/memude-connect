@@ -28,22 +28,23 @@ function useImoveis() {
 export function CartaoImovel({ i, aoEnviar, enviando }: { i: Imovel; aoEnviar?: (i: Imovel) => void; enviando?: boolean }) {
   const url = link(i);
   return (
-    <div className="flex items-center gap-3 rounded-xl border bg-card p-3">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Building2 className="h-5 w-5" /></span>
+    <div className="flex items-center gap-3 rounded-2xl border border-mm-borda-suave bg-card p-3">
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-mm-lilas text-primary"><Building2 className="h-5 w-5" /></span>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{i.nome}</p>
+        <p className="truncate text-[15px] font-bold">{i.nome}</p>
+        {i.bairro && <p className="truncate text-xs text-muted-foreground">{i.bairro}</p>}
         <p className="truncate text-xs text-muted-foreground">
-          {[i.bairro, moeda(i.valor_min) && `a partir de ${moeda(i.valor_min)}`].filter(Boolean).join(' · ') || 'Sem preço cadastrado'}
+          {moeda(i.valor_min) ? <>a partir de <span className="preco text-[13px] text-primary">{moeda(i.valor_min)}</span></> : 'Sem preço cadastrado'}
         </p>
       </div>
-      {i.afinidade != null && <span className="shrink-0 rounded-full bg-emerald-50 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">{i.afinidade}%</span>}
+      {i.afinidade != null && <span className="shrink-0 rounded-full bg-mm-sucesso-fundo px-1.5 py-0.5 text-[11px] font-extrabold text-mm-sucesso tabular-nums">{i.afinidade}%</span>}
       {url && (
         <Button asChild variant="ghost" size="icon" className="shrink-0" aria-label={`Abrir ${i.nome} no site`}>
           <a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a>
         </Button>
       )}
       {aoEnviar ? (
-        <Button size="icon" className="shrink-0 rounded-full" onClick={() => aoEnviar(i)} disabled={enviando} aria-label={`Enviar ${i.nome} para o cliente`}>
+        <Button size="icon" variant="acao" className="shrink-0" onClick={() => aoEnviar(i)} disabled={enviando} aria-label={`Enviar ${i.nome} para o cliente`}>
           {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       ) : (
@@ -90,14 +91,14 @@ export function ImoveisParaCliente({ conversaId, aoEnviar }: { conversaId?: stri
     <div className="space-y-4 p-4">
       {daIA.length > 0 && (
         <section className="space-y-2">
-          <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary"><Sparkles className="h-3.5 w-3.5" /> Combinam com o cliente</h3>
+          <h3 className="flex items-center gap-1.5 text-[15px] text-foreground"><Sparkles className="h-4 w-4 text-primary" /> Combinam com o cliente</h3>
           {daIA.map((i) => <CartaoImovel key={i.id} i={i} aoEnviar={mandar} enviando={enviandoId === i.id} />)}
         </section>
       )}
       <section className="space-y-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar imóvel ou bairro" className="h-11 rounded-full pl-9 text-base" aria-label="Buscar imóvel" />
+          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar imóvel ou bairro" className="h-12 pl-9 text-base" aria-label="Buscar imóvel" />
         </div>
         {isLoading ? <Loader2 className="mx-auto my-6 h-5 w-5 animate-spin text-muted-foreground" />
           : filtrados.map((i) => <CartaoImovel key={i.id} i={i} aoEnviar={mandar} enviando={enviandoId === i.id} />)}

@@ -15,6 +15,10 @@ const buttonVariants = cva(
         secondary: "bg-secondary/10 text-secondary-dark hover:bg-secondary/15",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        /** Ação principal da identidade MeMude: rosa #D41F58, texto branco */
+        acao: "bg-mm-acao text-white hover:bg-mm-acao/90",
+        /** Secundário da identidade MeMude: borda roxa 1,5 px */
+        contorno: "border-[1.5px] border-primary bg-card text-primary hover:bg-accent",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -39,7 +43,7 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
+    return <Comp data-botao={variant ?? 'default'} className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
   },
 );
 Button.displayName = "Button";

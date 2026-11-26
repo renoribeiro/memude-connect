@@ -28,16 +28,16 @@ export function VincularLead({ conversaId }: { conversaId: string }) {
   }, [busca]);
 
   return (
-    <div className="space-y-2 rounded-xl border border-dashed p-3">
-      <p className="text-xs text-muted-foreground">Sem lead vinculado. Procure o cliente no CRM:</p>
+    <div className="space-y-2 rounded-2xl border border-dashed border-mm-campo p-3">
+      <p className="text-xs font-semibold text-muted-foreground">Sem lead vinculado. Procure o cliente no CRM:</p>
       <div className="relative">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Nome ou telefone" className="h-9 pl-8 text-sm" aria-label="Buscar lead" />
+        <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Nome ou telefone" className="h-10 pl-8 text-sm" aria-label="Buscar lead" />
         {buscando && <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />}
       </div>
       {resultados.map((l) => (
         <button key={l.id} type="button" disabled={vincular.isPending} onClick={() => vincular.mutate({ id: conversaId, lead: l.id })}
-          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted">
+          className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm font-semibold hover:bg-mm-lilas">
           <Link2 className="h-3.5 w-3.5 shrink-0 text-primary" />
           <span className="min-w-0 flex-1 truncate">{l.nome}</span>
           <span className="shrink-0 text-xs text-muted-foreground">{telefoneLegivel(l.telefone)}</span>

@@ -49,25 +49,25 @@ export function TransferirDialog({ aberto, aoFechar, conversaId, donoAtual }: {
 
   return (
     <Dialog open={aberto} onOpenChange={(v) => !v && fechar()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="tema-memude max-w-md">
         <DialogHeader>
           <DialogTitle>Transferir conversa</DialogTitle>
           <DialogDescription>O cliente continua falando com o mesmo número da MeMude. Só muda quem atende.</DialogDescription>
         </DialogHeader>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pessoa" className="pl-9" autoFocus aria-label="Buscar pessoa" />
+          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pessoa" className="h-12 pl-9" autoFocus aria-label="Buscar pessoa" />
         </div>
         <div className="max-h-72 space-y-1 overflow-y-auto pr-1" role="radiogroup" aria-label="Para quem">
           {isLoading && <Loader2 className="mx-auto my-6 h-5 w-5 animate-spin text-muted-foreground" />}
           {destinos.map((d) => (
             <button key={chave(d)} type="button" role="radio" aria-checked={chave(escolhido) === chave(d)} disabled={d.inativo}
               onClick={() => setEscolhido(d)}
-              className={cn('flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition disabled:opacity-50',
-                chave(escolhido) === chave(d) ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-transparent hover:bg-muted')}>
+              className={cn('flex w-full items-center gap-3 rounded-2xl border px-3 py-2 text-left transition disabled:opacity-50',
+                chave(escolhido) === chave(d) ? 'border-primary bg-mm-lilas ring-1 ring-primary' : 'border-transparent hover:bg-muted')}>
               <AvatarContato nome={d.nome} tamanho="sm" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{d.nome}</span>
+                <span className="block truncate text-sm font-bold">{d.nome}</span>
                 <span className="block truncate text-xs text-muted-foreground">{d.detalhe}</span>
               </span>
             </button>
@@ -77,7 +77,7 @@ export function TransferirDialog({ aberto, aoFechar, conversaId, donoAtual }: {
         <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo (opcional) — fica no histórico" rows={2} maxLength={200} className="text-base sm:text-sm" />
         <DialogFooter>
           <Button variant="ghost" onClick={fechar}>Cancelar</Button>
-          <Button onClick={confirmar} disabled={!sel || transferir.isPending}>
+          <Button variant="acao" onClick={confirmar} disabled={!sel || transferir.isPending}>
             {transferir.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Transferir
           </Button>
         </DialogFooter>

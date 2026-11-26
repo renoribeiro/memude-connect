@@ -32,18 +32,18 @@ export function RespostasRapidasPainel() {
     <div className="mx-auto max-w-3xl space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Respostas rápidas</h2>
-          <p className="text-sm text-muted-foreground">No chat, digite <kbd className="rounded border bg-muted px-1 font-mono text-xs">/</kbd> e o atalho para usar.</p>
+          <h2 className="text-2xl">Respostas rápidas</h2>
+          <p className="text-sm text-muted-foreground">No chat, digite <kbd className="rounded-md border bg-card px-1.5 text-xs font-bold">/</kbd> e o atalho para usar.</p>
         </div>
-        <Button onClick={() => setEditando({ equipe: isComercial })}><Plus className="h-4 w-4" /> Nova resposta</Button>
+        <Button variant="acao" onClick={() => setEditando({ equipe: isComercial })}><Plus className="h-4 w-4" /> Nova resposta</Button>
       </div>
       {!respostas.length ? <EstadoVazio icone={Zap} titulo="Nenhuma resposta rápida" descricao="Crie atalhos para as mensagens que você manda todo dia." /> : (
-        <div className="divide-y rounded-xl border bg-card">
+        <div className="divide-y divide-mm-borda-suave rounded-2xl border border-mm-borda-suave bg-card">
           {respostas.map((r) => (
             <div key={r.id} className="flex items-start gap-3 p-3">
-              <span className="mt-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 font-mono text-xs font-semibold text-primary">/{r.atalho}</span>
+              <span className="mt-0.5 rounded-full bg-mm-lilas px-2 py-0.5 text-[11px] font-extrabold text-primary">/{r.atalho}</span>
               <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-1.5 text-sm font-medium">{r.titulo}{r.dono_id == null && <Users className="h-3.5 w-3.5 text-muted-foreground" aria-label="Da equipe" />}</p>
+                <p className="flex items-center gap-1.5 text-sm font-bold">{r.titulo}{r.dono_id == null && <Users className="h-3.5 w-3.5 text-muted-foreground" aria-label="Da equipe" />}</p>
                 <p className="line-clamp-2 text-sm text-muted-foreground">{r.texto}</p>
               </div>
               {podeEditar(r) && (
@@ -58,7 +58,7 @@ export function RespostasRapidasPainel() {
       )}
 
       <Dialog open={!!editando} onOpenChange={(v) => !v && setEditando(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="tema-memude max-w-lg">
           <DialogHeader>
             <DialogTitle>{editando?.id ? 'Editar resposta rápida' : 'Nova resposta rápida'}</DialogTitle>
             <DialogDescription>Use *negrito* e _itálico_ como no WhatsApp.</DialogDescription>
@@ -68,8 +68,8 @@ export function RespostasRapidasPainel() {
               <div className="space-y-1.5">
                 <Label htmlFor="rr-atalho">Atalho</Label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-muted-foreground">/</span>
-                  <Input id="rr-atalho" className="pl-6 font-mono" value={editando?.atalho ?? ''} maxLength={30} placeholder="tabela"
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">/</span>
+                  <Input id="rr-atalho" className="h-12 pl-6 font-semibold" value={editando?.atalho ?? ''} maxLength={30} placeholder="tabela"
                     onChange={(e) => setEditando((v) => ({ ...v, atalho: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} />
                 </div>
               </div>
@@ -84,15 +84,15 @@ export function RespostasRapidasPainel() {
               <Textarea id="rr-texto" rows={5} maxLength={2000} value={editando?.texto ?? ''} onChange={(e) => setEditando((v) => ({ ...v, texto: e.target.value }))} />
             </div>
             {isComercial && (
-              <label className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm">
-                <span><span className="font-medium">Disponível para toda a equipe</span><span className="block text-xs text-muted-foreground">Corretores também veem e usam</span></span>
+              <label className="flex items-center justify-between gap-3 rounded-2xl border border-mm-borda-suave p-3 text-sm">
+                <span><span className="font-bold">Disponível para toda a equipe</span><span className="block text-xs text-muted-foreground">Corretores também veem e usam</span></span>
                 <Switch checked={Boolean(editando?.equipe)} onCheckedChange={(c) => setEditando((v) => ({ ...v, equipe: c }))} />
               </label>
             )}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setEditando(null)}>Cancelar</Button>
-            <Button onClick={gravar} disabled={salvar.isPending || (editando?.atalho ?? '').length < 2 || (editando?.titulo ?? '').trim().length < 2 || (editando?.texto ?? '').trim().length < 2}>
+            <Button variant="acao" onClick={gravar} disabled={salvar.isPending || (editando?.atalho ?? '').length < 2 || (editando?.titulo ?? '').trim().length < 2 || (editando?.texto ?? '').trim().length < 2}>
               {salvar.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
             </Button>
           </DialogFooter>

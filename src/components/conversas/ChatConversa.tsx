@@ -108,18 +108,18 @@ export function ChatConversa({
   const variosAutores = useMemo(() => new Set(msgs.filter((m) => m.direcao === 'saida').map((m) => m.autor_id ?? m.origem)).size > 1, [msgs]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[hsl(var(--muted)/0.45)]">
-      <header className={cn('flex items-center gap-2 border-b bg-card px-2 py-2 sm:px-3', compacto && 'pt-[max(0.5rem,env(safe-area-inset-top))]')}>
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <header className={cn('flex items-center gap-2 border-b border-mm-borda-suave bg-card px-2 py-2 sm:px-3', compacto && 'pt-[max(0.5rem,env(safe-area-inset-top))]')}>
         {aoVoltar && (
           <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-full" onClick={aoVoltar} aria-label="Voltar para a lista">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         )}
         <button type="button" onClick={aoAbrirFicha} disabled={!aoAbrirFicha}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-left transition enabled:hover:bg-muted/60">
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-[14px] p-1 text-left transition enabled:hover:bg-muted">
           <AvatarContato nome={nome} chave={conversaId} />
           <span className="min-w-0">
-            <span className="block truncate font-semibold leading-tight">{nome}</span>
+            <span className="block truncate text-[17px] font-extrabold leading-tight tracking-[-0.01em]">{nome}</span>
             <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
               {subtitulo ?? <>{telefoneLegivel(telefone)}{numeroNome && <> · via {numeroNome}</>}</>}
             </span>
@@ -130,7 +130,7 @@ export function ChatConversa({
       </header>
 
       {desconectado && (
-        <div className="flex items-center gap-2 bg-rose-600 px-4 py-1.5 text-xs font-medium text-white">
+        <div className="flex items-center gap-2 border-b border-mm-borda-rosa bg-mm-rosa-palido px-4 py-2 text-xs font-bold text-mm-rosa-texto" role="alert">
           <WifiOff className="h-3.5 w-3.5" aria-hidden /> O número {numeroNome ? `"${numeroNome}" ` : ''}está desconectado. As mensagens não saem até reconectar.
         </div>
       )}
@@ -148,15 +148,15 @@ export function ChatConversa({
           <>
             {msgs.length >= limite && (
               <div className="mb-3 text-center">
-                <Button variant="outline" size="sm" className="rounded-full bg-card" onClick={carregarAnteriores} disabled={isFetching}>
+                <Button variant="outline" size="sm" onClick={carregarAnteriores} disabled={isFetching}>
                   {isFetching && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Carregar mensagens anteriores
                 </Button>
               </div>
             )}
-            <div className="mx-auto mb-3 flex max-w-sm items-center justify-center gap-1.5 rounded-lg bg-amber-50/90 px-3 py-1.5 text-center text-[11px] text-amber-900 dark:bg-amber-950/60 dark:text-amber-200">
+            <div className="mx-auto mb-3 flex max-w-sm items-center justify-center gap-1.5 rounded-[14px] bg-mm-lilas px-3 py-1.5 text-center text-[11px] font-semibold text-primary">
               <Lock className="h-3 w-3 shrink-0" aria-hidden /> Conversa pelo número da MeMude. A equipe acompanha para te ajudar.
             </div>
-            {msgs.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Nenhuma mensagem ainda. Mande a primeira!</p>}
+            {msgs.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Nenhuma mensagem ainda. Mande a primeira.</p>}
             {msgs.map((m, i) => {
               const anterior = msgs[i - 1];
               const novoDia = !anterior || !mesmoDia(anterior.criado_em, m.criado_em);
@@ -165,7 +165,7 @@ export function ChatConversa({
                 <Fragment key={m.id}>
                   {novoDia && (
                     <div className="sticky top-0 z-10 my-3 flex justify-center">
-                      <span className="rounded-full bg-card/95 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm ring-1 ring-border first-letter:uppercase">
+                      <span className="rounded-full bg-card/95 px-3 py-1 text-[11px] font-bold text-muted-foreground ring-1 ring-mm-borda-suave first-letter:uppercase">
                         {separadorDia(m.criado_em)}
                       </span>
                     </div>
@@ -182,7 +182,7 @@ export function ChatConversa({
         )}
         {novasAbaixo > 0 && (
           <button type="button" onClick={descer}
-            className="sticky bottom-2 float-right mr-1 flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-lg">
+            className="sombra-flutuante sticky bottom-2 float-right mr-1 flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">
             <ArrowDown className="h-3.5 w-3.5" /> {novasAbaixo} nova{novasAbaixo > 1 ? 's' : ''}
           </button>
         )}

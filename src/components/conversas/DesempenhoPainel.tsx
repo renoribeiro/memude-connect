@@ -51,13 +51,13 @@ export function DesempenhoPainel() {
     <div className="mx-auto max-w-6xl space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Desempenho dos corretores</h2>
+          <h2 className="text-2xl">Desempenho dos corretores</h2>
           <p className="text-sm text-muted-foreground">Ritmo de resposta no app e resultado no funil. Toque no título da coluna para ordenar.</p>
         </div>
-        <div className="flex rounded-full bg-muted p-1" role="tablist" aria-label="Período">
+        <div className="flex rounded-full border border-border bg-card p-1" role="tablist" aria-label="Período">
           {PERIODOS.map((p) => (
             <button key={p} type="button" role="tab" aria-selected={dias === p} onClick={() => setDias(p)}
-              className={cn('rounded-full px-3 py-1 text-sm font-medium transition', dias === p ? 'bg-card shadow-sm' : 'text-muted-foreground')}>
+              className={cn('rounded-full px-3 py-1 text-sm transition', dias === p ? 'bg-primary font-bold text-primary-foreground' : 'font-semibold text-muted-foreground hover:text-primary')}>
               {p} dias
             </button>
           ))}
@@ -71,33 +71,33 @@ export function DesempenhoPainel() {
           { r: 'Vendas no período', v: String(totais.vendas) },
           { r: 'Atrasos (> 15 min)', v: String(totais.atrasos) },
         ].map((k) => (
-          <div key={k.r} className="rounded-xl border bg-card p-4 shadow-sm">
-            <p className="text-xs font-medium text-muted-foreground">{k.r}</p>
-            <div className="mt-1 text-2xl font-bold tabular-nums">{isLoading ? <Skeleton className="h-7 w-16" /> : k.v}</div>
+          <div key={k.r} className="rounded-2xl border border-mm-borda-suave bg-card p-4">
+            <p className="text-xs font-semibold text-muted-foreground">{k.r}</p>
+            <div className="preco mt-1 text-2xl text-primary">{isLoading ? <Skeleton className="h-7 w-16" /> : k.v}</div>
           </div>
         ))}
       </div>
 
       {lider && (
-        <p className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
-          <Trophy className="h-4 w-4" /> <strong>{lider.nome}</strong> respondeu {Math.round(lider.respondidas_15min_pct!)}% dos clientes em até 15 minutos.
+        <p className="flex items-center gap-2 rounded-[14px] bg-mm-lilas px-4 py-2.5 text-sm text-foreground">
+          <Trophy className="h-4 w-4 shrink-0 text-primary" /> <strong>{lider.nome}</strong> respondeu {Math.round(lider.respondidas_15min_pct!)}% dos clientes em até 15 minutos.
         </p>
       )}
 
-      {isLoading ? <Skeleton className="h-64 w-full rounded-xl" /> : isError ? (
+      {isLoading ? <Skeleton className="h-64 w-full rounded-2xl" /> : isError ? (
         <EstadoVazio icone={Gauge} titulo="Não foi possível carregar" descricao="Confira a internet e tente de novo."
-          acao={<button type="button" onClick={() => refetch()} className="rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground">Tentar de novo</button>} />
+          acao={<button type="button" onClick={() => refetch()} className="rounded-full bg-mm-acao px-5 py-2 text-sm font-bold text-white">Tentar de novo</button>} />
       ) : !linhas.length ? (
         <EstadoVazio icone={Gauge} titulo="Sem dados ainda" descricao="Os números aparecem quando os corretores começarem a atender pelo app." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border bg-card">
+        <div className="overflow-x-auto rounded-2xl border border-mm-borda-suave bg-card">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-44">Corretor</TableHead>
                 {COLUNAS.map((c) => (
                   <TableHead key={c.chave} className="whitespace-nowrap text-right" title={c.dica}>
-                    <button type="button" className="inline-flex items-center gap-1 hover:text-foreground"
+                    <button type="button" className="inline-flex items-center gap-1 font-bold hover:text-primary"
                       onClick={() => setOrdem((o) => ({ col: c.chave, desc: o.col === c.chave ? !o.desc : !c.melhorMenor }))}>
                       {c.rotulo}
                       {ordem.col === c.chave && (ordem.desc ? <ArrowDown className="h-3 w-3" /> : <ArrowUp className="h-3 w-3" />)}
@@ -110,13 +110,13 @@ export function DesempenhoPainel() {
               {linhas.map((l) => (
                 <TableRow key={l.user_id}>
                   <TableCell>
-                    <span className="flex items-center gap-2"><AvatarContato nome={l.nome} tamanho="sm" /><span className="font-medium">{l.nome}</span></span>
+                    <span className="flex items-center gap-2"><AvatarContato nome={l.nome} tamanho="sm" /><span className="font-bold">{l.nome}</span></span>
                   </TableCell>
                   {COLUNAS.map((c) => {
                     const v = l[c.chave] as number | null;
                     const ruim = c.chave === 'respondidas_15min_pct' ? v != null && v < 70 : c.chave === 'tempo_medio_resposta_min' ? v != null && v > 15 : c.melhorMenor && (v ?? 0) > 0;
                     return (
-                      <TableCell key={c.chave} className={cn('text-right tabular-nums', ruim && 'font-semibold text-rose-600')}>
+                      <TableCell key={c.chave} className={cn('text-right tabular-nums', ruim && 'font-bold text-mm-rosa-texto')}>
                         {c.fmt ? c.fmt(v) : v ?? 0}
                       </TableCell>
                     );

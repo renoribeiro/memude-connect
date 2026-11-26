@@ -37,26 +37,26 @@ export function NovaConversaDialog({ aberto, aoFechar, aoAbrir }: { aberto: bool
 
   return (
     <Dialog open={aberto} onOpenChange={(v) => !v && aoFechar()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="tema-memude max-w-md">
         <DialogHeader>
           <DialogTitle>Nova conversa</DialogTitle>
           <DialogDescription>Escolha o lead. Se ele já conversa com a MeMude, a conversa existente abre.</DialogDescription>
         </DialogHeader>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Nome ou telefone do lead" className="pl-9" aria-label="Buscar lead" />
+          <Input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Nome ou telefone do lead" className="h-12 pl-9" aria-label="Buscar lead" />
           {buscando && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
         </div>
         <div className="max-h-80 space-y-0.5 overflow-y-auto">
           {leads.map((l) => (
             <button key={l.id} type="button" disabled={iniciar.isPending} onClick={() => abrir(l.id)}
-              className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-muted disabled:opacity-60">
+              className="flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left transition hover:bg-mm-lilas disabled:opacity-60">
               <AvatarContato nome={l.nome} chave={l.id} tamanho="sm" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{l.nome}</span>
+                <span className="block truncate text-sm font-bold">{l.nome}</span>
                 <span className="block text-xs text-muted-foreground">{telefoneLegivel(l.telefone)}{l.status_atendimento ? ` · ${l.status_atendimento}` : ''}</span>
               </span>
-              {iniciar.isPending && iniciar.variables?.lead === l.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquarePlus className="h-4 w-4 text-primary" />}
+              {iniciar.isPending && iniciar.variables?.lead === l.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquarePlus className="h-4 w-4 text-mm-acao" />}
             </button>
           ))}
           {!buscando && !leads.length && <p className="py-6 text-center text-sm text-muted-foreground">Nenhum lead encontrado.</p>}

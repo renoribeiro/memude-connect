@@ -40,7 +40,7 @@ export default function AppChat() {
           </div>
         )} />
       <Drawer open={!!painel} onOpenChange={(v) => !v && setPainel(null)}>
-        <DrawerContent className="max-h-[88dvh]">
+        <DrawerContent className="tema-memude max-h-[88dvh] bg-card">
           <DrawerTitle className="sr-only">{painel === 'imoveis' ? 'Imóveis' : 'Ficha do cliente'}</DrawerTitle>
           <div className="overflow-y-auto pb-[env(safe-area-inset-bottom)]">
             {painel === 'ficha' && <PainelCliente conversaId={id} equipe={false} />}

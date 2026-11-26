@@ -10,9 +10,9 @@ O cliente sempre fala com **o número da MeMude**. Você atende por dentro do ap
 2. Coloque o ícone na tela inicial:
    - **Android (Chrome):** menu de três pontos → **Instalar app**.
    - **iPhone (Safari):** botão **Compartilhar** → **Adicionar à Tela de Início**. Sem isso, o iPhone não mostra notificações.
-3. Abra pelo ícone e toque em **Ativar** no aviso de notificações.
+3. Abra pelo ícone e toque em **Ativar** no aviso de notificações do Início.
 
-Confira em **Eu → Notificações** se está escrito "Ativas neste aparelho".
+Confira em **Meu perfil → Notificações** se está escrito "Ativas neste aparelho".
 
 ## 2. Cliente novo
 
@@ -21,17 +21,20 @@ Quando a SDR agenda uma visita para você, o app abre a tela **Cliente novo**, c
 - **Aceitar cliente:** a visita e a conversa passam a ser suas. O chat abre na hora.
 - **Não posso atender:** escreva o motivo. A SDR escolhe outro corretor.
 
-Se o prazo passar, o convite continua em **Hoje → Responder convite** até a SDR escolher outro corretor.
+O app toca e vibra até você responder; o botão de som no canto silencia. Se não responder, você recebe novo aviso a cada 5 minutos.
+No modo automático, se o prazo passar, o cliente vai para o próximo corretor. No modo manual, o convite continua em **Agenda → Responder** até a SDR escolher outro corretor.
 
 ## 3. As cinco abas
 
 | Aba | Para quê |
 |---|---|
+| **Início** | O que precisa de você agora: cliente novo, quem espera resposta, números do dia, atalhos e prioridades por urgência |
 | **Conversas** | Seus clientes. O selo de tempo mostra há quanto tempo o cliente espera resposta |
-| **Hoje** | Atividades do dia (toque no círculo para concluir) e visitas dos próximos 7 dias |
-| **Funil** | Seus clientes por etapa. Deslize para o lado; o botão "…" muda a etapa |
-| **Imóveis** | Catálogo com preço de partida, para enviar ao cliente com um toque |
-| **Eu** | Seu desempenho em 30 dias, notificações, tema escuro, respostas rápidas e saída |
+| **Agenda** | Hoje: atividades (toque no círculo para concluir) e visitas do dia. Próximos 7 dias: visitas por dia |
+| **Clientes** | Funil por etapa (deslize ou toque na etapa; o "…" muda a etapa) e Lista com filtros e próxima visita |
+| **Meu perfil** | Seu desempenho em 30 dias, seus dados, notificações, instalar o app, respostas rápidas e tema escuro |
+
+O catálogo de **Imóveis** fica no atalho do Início e no ícone de prédio dentro do chat.
 
 ## 4. Conversando com o cliente
 
@@ -66,5 +69,5 @@ Nada muda sem você tocar em **Usar** ou **Aplicar**. A resposta sugerida só pr
 |---|---|
 | Mensagem com aviso de erro | Toque em **Tentar de novo** |
 | Faixa "número desconectado" | Avise a equipe. As mensagens saem quando o número voltar |
-| Notificação não chega no iPhone | Instale pela **Tela de Início** e ative em **Eu → Notificações** |
-| Precisa de comissão ou histórico | **Eu → Portal completo** |
+| Notificação não chega no iPhone | Instale pela **Tela de Início** e ative em **Meu perfil → Notificações** |
+| Precisa de comissão ou histórico | **Meu perfil → Portal completo** |

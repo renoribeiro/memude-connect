@@ -64,13 +64,15 @@ Depois, nas 4 horas seguintes, sai sem assinatura.
 
 | Aba | Para quê |
 |---|---|
+| **Início** | Cliente novo, quem espera resposta, números do dia, atalhos e prioridades por urgência |
 | **Conversas** | Seus clientes. O contador mostra há quanto tempo o cliente espera |
-| **Hoje** | Atividades (marque como feita) e visitas dos próximos 7 dias |
-| **Funil** | Seus clientes por etapa. Deslize para o lado; "…" move de etapa |
-| **Imóveis** | Catálogo para copiar e mandar |
-| **Eu** | Seu desempenho, notificações, tema escuro, respostas rápidas |
+| **Agenda** | Atividades (marque como feita) e visitas de hoje e dos próximos 7 dias |
+| **Clientes** | Funil por etapa e lista com filtros e próxima visita |
+| **Meu perfil** | Desempenho, dados, notificações, instalar o app, respostas rápidas e tema escuro |
 
-**Cliente novo:** quando a SDR agenda uma visita para você, a tela cheia aparece com som e contagem regressiva.
+O catálogo de imóveis fica no atalho do Início e no ícone de prédio do chat.
+
+**Cliente novo:** quando a SDR agenda uma visita para você, a tela cheia aparece e toca até você responder (com botão de silenciar), com contagem regressiva e reaviso a cada 5 min. No modo automático, se o prazo passar, o cliente vai para o próximo corretor do rating.
 - **Aceitar cliente:** a conversa vem para você.
 - **Não posso atender:** com motivo; a SDR escolhe outro corretor.
 

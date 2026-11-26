@@ -8,8 +8,10 @@ import { nomeDaConversa, quandoNaLista } from '@/lib/conversas/formato';
 import { useAgora } from '@/hooks/conversas/useAgora';
 import { AvatarContato, ContadorNaoLidas, Espera, Temperatura } from './pecas';
 
-export const ItemConversa = memo(function ItemConversa({ c, ativa, agora, aoAbrir }: {
+export const ItemConversa = memo(function ItemConversa({ c, ativa, agora, aoAbrir, semDono }: {
   c: ConversaItem; ativa: boolean; agora: number; aoAbrir: (id: string) => void;
+  /** No app do corretor todas as conversas são dele: não repete o dono. */
+  semDono?: boolean;
 }) {
   const nome = nomeDaConversa(c);
   const etapa = ETAPA[c.etapa as Etapa];
@@ -39,9 +41,11 @@ export const ItemConversa = memo(function ItemConversa({ c, ativa, agora, aoAbri
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-1.5">
           {c.aguardando_desde && <Espera desde={c.aguardando_desde} agora={agora} compacto />}
-          <span className="inline-flex items-center gap-1 rounded-full bg-mm-lilas px-1.5 py-0.5 text-[11px] font-bold text-primary">
-            {PAPEL_DONO[c.dono_papel] ?? c.dono_papel}{c.dono_nome ? ` · ${c.dono_nome.split(' ')[0]}` : ' · fila'}
-          </span>
+          {!semDono && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-mm-lilas px-1.5 py-0.5 text-[11px] font-bold text-primary">
+              {PAPEL_DONO[c.dono_papel] ?? c.dono_papel}{c.dono_nome ? ` · ${c.dono_nome.split(' ')[0]}` : ' · fila'}
+            </span>
+          )}
           {c.alertas_abertos > 0 && (
             <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-mm-rosa-texto" title="Alertas abertos">
               <AlertTriangle className="h-3 w-3" /> {c.alertas_abertos}

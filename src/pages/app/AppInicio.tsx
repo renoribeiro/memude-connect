@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BellRing, Building2, CalendarDays, Check, MessageCircle, MessagesSquare, Users } from 'lucide-react';
+import { BellRing, Building2, CalendarDays, Check, ChevronRight, MessageCircle, MessagesSquare, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,7 +12,7 @@ import { useConvites } from '@/hooks/conversas/useConvites';
 import { useAgora } from '@/hooks/conversas/useAgora';
 import { usePush } from '@/hooks/conversas/usePush';
 import { useAtividades, useConcluirAtividade, useMinhasVisitas } from '@/hooks/conversas/app';
-import { hojeISO, horaDe, isoDoInstante, periodoDoDia, plural } from '@/lib/conversas/agenda';
+import { diaRotulo, hojeISO, horaDe, isoDoInstante, periodoDoDia, plural } from '@/lib/conversas/agenda';
 import { minutosEsperando, nomeDaConversa } from '@/lib/conversas/formato';
 import type { ConversaItem } from '@/lib/conversas/tipos';
 
@@ -21,7 +21,7 @@ const minutosDoDia = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hh
 
 type Prioridade = {
   chave: string; tipo: string; estado: string; urgente: boolean; titulo: string; detalhe: string;
-  ordem: number; conversa?: string; atividade?: string;
+  ordem: number; conversa?: string; atividade?: string; irPara?: string;
 };
 
 /** Início do app: o que precisa de você agora, no padrão do app MeMude Corretor. */
@@ -42,35 +42,46 @@ export default function AppInicio({ conversas, carregando, erro, tentar }: {
     .sort((a, b) => a.aguardando_desde!.localeCompare(b.aguardando_desde!)), [conversas]);
   const parados = conversas.filter((c) => !c.aguardando_desde && c.ultima_mensagem_em && agora - new Date(c.ultima_mensagem_em).getTime() > TRES_DIAS
     && !['vendido', 'perdido'].includes(c.etapa)).length;
-  const visitasHoje = useMemo(() => visitas.filter((v) => v.data_visita === hoje && v.status !== 'aguardando_corretor'), [visitas, hoje]);
+  const visitasHoje = useMemo(() => visitas.filter((v) => v.data_visita === hoje), [visitas, hoje]);
   const naoLidas = conversas.filter((c) => c.nao_lidas > 0).length;
 
   // Prioridades por urgência: cliente esperando, atividade vencida ou de hoje, visita de hoje
   const prioridades = useMemo<Prioridade[]>(() => {
-    const itens: Prioridade[] = [];
-    esperando.forEach((c) => {
+    // Ordem: até 3 clientes esperando (os mais antigos), atividades atrasadas (a que venceu primeiro),
+    // depois o que é de hoje pelo horário. Cada tipo garante espaço, então nenhum some quando o outro enche.
+    const conversasItens: Prioridade[] = [];
+    const atrasadas: (Prioridade & { vence: number })[] = [];
+    const doDia: Prioridade[] = [];
+    esperando.slice(0, 3).forEach((c) => {
       const min = minutosEsperando(c.aguardando_desde, agora) ?? 0;
-      itens.push({
+      conversasItens.push({
         chave: `c-${c.id}`, tipo: 'Conversa', estado: min < 60 ? `esperando ${min} min` : `esperando ${Math.floor(min / 60)} h`,
         urgente: min >= 15, titulo: nomeDaConversa(c), detalhe: c.ultima_previa ?? 'Mensagem nova', ordem: -min, conversa: c.id,
       });
     });
     atividades.filter((a) => isoDoInstante(a.disponivel_em) <= hoje).forEach((a) => {
-      const atrasada = new Date(a.vence_em).getTime() < agora;
-      itens.push({
-        chave: `a-${a.id}`, tipo: 'Atividade', estado: atrasada ? 'atrasada' : `hoje ${horaDe(a.disponivel_em)}`, urgente: atrasada,
-        titulo: a.titulo, detalhe: a.lead_nome ?? 'Sem cliente ligado', ordem: atrasada ? 0 : 1000 + minutosDoDia(horaDe(a.disponivel_em)),
+      const vence = new Date(a.vence_em).getTime();
+      const diaVence = isoDoInstante(a.vence_em);
+      const base = {
+        chave: `a-${a.id}`, tipo: 'Atividade', titulo: a.titulo, detalhe: a.lead_nome ?? 'Sem cliente ligado',
         conversa: a.conversa_id ?? undefined, atividade: a.id,
-      });
+      };
+      if (vence < agora) atrasadas.push({ ...base, estado: 'atrasada', urgente: true, ordem: 0, vence });
+      else doDia.push({ ...base, urgente: false, ordem: diaVence === hoje ? minutosDoDia(horaDe(a.vence_em)) : 1440,
+        estado: `até ${diaVence === hoje ? 'hoje' : diaRotulo(diaVence).toLowerCase()} ${horaDe(a.vence_em)}` });
     });
-    visitasHoje.forEach((v) => {
-      itens.push({
+    // Visita de hoje que ainda não passou (até 1 h depois do início), sem as que esperam aceite (essas ficam no destaque)
+    visitasHoje.filter((v) => v.status !== 'aguardando_corretor'
+      && minutosDoDia(String(v.horario_visita)) + 60 >= minutosDoDia(horaDe(new Date(agora).toISOString()))).forEach((v) => {
+      doDia.push({
         chave: `v-${v.id}`, tipo: 'Visita', estado: String(v.horario_visita).slice(0, 5), urgente: false,
         titulo: (v.leads as { nome?: string } | null)?.nome ?? 'Cliente', detalhe: (v.empreendimentos as { nome?: string } | null)?.nome ?? 'Empreendimento',
-        ordem: 1000 + minutosDoDia(String(v.horario_visita)),
+        ordem: minutosDoDia(String(v.horario_visita)), irPara: '/app/agenda',
       });
     });
-    return itens.sort((a, b) => a.ordem - b.ordem).slice(0, 6);
+    atrasadas.sort((a, b) => a.vence - b.vence);
+    doDia.sort((a, b) => a.ordem - b.ordem);
+    return [...conversasItens, ...atrasadas, ...doDia].slice(0, 6);
   }, [esperando, atividades, visitasHoje, agora, hoje]);
 
   const convite = convites[0];
@@ -166,6 +177,12 @@ export default function AppInicio({ conversas, carregando, erro, tentar }: {
                       <button type="button" onClick={() => navigate(`/app/c/${p.conversa}`)} aria-label={`Abrir conversa com ${p.titulo}`}
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-primary transition active:scale-95">
                         <MessageCircle className="h-5 w-5" aria-hidden />
+                      </button>
+                    )}
+                    {!p.conversa && p.irPara && (
+                      <button type="button" onClick={() => navigate(p.irPara!)} aria-label={`Ver ${p.titulo} na agenda`}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition active:scale-95">
+                        <ChevronRight className="h-5 w-5" aria-hidden />
                       </button>
                     )}
                   </li>

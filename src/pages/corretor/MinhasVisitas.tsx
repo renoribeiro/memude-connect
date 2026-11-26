@@ -260,7 +260,7 @@ export default function MinhasVisitas() {
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-3 py-2 border rounded-md bg-background"
+                  className="px-3 py-2 border rounded-md bg-card"
                 >
                   <option value="all">Todos os Status</option>
                   {Object.entries(statusLabels).map(([value, label]) => (

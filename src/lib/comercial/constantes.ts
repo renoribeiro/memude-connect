@@ -7,13 +7,14 @@ export const STATUS_ATENDIMENTO = [
 export type StatusAtendimento = (typeof STATUS_ATENDIMENTO)[number];
 
 export const COR_STATUS_ATENDIMENTO: Record<string, string> = {
-  'NOVO': 'bg-sky-50 text-sky-700 ring-sky-600/20',
-  'EM CONVERSA': 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
-  'INTERESSADO': 'bg-amber-50 text-amber-800 ring-amber-600/25',
+  // Tons da identidade, um visual por status (roxo claro, roxo cheio, contorno roxo, alerta, sucesso, neutros e rosa)
+  'NOVO': 'bg-violet-100 text-violet-700 ring-violet-600/20',
+  'EM CONVERSA': 'bg-violet-700 text-white ring-violet-700',
+  'INTERESSADO': 'bg-amber-100 text-amber-800 ring-amber-600/25',
   'VISITA AGENDADA': 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  'INVESTIDOR': 'bg-violet-50 text-violet-700 ring-violet-600/20',
-  'CORRETOR': 'bg-slate-100 text-slate-700 ring-slate-500/20',
-  'SEM RENDA': 'bg-orange-50 text-orange-700 ring-orange-600/20',
+  'INVESTIDOR': 'bg-white text-violet-700 ring-violet-400',
+  'CORRETOR': 'bg-white text-slate-600 ring-slate-300',
+  'SEM RENDA': 'bg-slate-200 text-slate-800 ring-slate-500/30',
   'NÃO INTERESSADO': 'bg-rose-50 text-rose-700 ring-rose-600/20',
 };
 
@@ -35,11 +36,11 @@ export const ROTULO_STATUS_VISITA: Record<string, string> = {
 // Cores por status (badge, ponto e bloco do calendário). Contraste AA sobre fundo branco.
 export const COR_STATUS_VISITA: Record<string, { badge: string; ponto: string; bloco: string }> = {
   aguardando_corretor: { badge: 'bg-amber-50 text-amber-800 ring-amber-600/25', ponto: 'bg-amber-500', bloco: 'bg-amber-50 border-amber-400 text-amber-900' },
-  agendada: { badge: 'bg-sky-50 text-sky-700 ring-sky-600/20', ponto: 'bg-sky-500', bloco: 'bg-sky-50 border-sky-500 text-sky-900' },
+  agendada: { badge: 'bg-violet-100 text-violet-700 ring-violet-600/20', ponto: 'bg-violet-500', bloco: 'bg-violet-50 border-violet-500 text-violet-900' },
   confirmada: { badge: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20', ponto: 'bg-emerald-500', bloco: 'bg-emerald-50 border-emerald-500 text-emerald-900' },
-  realizada: { badge: 'bg-teal-50 text-teal-800 ring-teal-700/20', ponto: 'bg-teal-700', bloco: 'bg-teal-50 border-teal-700 text-teal-900' },
+  realizada: { badge: 'bg-violet-700 text-white ring-violet-700', ponto: 'bg-violet-900', bloco: 'bg-violet-100 border-violet-800 text-violet-950' },
   no_show: { badge: 'bg-rose-50 text-rose-700 ring-rose-600/20', ponto: 'bg-rose-500', bloco: 'bg-rose-50 border-rose-500 text-rose-900' },
-  reagendada: { badge: 'bg-violet-50 text-violet-700 ring-violet-600/20', ponto: 'bg-violet-500', bloco: 'bg-violet-50 border-violet-400 text-violet-900 line-through decoration-violet-400/60' },
+  reagendada: { badge: 'bg-white text-violet-700 ring-violet-400', ponto: 'bg-violet-300', bloco: 'bg-white border-violet-300 text-violet-700 line-through decoration-violet-400/60' },
   cancelada: { badge: 'bg-slate-100 text-slate-600 ring-slate-500/20', ponto: 'bg-slate-400', bloco: 'bg-slate-50 border-slate-300 text-slate-500 line-through' },
 };
 

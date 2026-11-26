@@ -63,7 +63,7 @@ const statusConfig = {
     label: 'Follow-up',
     variant: 'outline' as const,
     icon: MessageSquare,
-    color: 'text-teal-600'
+    color: 'text-amber-600'
   }
 };
 

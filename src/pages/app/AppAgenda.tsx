@@ -23,15 +23,17 @@ export default function AppAgenda() {
   const hoje = hojeISO();
   const visitasHoje = visitas.filter((v) => v.data_visita === hoje);
   const proximas = visitas.filter((v) => v.data_visita > hoje);
-  const atrasadas = atividades.filter((a) => new Date(a.vence_em).getTime() < agora).length;
+  // Aba Hoje: só o que já está liberado (as de dias seguintes aparecem quando chegar o dia)
+  const deHoje = atividades.filter((a) => isoDoInstante(a.disponivel_em) <= hoje);
+  const atrasadas = deHoje.filter((a) => new Date(a.vence_em).getTime() < agora).length;
 
   return (
     <>
-      <Topo titulo="Agenda" subtitulo={`${plural(visitasHoje.length, 'visita', 'visitas')} hoje · ${plural(atividades.length, 'atividade', 'atividades')}`}
+      <Topo titulo="Agenda" subtitulo={`${plural(visitasHoje.length, 'visita', 'visitas')} hoje · ${plural(deHoje.length, 'atividade', 'atividades')}`}
         abaixo={(
           <Segmentado<Aba> rotulo="Período" valor={aba} aoMudar={setAba} opcoes={[
             { valor: 'hoje', rotulo: 'Hoje', contador: atrasadas },
-            { valor: 'proximos', rotulo: 'Próximos 7 dias', contador: proximas.length },
+            { valor: 'proximos', rotulo: 'Próximos dias', contador: proximas.length },
           ]} />
         )} />
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 pb-6 pt-2">
@@ -44,7 +46,7 @@ export default function AppAgenda() {
                     <p className="flex items-center gap-2 px-4 pb-4 text-sm font-semibold text-mm-sucesso"><PartyPopper className="h-4 w-4" aria-hidden /> Nada pendente.</p>
                   ) : (
                     <ul className="divide-y divide-mm-borda-suave">
-                      {atividades.map((a) => {
+                      {deHoje.map((a) => {
                         const atrasada = new Date(a.vence_em).getTime() < agora;
                         const dia = isoDoInstante(a.disponivel_em);
                         return (

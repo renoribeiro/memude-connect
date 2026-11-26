@@ -43,7 +43,7 @@ export function VisitaDetails({ visitaId }: { visitaId: string }) {
     switch (status) {
       case 'agendada': return 'bg-blue-100 text-blue-800';
       case 'confirmada': return 'bg-green-100 text-green-800';
-      case 'realizada': return 'bg-teal-100 text-teal-800';
+      case 'realizada': return 'bg-violet-700 text-white';
       case 'cancelada': return 'bg-red-100 text-red-800';
       case 'reagendada': return 'bg-yellow-100 text-yellow-800';
       default: return 'bg-muted text-foreground';

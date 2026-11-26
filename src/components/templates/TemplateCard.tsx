@@ -35,7 +35,7 @@ const getTypeColor = (type: string) => {
     case 'email':
       return 'bg-blue-100 text-blue-800';
     case 'sms':
-      return 'bg-teal-100 text-teal-800';
+      return 'bg-amber-100 text-amber-800';
     default:
       return 'bg-muted text-foreground';
   }

@@ -188,6 +188,22 @@
     background-color: hsl(var(--card));
   }
 
+  /* Botões que fazem papel de campo (data, combobox): formato e peso de campo, não de pílula */
+  [data-botao][role="combobox"],
+  [data-botao][class~="font-normal"] {
+    border-radius: calc(var(--radius) - 2px);
+    font-weight: 400;
+  }
+  [data-botao][role="combobox"][class~="border-input"],
+  [data-botao][class~="font-normal"][class~="border-input"] {
+    border-color: hsl(var(--input));
+  }
+  /* Botões em formato de cartão ou item de lista (altura livre): cantos de cartão e peso do conteúdo */
+  [data-botao]:not([data-botao="link"])[class~="h-auto"] {
+    border-radius: var(--radius);
+    font-weight: inherit;
+  }
+
   /* Campos: raio 14 (rounded-md com --radius 1rem), borda #A39CBB; no foco borda roxa e anel roxo 15% */
   [data-campo][data-campo]:focus-visible {
     border-color: hsl(var(--primary));
@@ -214,8 +230,7 @@
     --border: 251 25% 30%;
   }
 
-  .sale-modal input,
-  .sale-modal textarea,
+  .sale-modal :is(input, textarea, [role="combobox"])[data-campo],
   .sale-modal [role="combobox"] {
     @apply bg-muted/30;
   }

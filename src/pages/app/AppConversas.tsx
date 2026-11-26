@@ -25,7 +25,7 @@ export default function AppConversas({ conversas, carregando, erro, tentar }: {
   conversas: ConversaItem[]; carregando?: boolean; erro?: boolean; tentar?: () => void;
 }) {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const agora = useAgora(20_000);
   const inicial = params.get('filtro');
   const [filtro, setFiltro] = useState<FiltroApp>(FILTROS.some((f) => f.v === inicial) ? inicial as FiltroApp : 'todas');
@@ -62,7 +62,11 @@ export default function AppConversas({ conversas, carregando, erro, tentar }: {
             </div>
             <div className="-mx-5 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none]" role="tablist" aria-label="Filtro">
               {FILTROS.map((f) => (
-                <button key={f.v} type="button" role="tab" aria-selected={filtro === f.v} onClick={() => setFiltro(f.v)}
+                <button key={f.v} type="button" role="tab" aria-selected={filtro === f.v} onClick={() => {
+                  setFiltro(f.v);
+                  // O filtro vindo do Início (?filtro=) não volta a valer quando a tela remonta
+                  if (params.has('filtro')) { params.delete('filtro'); setParams(params, { replace: true }); }
+                }}
                   className={cn('shrink-0 rounded-full border px-3.5 py-1.5 text-sm transition',
                     filtro === f.v ? 'border-primary bg-primary font-bold text-primary-foreground' : 'border-border bg-card font-semibold text-muted-foreground')}>
                   {f.r}{f.v === 'aguardando' && aguardando ? ` · ${aguardando}` : ''}

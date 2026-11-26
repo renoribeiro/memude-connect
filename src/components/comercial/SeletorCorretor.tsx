@@ -84,7 +84,7 @@ export function SeletorCorretor({ empreendimentoId, data, hora, visitaId, exclui
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate font-semibold">{c.nome}</p>
-                    {!todos && i === 0 && !bloqueado && <span className="rounded bg-primary px-1.5 text-[10px] font-semibold uppercase text-white">Melhor opção</span>}
+                    {!todos && i === 0 && !bloqueado && <span className="rounded bg-primary px-1.5 text-[10px] font-semibold uppercase text-primary-foreground">Melhor opção</span>}
                     {!c.disponivel && <span className="rounded bg-rose-100 px-1.5 text-[10px] font-semibold uppercase text-rose-700">Ocupado no horário</span>}
                     {c.ja_convidado && <span className="rounded bg-muted px-1.5 text-[10px] font-semibold uppercase text-muted-foreground">Já convidado</span>}
                   </div>

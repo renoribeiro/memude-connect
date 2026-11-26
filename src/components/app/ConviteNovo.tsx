@@ -50,7 +50,8 @@ export function ConviteNovo({ convites, aoAceitar, abrirId, aoFecharAberto }: {
   useEffect(() => {
     if (c && !avisados.current.has(c.convite_id)) {
       avisados.current.add(c.convite_id);
-      tocarAviso(true);
+      // Convite reaberto depois do prazo (pela Agenda) não toca de novo
+      if (new Date(c.prazo_em).getTime() > Date.now()) tocarAviso(true);
       // Fecha menus/gavetas abertos (Radix/Vaul bloqueiam toques fora deles) e leva o foco para "Aceitar"
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     }
@@ -63,6 +64,14 @@ export function ConviteNovo({ convites, aoAceitar, abrirId, aoFecharAberto }: {
     return () => clearTimeout(t);
   }, [c?.convite_id]);
   const [mudo, setMudo] = useState(false);
+  // Com a tela de chamado aberta, o app por trás fica inerte (teclado e leitor de tela não saem dela)
+  const aberto = !!c;
+  useEffect(() => {
+    if (!aberto) return;
+    const fundo = [...document.querySelectorAll<HTMLElement>('[data-sob-convite]')];
+    fundo.forEach((el) => el.setAttribute('inert', ''));
+    return () => fundo.forEach((el) => el.removeAttribute('inert'));
+  }, [aberto]);
   useEffect(() => { setRecusando(false); setMotivo(''); setMudo(false); }, [c?.convite_id]);
 
   const responder = useMutation({
@@ -142,8 +151,9 @@ export function ConviteNovo({ convites, aoAceitar, abrirId, aoFecharAberto }: {
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-4 text-center">
-        <div className="relative mb-4 h-24 w-24 shrink-0 [@media(min-height:700px)]:mb-6 [@media(min-height:700px)]:h-32 [@media(min-height:700px)]:w-32">
+      <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 py-4 text-center">
+        {/* mt-auto/mb-auto centralizam sem cortar o topo quando o conteúdo não cabe (iPhone pequeno) */}
+        <div className="relative mb-4 mt-auto h-24 w-24 shrink-0 [@media(min-height:700px)]:mb-6 [@media(min-height:700px)]:h-32 [@media(min-height:700px)]:w-32">
           {!esgotado && <span className="absolute inset-0 animate-ping rounded-full bg-white/10" aria-hidden />}
           <svg viewBox="0 0 100 100" className="relative h-full w-full -rotate-90" aria-hidden>
             <circle cx="50" cy="50" r={R} fill="none" stroke="rgb(255 255 255 / 0.15)" strokeWidth="6" />
@@ -164,7 +174,7 @@ export function ConviteNovo({ convites, aoAceitar, abrirId, aoFecharAberto }: {
         <h1 id="convite-titulo" className="line-clamp-2 break-words text-[28px] font-extrabold leading-tight tracking-[-0.02em] [@media(min-height:700px)]:text-[32px]">{c.lead_nome}</h1>
         <p className="mt-1 text-mm-sobre-roxo">{esgotado ? 'O prazo passou, mas a visita ainda está com você até a SDR escolher outro corretor.' : 'quer visitar um imóvel com você'}</p>
 
-        <div className="mt-4 w-full max-w-sm space-y-2.5 rounded-2xl bg-white p-4 text-left text-[15px] font-semibold text-[#1E1640] [@media(min-height:700px)]:mt-6">
+        <div className="mb-auto mt-4 w-full max-w-sm space-y-2.5 rounded-2xl bg-white p-4 text-left text-[15px] font-semibold text-[#1E1640] [@media(min-height:700px)]:mt-6">
           {c.empreendimento && <p className="flex items-center gap-3 font-extrabold"><Item icone={Building2} />{c.empreendimento}</p>}
           <p className="flex items-center gap-3"><Item icone={CalendarDays} />{dataLonga(c.data_visita, c.horario_visita)}</p>
           {(c.local_nome || c.bairro) && <p className="flex items-center gap-3"><Item icone={MapPin} />{[c.local_nome, c.bairro].filter(Boolean).join(' · ')}</p>}

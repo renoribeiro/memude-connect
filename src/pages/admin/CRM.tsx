@@ -127,7 +127,7 @@ export default function CRM() {
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="flex-1 w-full overflow-x-auto pb-1">
                         <Tabs value={activePipelineId} onValueChange={setSelectedPipelineId} className="w-full">
-                            <TabsList className="h-10">
+                            <TabsList>
                                 {pipelines.data?.map((p) => (
                                     <TabsTrigger key={p.id} value={p.id} className="min-w-[120px]">
                                         {p.nome}

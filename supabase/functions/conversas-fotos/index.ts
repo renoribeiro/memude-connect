@@ -2,11 +2,27 @@
 // O pg_cron chama a cada 10 min só quando há conversa sem foto (ou com foto de mais de 7 dias).
 // O link do WhatsApp expira em poucos dias: a imagem é copiada para o armazenamento (avatares/clientes/<conversa>.jpg).
 // Cliente sem foto pública no WhatsApp fica com o bonequinho ilustrado.
+// Limpeza: conversa arquivada há 30 dias ou cliente "NÃO INTERESSADO" parado há 30 dias → a cópia é apagada.
 import { autorizar, json, preflight, responderErro } from '../_shared/fase1-http.ts';
 import { evo, evolution } from '../_shared/conversas.ts';
 
 const BASE = (Deno.env.get('SUPABASE_URL') ?? '').replace(/\/$/, '');
 const LIMITE_BYTES = 1_500_000;
+
+type Db = Awaited<ReturnType<typeof autorizar>>['servico'];
+
+/** Apaga as cópias que ninguém vai ver (arquivo primeiro; o link só some se o arquivo saiu). */
+async function limpar(db: Db): Promise<number> {
+  const { data, error } = await db.rpc('conv_fotos_para_apagar', { p_limite: 200 });
+  if (error) { console.warn('limpeza: lista', error.message); return 0; }
+  const ids = ((data ?? []) as { conversa_id: string }[]).map((r) => r.conversa_id);
+  if (!ids.length) return 0;
+  const { error: eRm } = await db.storage.from('avatares').remove(ids.map((id) => `clientes/${id}.jpg`));
+  if (eRm) { console.warn('limpeza: arquivos', eRm.message); return 0; }
+  const { data: n, error: eUp } = await db.rpc('conv_fotos_apagadas', { p_ids: ids });
+  if (eUp) { console.warn('limpeza: links', eUp.message); return 0; }
+  return Number(n ?? 0);
+}
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -16,14 +32,13 @@ Deno.serve(async (req) => {
     const { data, error } = await db.rpc('conv_fotos_pendentes', { p_limite: 15 });
     if (error) throw error;
     const fila = (data ?? []) as { conversa_id: string; instancia: string; telefone: string }[];
-    if (!fila.length) return json(req, { ok: true, fotos: 0 });
-    const e = await evolution(db);
     let fotos = 0;
     let sem = 0;
+    const e = fila.length ? await evolution(db) : null;
     for (const c of fila) {
       try {
         if (!/^conversas-[a-z0-9-]{2,40}$/.test(c.instancia)) continue; // só números da plataforma
-        const r = await evo<{ profilePictureUrl?: string | null }>(e, `/chat/fetchProfilePictureUrl/${c.instancia}`, {
+        const r = await evo<{ profilePictureUrl?: string | null }>(e!, `/chat/fetchProfilePictureUrl/${c.instancia}`, {
           body: { number: c.telefone.replace(/\D/g, '') }, timeoutMs: 15_000,
         });
         const url = r?.profilePictureUrl;
@@ -43,7 +58,8 @@ Deno.serve(async (req) => {
         console.warn('foto não obtida', c.conversa_id, (err as Error).message);
       }
     }
-    return json(req, { ok: true, fotos, sem_foto: sem, fila: fila.length });
+    const apagadas = await limpar(db);
+    return json(req, { ok: true, fotos, sem_foto: sem, fila: fila.length, apagadas });
   } catch (err) {
     return responderErro(req, err);
   }

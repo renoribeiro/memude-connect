@@ -1849,6 +1849,7 @@ export type Database = {
         Row: {
           aguardando_desde: string | null
           arquivada: boolean
+          arquivada_em: string | null
           criada_em: string
           dono_id: string | null
           dono_papel: string
@@ -1874,6 +1875,7 @@ export type Database = {
         Insert: {
           aguardando_desde?: string | null
           arquivada?: boolean
+          arquivada_em?: string | null
           criada_em?: string
           dono_id?: string | null
           dono_papel?: string
@@ -1899,6 +1901,7 @@ export type Database = {
         Update: {
           aguardando_desde?: string | null
           arquivada?: boolean
+          arquivada_em?: string | null
           criada_em?: string
           dono_id?: string | null
           dono_papel?: string
@@ -6757,6 +6760,13 @@ export type Database = {
         Args: { p_conversa: string; p_url: string }
         Returns: undefined
       }
+      conv_fotos_apagadas: { Args: { p_ids: string[] }; Returns: number }
+      conv_fotos_para_apagar: {
+        Args: { p_limite?: number }
+        Returns: {
+          conversa_id: string
+        }[]
+      }
       conv_fotos_pendentes: {
         Args: { p_limite?: number }
         Returns: {
@@ -6770,6 +6780,7 @@ export type Database = {
         Returns: {
           aguardando_desde: string | null
           arquivada: boolean
+          arquivada_em: string | null
           criada_em: string
           dono_id: string | null
           dono_papel: string

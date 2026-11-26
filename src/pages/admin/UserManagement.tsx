@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,13 +11,14 @@ import { useToast } from '@/hooks/use-toast';
 import { DashboardSkeleton } from '@/components/ui/loading-skeleton';
 import { CreateUserModal } from '@/components/modals/CreateUserModal';
 import { EditUserModal } from '@/components/modals/EditUserModal';
+import { chamarFuncao } from '@/lib/erroAmigavel';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 
 export interface ManagedUser {
   id: string;
   first_name: string;
   last_name: string;
-  role: 'admin' | 'corretor' | 'cliente';
+  role: 'admin' | 'sdr' | 'closer' | 'corretor' | 'cliente';
   email: string;
   phone?: string;
   is_active: boolean;
@@ -40,13 +40,8 @@ const UserManagement = () => {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['managed-users'],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('manage-user', {
-        body: { action: 'list' }
-      });
-
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
-      return data.users as ManagedUser[];
+      const data = await chamarFuncao<{ users: ManagedUser[] }>('manage-user', { action: 'list' });
+      return data.users;
     },
     enabled: isAdmin
   });
@@ -54,12 +49,7 @@ const UserManagement = () => {
   // Toggle user active status
   const toggleActiveStatusMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const { data, error } = await supabase.functions.invoke('manage-user', {
-        body: { action: 'toggle_active', user_id: userId }
-      });
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
-      return data;
+      return chamarFuncao<{ is_active: boolean }>('manage-user', { action: 'toggle_active', user_id: userId });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['managed-users'] });
@@ -67,12 +57,12 @@ const UserManagement = () => {
         title: data.is_active ? 'Usuário ativado' : 'Usuário desativado',
         description: data.is_active
           ? 'O usuário agora pode acessar o sistema.'
-          : 'O usuário foi bloqueado e não poderá fazer login.',
+          : 'Sem acesso ao sistema e fora das sugestões de visita. Nada foi apagado.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
-        title: 'Erro ao alterar status',
+        title: 'Não foi possível alterar o status',
         description: error.message,
         variant: 'destructive',
       });
@@ -82,22 +72,18 @@ const UserManagement = () => {
   // Delete user
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const { data, error } = await supabase.functions.invoke('manage-user', {
-        body: { action: 'delete', user_id: userId }
-      });
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
+      await chamarFuncao('manage-user', { action: 'delete', user_id: userId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['managed-users'] });
       toast({
         title: 'Usuário removido',
-        description: 'O usuário e todos os seus dados foram removidos do sistema.',
+        description: 'A conta foi removida.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
-        title: 'Erro ao remover usuário',
+        title: 'Não foi possível excluir',
         description: error.message,
         variant: 'destructive',
       });
@@ -114,6 +100,7 @@ const UserManagement = () => {
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case 'admin': return 'destructive' as const;
+      case 'sdr': case 'closer': return 'outline' as const;
       case 'corretor': return 'default' as const;
       case 'cliente': return 'secondary' as const;
       default: return 'outline' as const;
@@ -123,6 +110,8 @@ const UserManagement = () => {
   const getRoleLabel = (role: string) => {
     switch (role) {
       case 'admin': return 'Administrador';
+      case 'sdr': return 'SDR';
+      case 'closer': return 'Closer';
       case 'corretor': return 'Corretor';
       case 'cliente': return 'Cliente';
       default: return role;
@@ -340,7 +329,7 @@ const UserManagement = () => {
                               title="Excluir"
                               className="text-destructive hover:text-destructive"
                               onClick={() => {
-                                if (confirm(`Tem certeza que deseja excluir o usuário ${user.first_name} ${user.last_name}? Esta ação é irreversível.`)) {
+                                if (confirm(`Excluir ${user.first_name} ${user.last_name} de vez? Não dá para desfazer. Quem já tem visitas, vendas ou leads não pode ser excluído: use Desativar.`)) {
                                   deleteUserMutation.mutate(user.user_id);
                                 }
                               }}

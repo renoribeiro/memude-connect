@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { chamarFuncao } from '@/lib/erroAmigavel';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { User, Mail, UserCircle, Award } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
+type Papel = 'admin' | 'sdr' | 'closer' | 'corretor' | 'cliente';
 type CorretorEstado = NonNullable<Database['public']['Tables']['corretores']['Row']['estado']>;
 type TipoImovel = NonNullable<Database['public']['Tables']['corretores']['Row']['tipo_imovel']>;
 interface CorretorFormData {
@@ -39,7 +40,7 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
     email: '',
     first_name: '',
     last_name: '',
-    role: 'cliente' as 'admin' | 'corretor' | 'cliente',
+    role: 'cliente' as Papel,
     phone: '',
   });
 
@@ -71,75 +72,18 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
   }, [open, formData.phone]);
 
   const createUserMutation = useMutation({
-    mutationFn: async (userData: typeof formData) => {
-      // 1. Create user via Edge Function
-      const { data, error } = await supabase.functions.invoke('create-user', {
-        body: userData
-      });
-
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-
-      // 2. If role is 'corretor', insert professional details in corretores table
-      if (userData.role === 'corretor' && data.user?.id) {
-        // Wait briefly for trigger/profile insertion to complete and fetch the profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('user_id', data.user.id)
-          .single();
-
-        if (profile) {
-          // Check if corretor record exists (it might due to our new trigger!)
-          const { data: existingCorretor } = await supabase
-            .from('corretores')
-            .select('id')
-            .eq('profile_id', profile.id)
-            .maybeSingle();
-
-          if (existingCorretor) {
-            const { error: updateError } = await supabase
-              .from('corretores')
-              .update({
-                creci: corretorData.creci,
-                cpf: corretorData.cpf || null,
-                whatsapp: corretorData.whatsapp || userData.phone || '',
-                cidade: corretorData.cidade || null,
-                estado: corretorData.estado || 'CE',
-                tipo_imovel: corretorData.tipo_imovel || 'todos',
-                observacoes: corretorData.observacoes || null,
-              })
-              .eq('id', existingCorretor.id);
-
-            if (updateError) throw updateError;
-          } else {
-            const { error: insertError } = await supabase
-              .from('corretores')
-              .insert({
-                profile_id: profile.id,
-                creci: corretorData.creci,
-                cpf: corretorData.cpf || null,
-                whatsapp: corretorData.whatsapp || userData.phone || '',
-                cidade: corretorData.cidade || null,
-                estado: corretorData.estado || 'CE',
-                tipo_imovel: corretorData.tipo_imovel || 'todos',
-                observacoes: corretorData.observacoes || null,
-                status: 'ativo',
-                nota_media: 5.0,
-                total_visitas: 0,
-              });
-
-            if (insertError) throw insertError;
-          }
-        }
-      }
-      return data;
-    },
-    onSuccess: () => {
+    // Conta, função e ficha do corretor são criadas juntas no servidor: se algo falhar, nada fica pela metade
+    mutationFn: async (userData: typeof formData) => chamarFuncao<{ invitation_sent?: boolean }>('create-user', {
+      ...userData,
+      ...(userData.role === 'corretor' ? { corretor: { ...corretorData, whatsapp: corretorData.whatsapp || userData.phone } } : {}),
+    }),
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['managed-users'] });
       toast({
         title: 'Usuário criado',
-        description: 'O usuário foi criado com sucesso e receberá um email de confirmação.',
+        description: data?.invitation_sent === false
+          ? 'Conta criada sem convite. A pessoa entra por "Esqueci minha senha".'
+          : 'Enviamos o convite por e-mail para a pessoa criar a senha.',
       });
       onOpenChange(false);
       setFormData({
@@ -150,10 +94,10 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
         phone: '',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
-        title: 'Erro ao criar usuário',
-        description: error.message || 'Não foi possível criar o usuário.',
+        title: 'Não foi possível criar o usuário',
+        description: error.message,
         variant: 'destructive',
       });
     }
@@ -161,6 +105,10 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.role === 'corretor' && (!corretorData.creci.trim() || !(corretorData.whatsapp || formData.phone).trim())) {
+      toast({ title: 'Faltam dados do corretor', description: 'Preencha CRECI e WhatsApp.', variant: 'destructive' });
+      return;
+    }
     if (!formData.email || !formData.first_name || !formData.last_name) {
       toast({
         title: 'Campos obrigatórios',
@@ -247,6 +195,8 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="admin">Administrador</SelectItem>
+                <SelectItem value="sdr">SDR</SelectItem>
+                <SelectItem value="closer">Closer</SelectItem>
                 <SelectItem value="corretor">Corretor</SelectItem>
                 <SelectItem value="cliente">Cliente</SelectItem>
               </SelectContent>

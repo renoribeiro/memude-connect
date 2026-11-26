@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test';
 test('exibe o login e os controles essenciais', async ({ page }) => {
   await page.goto('/auth');
 
-  await expect(page.getByRole('heading', { name: 'Entrar na sua conta' })).toBeVisible();
-  await expect(page.getByLabel('Email')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Entrar no MeMude' })).toBeVisible();
+  await expect(page.getByLabel('E-mail')).toBeVisible();
   const passwordInput = page.locator('input[name="password"]');
   await expect(passwordInput).toHaveAttribute('type', 'password');
   await expect(page.getByRole('button', { name: 'Esqueci minha senha' })).toBeVisible();
@@ -17,7 +17,7 @@ test('rota administrativa exige autenticação', async ({ page }) => {
   await page.goto('/configuracoes');
 
   await expect(page).toHaveURL(/\/auth$/);
-  await expect(page.getByRole('button', { name: 'Entrar no Sistema' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeVisible();
 });
 
 test('rota inexistente apresenta página 404', async ({ page }) => {
@@ -29,6 +29,6 @@ test('rota inexistente apresenta página 404', async ({ page }) => {
   await page.goto('/rota-que-nao-existe');
 
   await expect(page.getByText('404')).toBeVisible();
-  await expect(page.getByRole('button', { name: /voltar ao início/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /ir para o início/i })).toBeVisible();
   expect(consoleErrors).toEqual([]);
 });

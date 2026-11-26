@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { BellRing, Check, ChevronRight, Loader2, MapPin, MessageCircle, Navigation, Star } from 'lucide-react';
@@ -14,7 +14,8 @@ import { useConvites } from '@/hooks/conversas/useConvites';
 import { useAgora } from '@/hooks/conversas/useAgora';
 import { usePush } from '@/hooks/conversas/usePush';
 import { useIniciarConversa } from '@/hooks/conversas/dados';
-import { useAtividades, useConcluirAtividade, useMinhasVisitas, type MinhaVisita } from '@/hooks/conversas/app';
+import { useAtividades, useConcluirAtividade, useMinhasVisitas, useVisitasParaContar, type MinhaVisita, type VisitaParaContar } from '@/hooks/conversas/app';
+import { ComoFoiVisita } from '@/components/app/ComoFoiVisita';
 import { diaRotulo, hojeISO, horaDe, isoDoInstante, periodoDoDia, plural } from '@/lib/conversas/agenda';
 import { minutosEsperando, nivelEspera, nomeDaConversa } from '@/lib/conversas/formato';
 import type { ConversaItem } from '@/lib/conversas/tipos';
@@ -69,6 +70,8 @@ export default function AppInicio({ conversas, carregando, erro, tentar }: {
   const { data: atividades = [], isLoading: carregandoAtiv } = useAtividades();
   const { data: visitas = [], isLoading: carregandoVis, isError: erroVis, refetch: recarregarVis } = useMinhasVisitas();
   const concluir = useConcluirAtividade();
+  const { data: paraContar = [] } = useVisitasParaContar();
+  const [contando, setContando] = useState<VisitaParaContar | null>(null);
   const { data: nota } = useQuery({
     queryKey: ['conversas', 'minha-nota', profile?.id],
     enabled: !!profile?.id,
@@ -147,6 +150,28 @@ export default function AppInicio({ conversas, carregando, erro, tentar }: {
         )}
 
         {erro && !conversas.length && <div className="px-5"><FalhaCarregar aoTentar={() => tentar?.()} /></div>}
+
+        {/* Visita que já aconteceu: o corretor conta como foi e o cliente segue o caminho certo */}
+        {paraContar.length > 0 && (
+          <Secao titulo="Como foi a visita?" extra={plural(paraContar.length, 'visita', 'visitas')}>
+            <ul className="space-y-2 px-5">
+              {paraContar.map((v) => {
+                const e = v.empreendimentos as { nome?: string; imagem_url?: string | null } | null;
+                const cliente = (v.leads as { nome?: string } | null)?.nome ?? 'Cliente';
+                return (
+                  <li key={v.id} className="flex items-center gap-3 rounded-2xl border border-mm-borda-rosa bg-mm-rosa-palido p-3">
+                    <FotoEmpreendimento url={e?.imagem_url} nome={e?.nome} className="h-12 w-12 shrink-0 rounded-xl" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15px] font-bold">{cliente}</p>
+                      <p className="truncate text-[13px] text-muted-foreground">{e?.nome ?? 'Empreendimento'} · {quandoCurto(v.data_visita, String(v.horario_visita))}</p>
+                    </div>
+                    <Button variant="acao" size="sm" className="h-10 shrink-0 px-4" onClick={() => setContando(v)}>Contar</Button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Secao>
+        )}
 
         {/* Próxima visita, com a foto do imóvel */}
         <Secao titulo="Sua próxima visita">
@@ -309,6 +334,7 @@ export default function AppInicio({ conversas, carregando, erro, tentar }: {
 
         {carregando && !conversas.length && <div className="px-5"><Skeleton className="h-16 w-full rounded-2xl" /></div>}
       </div>
+      <ComoFoiVisita visita={contando} aberto={!!contando} aoFechar={() => setContando(null)} />
     </div>
   );
 }

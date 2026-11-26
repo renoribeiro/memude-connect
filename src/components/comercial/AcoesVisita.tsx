@@ -20,6 +20,14 @@ type Visita = {
   corretor_id: string | null; avaliacao_lead: number | null; comentarios_lead: string | null; feedback_corretor: string | null;
   proximo_passo: string | null; data_venda: string | null; tentativas_remarcar: number; ultima_tentativa_remarcar: string | null;
   no_show_em: string | null; escalada_em: string | null; motivo_cancelamento: string | null; updated_at: string | null;
+  resultado_cliente?: string | null;
+};
+
+const RESULTADO_CORRETOR: Record<string, { rotulo: string; texto: string }> = {
+  vai_comprar: { rotulo: 'Gostou e quer comprar', texto: 'Continua com o corretor; o closer foi avisado.' },
+  pensando: { rotulo: 'Gostou e está pensando', texto: 'Continua com o corretor.' },
+  nao_gostou: { rotulo: 'Não gostou do imóvel', texto: 'A conversa voltou para a SDR.' },
+  quer_outros: { rotulo: 'Quer ver outros imóveis', texto: 'A conversa voltou para a SDR oferecer outras opções.' },
 };
 type Convite = { id: string; corretor_id: string; enviado_em: string; resposta: string | null; automatico?: boolean; canal?: string; corretores?: { profiles?: { first_name?: string | null; last_name?: string | null } | null } | null };
 type Tarefa = {
@@ -260,6 +268,12 @@ function RetornoPosVisita({ visita, tarefas }: { visita: Visita; tarefas: Tarefa
 
   return (
     <Cartao tom={pendRetorno || pendProximo ? 'alerta' : 'sucesso'} icone={CheckCircle2} titulo="Retorno pós-visita">
+      {visita.resultado_cliente && RESULTADO_CORRETOR[visita.resultado_cliente] && (
+        <p className="rounded-lg border border-primary/25 bg-primary/[0.04] px-3 py-2 text-sm">
+          <strong>O corretor contou no app:</strong> {RESULTADO_CORRETOR[visita.resultado_cliente].rotulo}.
+          <span className="block text-xs text-muted-foreground">{RESULTADO_CORRETOR[visita.resultado_cliente].texto}{visita.feedback_corretor ? ` Comentário: ${visita.feedback_corretor}` : ''}</span>
+        </p>
+      )}
       <div className="flex flex-wrap gap-2 text-xs">
         <Pendencia ok={!pendRetorno} rotulo="Retorno do corretor e do cliente" prazo={pendRetorno?.vence_em} />
         <Pendencia ok={!pendProximo} rotulo="Próximo passo" prazo={pendProximo?.vence_em} />

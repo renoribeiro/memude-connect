@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { BellRing, Inbox, Search, WifiOff, X } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Inbox, Search, WifiOff, X } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Topo } from '@/components/app/Topo';
+import { Vazio } from '@/components/app/ui';
 import { ItemConversa } from '@/components/conversas/ListaConversas';
 import { useAgora } from '@/hooks/conversas/useAgora';
 import { useListaConversas } from '@/hooks/conversas/dados';
-import { usePush } from '@/hooks/conversas/usePush';
 import { nomeDaConversa } from '@/lib/conversas/formato';
 import type { ConversaItem } from '@/lib/conversas/tipos';
 
@@ -19,14 +19,16 @@ const FILTROS = [
   { v: 'nao_lidas', r: 'Não lidas' },
   { v: 'arquivadas', r: 'Arquivadas' },
 ] as const;
+type FiltroApp = (typeof FILTROS)[number]['v'];
 
 export default function AppConversas({ conversas, carregando, erro, tentar }: {
   conversas: ConversaItem[]; carregando?: boolean; erro?: boolean; tentar?: () => void;
 }) {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const agora = useAgora(20_000);
-  const push = usePush();
-  const [filtro, setFiltro] = useState<(typeof FILTROS)[number]['v']>('todas');
+  const inicial = params.get('filtro');
+  const [filtro, setFiltro] = useState<FiltroApp>(FILTROS.some((f) => f.v === inicial) ? inicial as FiltroApp : 'todas');
   const [busca, setBusca] = useState('');
   const arq = useListaConversas('arquivadas', '', filtro === 'arquivadas');
   const arquivadas = useMemo(() => arq.data ?? [], [arq.data]);
@@ -46,35 +48,30 @@ export default function AppConversas({ conversas, carregando, erro, tentar }: {
 
   return (
     <>
-      <Topo marca titulo="Conversas" subtitulo={aguardando ? `${aguardando} cliente${aguardando > 1 ? 's' : ''} esperando você` : 'Seus clientes no número da MeMude'} />
-      {(push.estado === 'inativo' || push.estado === 'instalar') && (
-        <div className="mx-3 mt-3 flex items-center gap-3 rounded-[14px] bg-mm-lilas p-3">
-          <BellRing className="h-5 w-5 shrink-0 text-primary" />
-          <p className="flex-1 text-sm leading-snug">
-            {push.estado === 'instalar'
-              ? 'Instale o app (Compartilhar → Adicionar à Tela de Início) para receber o aviso de cliente novo.'
-              : 'Ative as notificações para não perder nenhum cliente novo.'}
-          </p>
-          {push.estado === 'inativo' && <Button size="sm" variant="acao" onClick={push.ativar} disabled={push.ocupado}>Ativar</Button>}
-        </div>
-      )}
-      <div className="space-y-2 px-3 pt-3">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente" aria-label="Buscar cliente"
-            className="h-12 pl-10 text-base" inputMode="search" />
-          {busca && <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 p-1" onClick={() => setBusca('')} aria-label="Limpar"><X className="h-4 w-4" /></button>}
-        </div>
-        <div className="-mx-3 flex gap-2 overflow-x-auto px-3 [scrollbar-width:none]" role="tablist" aria-label="Filtro">
-          {FILTROS.map((f) => (
-            <button key={f.v} type="button" role="tab" aria-selected={filtro === f.v} onClick={() => setFiltro(f.v)}
-              className={cn('shrink-0 rounded-full border px-3.5 py-1.5 text-sm transition', filtro === f.v ? 'border-primary bg-primary font-bold text-primary-foreground' : 'border-border bg-card font-semibold text-muted-foreground')}>
-              {f.r}{f.v === 'aguardando' && aguardando ? ` · ${aguardando}` : ''}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <Topo titulo="Conversas" subtitulo={aguardando ? `${aguardando} cliente${aguardando > 1 ? 's' : ''} esperando você` : 'Seus clientes no número da MeMude'}
+        abaixo={(
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+              <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente" aria-label="Buscar cliente"
+                className="h-12 pl-10 pr-10 text-base" inputMode="search" />
+              {busca && (
+                <button type="button" className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full hover:bg-muted"
+                  onClick={() => setBusca('')} aria-label="Limpar busca"><X className="h-4 w-4" /></button>
+              )}
+            </div>
+            <div className="-mx-5 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none]" role="tablist" aria-label="Filtro">
+              {FILTROS.map((f) => (
+                <button key={f.v} type="button" role="tab" aria-selected={filtro === f.v} onClick={() => setFiltro(f.v)}
+                  className={cn('shrink-0 rounded-full border px-3.5 py-1.5 text-sm transition',
+                    filtro === f.v ? 'border-primary bg-primary font-bold text-primary-foreground' : 'border-border bg-card font-semibold text-muted-foreground')}>
+                  {f.r}{f.v === 'aguardando' && aguardando ? ` · ${aguardando}` : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+        )} />
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-mm-borda-suave bg-card">
         {carregandoLista ? (
           Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3 border-b border-mm-borda-suave px-3 py-3">
@@ -83,21 +80,14 @@ export default function AppConversas({ conversas, carregando, erro, tentar }: {
             </div>
           ))
         ) : erroLista && !temDados ? (
-          <div className="flex flex-col items-center px-8 py-16 text-center">
-            <span className="mb-3 rounded-full bg-mm-rosa-claro p-4"><WifiOff className="h-7 w-7 text-mm-acao" /></span>
-            <h2 className="text-xl">Não foi possível carregar</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Confira a internet e tente de novo.</p>
-            <Button className="mt-4 h-12 px-6" variant="acao" onClick={() => (verArquivadas ? arq.refetch() : tentar?.())}>Tentar de novo</Button>
-          </div>
+          <Vazio icone={WifiOff} titulo="Não foi possível carregar" texto="Confira a internet e tente de novo."
+            acao={<Button className="h-12 px-6" variant="acao" onClick={() => (verArquivadas ? arq.refetch() : tentar?.())}>Tentar de novo</Button>} />
         ) : lista.length === 0 ? (
-          <div className="flex flex-col items-center px-8 py-16 text-center">
-            <span className="mb-3 rounded-full bg-mm-lilas p-4"><Inbox className="h-7 w-7 text-primary" /></span>
-            <p className="text-xl font-extrabold tracking-[-0.02em]">{busca ? 'Ninguém encontrado' : filtro === 'arquivadas' ? 'Nada arquivado' : filtro === 'todas' ? 'Nenhum cliente ainda' : 'Tudo respondido'}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {filtro === 'arquivadas' && !busca ? 'Conversas arquivadas voltam sozinhas quando o cliente escreve.' : filtro === 'todas' && !busca ? 'Quando você aceitar um cliente novo, a conversa dele aparece aqui.' : 'Volte para "Todas" para ver seus clientes.'}
-            </p>
-          </div>
-        ) : lista.map((c) => <ItemConversa key={c.id} c={c} ativa={false} agora={agora} aoAbrir={(id) => navigate(`/app/c/${id}`)} />)}
+          <Vazio icone={Inbox}
+            titulo={busca ? 'Ninguém encontrado' : filtro === 'arquivadas' ? 'Nada arquivado' : filtro === 'todas' ? 'Nenhum cliente ainda' : 'Tudo respondido'}
+            texto={filtro === 'arquivadas' && !busca ? 'Conversas arquivadas voltam sozinhas quando o cliente escreve.'
+              : filtro === 'todas' && !busca ? 'Quando você aceitar um cliente novo, a conversa dele aparece aqui.' : 'Volte para "Todas" para ver seus clientes.'} />
+        ) : lista.map((c) => <ItemConversa key={c.id} c={c} ativa={false} agora={agora} semDono aoAbrir={(id) => navigate(`/app/c/${id}`)} />)}
       </div>
     </>
   );

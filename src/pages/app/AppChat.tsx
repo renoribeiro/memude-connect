@@ -22,7 +22,7 @@ export default function AppChat() {
   const lead = conv?.leads as unknown as { nome?: string } | null;
   const numero = conv?.conv_numeros as unknown as { nome?: string; status?: string } | null;
   const nome = lead?.nome || conv?.nome_contato || telefoneLegivel(conv?.telefone);
-  const voltar = () => (window.history.length > 1 ? navigate(-1) : navigate('/app'));
+  const voltar = () => (window.history.length > 1 ? navigate(-1) : navigate('/app/conversas'));
 
   return (
     <>

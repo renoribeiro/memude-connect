@@ -1,27 +1,29 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import '@fontsource-variable/plus-jakarta-sans/wght.css';
-import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { Building2, CalendarCheck, Kanban, Loader2, MessagesSquare, UserRound } from 'lucide-react';
+import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { CalendarDays, CircleUserRound, House, Loader2, MessagesSquare, Users } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import { useListaConversas, useTempoRealConversas } from '@/hooks/conversas/dados';
 import { useConvites } from '@/hooks/conversas/useConvites';
 import { useMensagensDoServiceWorker } from '@/hooks/conversas/usePush';
 import { ConviteNovo } from '@/components/app/ConviteNovo';
-import AppConversas from './AppConversas';
+import AppInicio from './AppInicio';
 
+const AppConversas = lazy(() => import('./AppConversas'));
 const AppChat = lazy(() => import('./AppChat'));
-const AppHoje = lazy(() => import('./AppHoje'));
-const AppFunil = lazy(() => import('./AppFunil'));
+const AppAgenda = lazy(() => import('./AppAgenda'));
+const AppClientes = lazy(() => import('./AppClientes'));
 const AppImoveis = lazy(() => import('./AppImoveis'));
-const AppEu = lazy(() => import('./AppEu'));
+const AppPerfil = lazy(() => import('./AppPerfil'));
 
+// Mesmas cinco abas do app MeMude Corretor, adaptadas ao atendimento
 const ABAS = [
-  { to: '/app', rotulo: 'Conversas', icone: MessagesSquare, fim: true },
-  { to: '/app/hoje', rotulo: 'Hoje', icone: CalendarCheck },
-  { to: '/app/funil', rotulo: 'Funil', icone: Kanban },
-  { to: '/app/imoveis', rotulo: 'Imóveis', icone: Building2 },
-  { to: '/app/eu', rotulo: 'Eu', icone: UserRound },
+  { to: '/app', rotulo: 'Início', icone: House, fim: true },
+  { to: '/app/conversas', rotulo: 'Conversas', icone: MessagesSquare },
+  { to: '/app/agenda', rotulo: 'Agenda', icone: CalendarDays },
+  { to: '/app/clientes', rotulo: 'Clientes', icone: Users },
+  { to: '/app/perfil', rotulo: 'Meu perfil', icone: CircleUserRound },
 ];
 
 function Carregando() {
@@ -39,6 +41,7 @@ export default function AppCorretor() {
   useMensagensDoServiceWorker();
 
   const naoLidas = conversas.reduce((s, c) => s + (c.nao_lidas > 0 ? 1 : 0), 0);
+  const lista = { conversas, carregando, erro, tentar: () => { refetch(); } };
 
   // /app?convite=… (notificação ou tela Hoje) abre aquele convite em tela cheia, mesmo com o prazo esgotado
   const [conviteAberto, setConviteAberto] = useState<string | null>(null);
@@ -71,23 +74,28 @@ export default function AppCorretor() {
   }, [naoLidas]);
 
   return (
-    <div className="tema-memude flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground md:sombra-elevada md:mx-auto md:max-w-2xl md:border-x md:border-mm-borda-suave">
+    <div className="tema-memude flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground md:sombra-elevada md:mx-auto md:max-w-[480px] md:border-x md:border-mm-borda-suave">
       <main className="flex min-h-0 flex-1 flex-col">
         <Suspense fallback={<Carregando />}>
           <Routes>
-            <Route index element={<AppConversas conversas={conversas} carregando={carregando} erro={erro} tentar={() => refetch()} />} />
+            <Route index element={<AppInicio {...lista} />} />
+            <Route path="conversas" element={<AppConversas {...lista} />} />
             <Route path="c/:id" element={<AppChat />} />
-            <Route path="hoje" element={<AppHoje />} />
-            <Route path="funil" element={<AppFunil conversas={conversas} carregando={carregando} erro={erro} tentar={() => refetch()} />} />
+            <Route path="agenda" element={<AppAgenda />} />
+            <Route path="clientes" element={<AppClientes {...lista} />} />
             <Route path="imoveis" element={<AppImoveis />} />
-            <Route path="eu" element={<AppEu />} />
-            <Route path="*" element={<AppConversas conversas={conversas} carregando={carregando} erro={erro} tentar={() => refetch()} />} />
+            <Route path="perfil" element={<AppPerfil />} />
+            {/* Endereços antigos (notificações e atalhos já instalados) */}
+            <Route path="hoje" element={<Navigate to="/app/agenda" replace />} />
+            <Route path="funil" element={<Navigate to="/app/clientes" replace />} />
+            <Route path="eu" element={<Navigate to="/app/perfil" replace />} />
+            <Route path="*" element={<Navigate to="/app" replace />} />
           </Routes>
         </Suspense>
       </main>
 
       {!noChat && (
-        <nav className="grid grid-cols-5 border-t border-mm-borda-suave bg-card pb-[env(safe-area-inset-bottom)]" aria-label="Navegação do app">
+        <nav className="grid shrink-0 grid-cols-5 border-t border-mm-borda-suave bg-card pb-[env(safe-area-inset-bottom)]" aria-label="Navegação do app">
           {ABAS.map((a) => (
             <NavLink key={a.to} to={a.to} end={a.fim}
               className={({ isActive }) => cn('relative flex h-[68px] flex-col items-center justify-center gap-1 text-[11px] transition active:scale-95',
@@ -96,7 +104,7 @@ export default function AppCorretor() {
                 <>
                   <a.icone className="h-6 w-6" strokeWidth={isActive ? 2 : 1.8} aria-hidden />
                   {a.rotulo}
-                  {a.to === '/app' && naoLidas > 0 && (
+                  {a.to === '/app/conversas' && naoLidas > 0 && (
                     <span className="absolute right-[calc(50%-1.5rem)] top-2.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-mm-acao px-1 text-[10px] font-extrabold text-white">
                       {naoLidas}
                     </span>
@@ -108,7 +116,7 @@ export default function AppCorretor() {
         </nav>
       )}
 
-      <ConviteNovo convites={convites} abrirId={conviteAberto} aoFecharAberto={() => setConviteAberto(null)} aoAceitar={(id) => navigate(id ? `/app/c/${id}` : '/app/hoje')} />
+      <ConviteNovo convites={convites} abrirId={conviteAberto} aoFecharAberto={() => setConviteAberto(null)} aoAceitar={(id) => navigate(id ? `/app/c/${id}` : '/app/agenda')} />
     </div>
   );
 }

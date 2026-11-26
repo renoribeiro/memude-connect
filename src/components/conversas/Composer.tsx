@@ -242,7 +242,7 @@ export function Composer({ conversaId, podeResponder, bloqueio, respondeA, limpa
           <div className={cn('flex min-w-0 flex-1 items-end rounded-3xl border px-3.5 py-2 transition focus-within:ring-[3px]',
             nota ? 'border-mm-alerta/40 bg-mm-alerta-fundo focus-within:ring-mm-alerta/20' : 'border-input bg-card focus-within:border-primary focus-within:ring-primary/15')}>
             <textarea ref={area} rows={1} value={texto} onChange={(e) => setTexto(e.target.value)} onKeyDown={aoTeclar}
-              placeholder={nota ? 'Nota interna — o cliente não vê' : arquivo ? 'Legenda (opcional)' : 'Mensagem  ·  / para respostas rápidas'}
+              placeholder={nota ? 'Nota interna — o cliente não vê' : arquivo ? 'Legenda (opcional)' : compacto ? 'Mensagem' : 'Mensagem  ·  / para respostas rápidas'}
               aria-label={nota ? 'Nota interna' : 'Mensagem para o cliente'} maxLength={4000} enterKeyHint={ehToque() ? 'enter' : 'send'}
               className="max-h-40 min-h-[24px] w-full resize-none bg-transparent text-base leading-6 outline-none sm:text-[15px]" />
             {permitirNota && (

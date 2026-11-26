@@ -126,6 +126,41 @@ function PrazosRating() {
       </section>
 
       <section className="rounded-xl border bg-card p-5 shadow-sm lg:col-span-2">
+        <h2 className="text-sm font-semibold">Chamados do corretor</h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Como o corretor é chamado para uma visita. O prazo de aceite é o "Aceite do corretor" acima.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <label htmlFor="chamado_automatico" className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 sm:col-span-3">
+            <Switch id="chamado_automatico" checked={!!f.chamado_automatico} onCheckedChange={(c) => setF({ ...f, chamado_automatico: c })} className="mt-0.5" />
+            <span>
+              <span className="block text-sm font-medium">Chamar automaticamente por padrão</span>
+              <span className="block text-xs text-muted-foreground">
+                Ao agendar, a chave já vem ligada (a SDR pode desligar na visita). Quem recusa ou não aceita no prazo é trocado pelo próximo do rating.
+              </span>
+            </span>
+          </label>
+          <div className="grid gap-1">
+            <Label htmlFor="chamado_tentativas" className="text-xs">Corretores chamados antes de avisar a SDR</Label>
+            <div className="relative">
+              <Input id="chamado_tentativas" type="number" min={1} max={10} value={Number(f.chamado_tentativas ?? 3)} className="pr-14 tabular-nums"
+                onChange={(e) => setF({ ...f, chamado_tentativas: Math.min(10, Math.max(1, Number(e.target.value) || 1)) })} />
+              <span className="absolute right-3 top-2.5 text-xs text-muted-foreground">x</span>
+            </div>
+          </div>
+          <div className="grid gap-1">
+            <Label htmlFor="chamado_reaviso_min" className="text-xs">Reavisar o corretor a cada</Label>
+            <div className="relative">
+              <Input id="chamado_reaviso_min" type="number" min={1} max={30} value={Number(f.chamado_reaviso_min ?? 5)} className="pr-14 tabular-nums"
+                onChange={(e) => setF({ ...f, chamado_reaviso_min: Math.min(30, Math.max(1, Number(e.target.value) || 1)) })} />
+              <span className="absolute right-3 top-2.5 text-xs text-muted-foreground">min</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Até 2 reavisos enquanto ele não responder.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border bg-card p-5 shadow-sm lg:col-span-2">
         <h2 className="text-sm font-semibold">Equipe</h2>
         <div className="mt-4 grid gap-5 sm:grid-cols-2">
           <fieldset>

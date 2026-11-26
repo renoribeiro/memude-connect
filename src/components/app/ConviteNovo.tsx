@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Building2, CalendarDays, Clock, Loader2, MapPin, Sparkles, Wallet, X } from 'lucide-react';
+import { Building2, CalendarDays, Clock, Loader2, MapPin, Sparkles, Volume2, VolumeX, Wallet, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -62,7 +62,8 @@ export function ConviteNovo({ convites, aoAceitar, abrirId, aoFecharAberto }: {
     const t = setTimeout(() => tela.current?.focus(), 150);
     return () => clearTimeout(t);
   }, [c?.convite_id]);
-  useEffect(() => { setRecusando(false); setMotivo(''); }, [c?.convite_id]);
+  const [mudo, setMudo] = useState(false);
+  useEffect(() => { setRecusando(false); setMotivo(''); setMudo(false); }, [c?.convite_id]);
 
   const responder = useMutation({
     mutationFn: async (aceitar: boolean) => {
@@ -93,6 +94,21 @@ export function ConviteNovo({ convites, aoAceitar, abrirId, aoFecharAberto }: {
     onError: (e) => { toast.error(mensagemErro(e)); qc.invalidateQueries({ queryKey: cc.convites }); },
   });
 
+  // Toca como chamada: a cada 3 s no primeiro meio minuto, depois a cada 20 s, até responder, silenciar ou o prazo acabar
+  const noPrazo = !!c && new Date(c.prazo_em).getTime() > agora;
+  const tocando = noPrazo && !recusando && !responder.isPending && !mudo;
+  useEffect(() => {
+    if (!tocando) return;
+    const inicio = Date.now();
+    let t = 0;
+    const ciclo = () => {
+      if (document.visibilityState === 'visible') tocarAviso(true);
+      t = window.setTimeout(ciclo, Date.now() - inicio < 30_000 ? 3_000 : 20_000);
+    };
+    t = window.setTimeout(ciclo, 3_000);
+    return () => { window.clearTimeout(t); navigator.vibrate?.(0); };
+  }, [tocando, c?.convite_id]);
+
   if (!c) return null;
   const total = Math.max(1, new Date(c.prazo_em).getTime() - new Date(c.enviado_em).getTime());
   const resta = Math.max(0, new Date(c.prazo_em).getTime() - agora);
@@ -111,6 +127,13 @@ export function ConviteNovo({ convites, aoAceitar, abrirId, aoFecharAberto }: {
         <span className="mr-auto rounded-full bg-white/15 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider">
           {esgotado ? 'Prazo esgotado' : validos.length > 1 ? `${validos.length} clientes esperando` : 'Novo cliente para você'}
         </span>
+        {!esgotado && (
+          <button type="button" onClick={() => setMudo((m) => !m)} aria-pressed={mudo}
+            aria-label={mudo ? 'Ligar o som do chamado' : 'Silenciar o chamado'}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25">
+            {mudo ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+          </button>
+        )}
         {esgotado && (
           <button type="button" onClick={fechar} aria-label="Fechar convite"
             className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25">

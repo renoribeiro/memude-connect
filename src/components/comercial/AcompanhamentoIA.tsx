@@ -11,7 +11,7 @@ const ROTULO_CAMPO: Record<string, string> = {
 };
 const ORDEM_QUALIFICACAO = ['renda', 'entrada_fgts', 'prazo', 'finalidade', 'regiao'];
 const ROTULO_ETAPA: Record<string, string> = {
-  novo: 'Novo', em_atendimento: 'Em atendimento', visita_marcada: 'Visita marcada', visitou: 'Visitou', proposta: 'Proposta',
+  novo: 'Novo', em_atendimento: 'Em atendimento', visita_marcada: 'Visita agendada', visitou: 'Visita realizada', proposta: 'Proposta',
   documentacao: 'Documentação', vendido: 'Vendido', perdido: 'Perdido',
 };
 

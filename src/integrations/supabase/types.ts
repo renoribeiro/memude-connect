@@ -2701,6 +2701,7 @@ export type Database = {
           endereco: string | null
           entrada_sugerida: number | null
           id: string
+          imagem_url: string | null
           nome: string
           renda_sugerida: number | null
           tipo_imovel: Database["public"]["Enums"]["tipo_imovel_enum"] | null
@@ -2718,6 +2719,7 @@ export type Database = {
           endereco?: string | null
           entrada_sugerida?: number | null
           id?: string
+          imagem_url?: string | null
           nome: string
           renda_sugerida?: number | null
           tipo_imovel?: Database["public"]["Enums"]["tipo_imovel_enum"] | null
@@ -2735,6 +2737,7 @@ export type Database = {
           endereco?: string | null
           entrada_sugerida?: number | null
           id?: string
+          imagem_url?: string | null
           nome?: string
           renda_sugerida?: number | null
           tipo_imovel?: Database["public"]["Enums"]["tipo_imovel_enum"] | null
@@ -2812,6 +2815,7 @@ export type Database = {
           escalar_tentativas: number
           id: boolean
           manual_corretor_url: string
+          mensagens_auto: boolean
           min_visitas_historico: number
           pesos: Json
           prazo_aceite_min: number
@@ -2834,6 +2838,7 @@ export type Database = {
           escalar_tentativas?: number
           id?: boolean
           manual_corretor_url?: string
+          mensagens_auto?: boolean
           min_visitas_historico?: number
           pesos?: Json
           prazo_aceite_min?: number
@@ -2856,6 +2861,7 @@ export type Database = {
           escalar_tentativas?: number
           id?: boolean
           manual_corretor_url?: string
+          mensagens_auto?: boolean
           min_visitas_historico?: number
           pesos?: Json
           prazo_aceite_min?: number
@@ -6104,6 +6110,76 @@ export type Database = {
           },
         ]
       }
+      visita_mensagens_auto: {
+        Row: {
+          chave: string
+          conversa_id: string | null
+          criado_em: string
+          enviada_em: string | null
+          enviar_em: string
+          erro: string | null
+          id: string
+          mensagem_id: string | null
+          reivindicada_em: string | null
+          status: string
+          template: string
+          tentativas: number
+          visita_id: string
+        }
+        Insert: {
+          chave: string
+          conversa_id?: string | null
+          criado_em?: string
+          enviada_em?: string | null
+          enviar_em: string
+          erro?: string | null
+          id?: string
+          mensagem_id?: string | null
+          reivindicada_em?: string | null
+          status?: string
+          template: string
+          tentativas?: number
+          visita_id: string
+        }
+        Update: {
+          chave?: string
+          conversa_id?: string | null
+          criado_em?: string
+          enviada_em?: string | null
+          enviar_em?: string
+          erro?: string | null
+          id?: string
+          mensagem_id?: string | null
+          reivindicada_em?: string | null
+          status?: string
+          template?: string
+          tentativas?: number
+          visita_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visita_mensagens_auto_conversa_id_fkey"
+            columns: ["conversa_id"]
+            isOneToOne: false
+            referencedRelation: "conversas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visita_mensagens_auto_mensagem_id_fkey"
+            columns: ["mensagem_id"]
+            isOneToOne: false
+            referencedRelation: "mensagens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visita_mensagens_auto_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: false
+            referencedRelation: "visitas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visitas: {
         Row: {
           avaliacao_lead: number | null
@@ -6800,6 +6876,7 @@ export type Database = {
           enviado_em: string
           fonte: string
           horario_visita: string
+          imagem: string
           lead_nome: string
           local_nome: string
           perfil: string
@@ -7294,6 +7371,9 @@ export type Database = {
         Args: { p_observacao?: string; p_tarefa_id: string }
         Returns: Json
       }
+      usuario_creci_em_uso: { Args: { p_creci: string }; Returns: string }
+      usuario_historico: { Args: { p_user: string }; Returns: Json }
+      usuario_por_email: { Args: { p_email: string }; Returns: string }
       validate_cpf: { Args: { cpf_input: string }; Returns: boolean }
       verify_internal_function_secret: {
         Args: { _candidate: string }
@@ -7543,6 +7623,11 @@ export type Database = {
       visita_tentativa_remarcar: {
         Args: { p_observacao?: string; p_visita_id: string }
         Returns: Json
+      }
+      vma_reivindicar: { Args: { p_limite?: number }; Returns: Json }
+      vma_resultado: {
+        Args: { p_erro?: string; p_id: string; p_wa_id: string }
+        Returns: undefined
       }
       write_audit_log: {
         Args: {

@@ -172,7 +172,7 @@ export function PainelCliente({ conversaId, equipe }: { conversaId: string; equi
           </SelectContent>
         </Select>
         <p className="text-[11px] text-muted-foreground">
-          Com {PAPEL_DONO[conv.dono_papel] ?? conv.dono_papel}{minha ? ' (você)' : ''}. Visita marcada e Visitou mudam sozinhas.
+          Com {PAPEL_DONO[conv.dono_papel] ?? conv.dono_papel}{minha ? ' (você)' : ''}. Visita agendada e Visita realizada mudam sozinhas.
         </p>
       </div>
 

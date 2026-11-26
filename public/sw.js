@@ -21,6 +21,9 @@ self.addEventListener('push', (e) => {
       renotify: !discreta,
       silent: discreta,
       icon: '/icons/icon-192.png',
+      // Chamado: foto do imóvel (Android mostra grande; o iPhone ignora) e atalho para aceitar
+      image: urgente && d.imagem ? d.imagem : undefined,
+      actions: urgente ? [{ action: 'abrir', title: 'Ver e aceitar' }] : undefined,
       badge: '/icons/badge-96.png',
       data: { url: d.url || '/' },
       requireInteraction: urgente,

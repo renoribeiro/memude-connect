@@ -21,8 +21,8 @@ export const ETAPAS: { valor: Etapa; rotulo: string; cor: string; ponto: string 
   // Selos da identidade MeMude: 11 px, 800, pílula sem borda; roxo para o andamento, rosa para visita/proposta
   { valor: 'novo', rotulo: 'Novo', cor: 'bg-mm-lilas text-primary', ponto: 'bg-mm-campo' },
   { valor: 'em_atendimento', rotulo: 'Em atendimento', cor: 'bg-mm-lilas text-primary', ponto: 'bg-primary' },
-  { valor: 'visita_marcada', rotulo: 'Visita marcada', cor: 'bg-mm-rosa-claro text-mm-rosa-texto', ponto: 'bg-mm-rosa' },
-  { valor: 'visitou', rotulo: 'Visitou', cor: 'bg-mm-rosa-claro text-mm-rosa-texto', ponto: 'bg-mm-rosa-texto' },
+  { valor: 'visita_marcada', rotulo: 'Visita agendada', cor: 'bg-mm-rosa-claro text-mm-rosa-texto', ponto: 'bg-mm-rosa' },
+  { valor: 'visitou', rotulo: 'Visita realizada', cor: 'bg-mm-rosa-claro text-mm-rosa-texto', ponto: 'bg-mm-rosa-texto' },
   { valor: 'proposta', rotulo: 'Proposta', cor: 'bg-mm-acao text-white', ponto: 'bg-mm-acao' },
   { valor: 'documentacao', rotulo: 'Documentação', cor: 'bg-mm-alerta-fundo text-mm-alerta', ponto: 'bg-mm-alerta' },
   { valor: 'vendido', rotulo: 'Vendido', cor: 'bg-mm-sucesso-fundo text-mm-sucesso', ponto: 'bg-mm-sucesso' },

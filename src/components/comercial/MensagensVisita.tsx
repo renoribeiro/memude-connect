@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Check, ChevronDown, Copy, MessageCircle, Users } from 'lucide-react';
+import { Check, ChevronDown, Clock, Copy, MessageCircle, Send, Users } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { formatarDataHora } from '@/lib/comercial/datas';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +15,33 @@ import {
 
 const ROTULO_DESTINO: Record<Destino, string> = { cliente: 'Cliente', corretor: 'Corretor', grupo: 'Grupo' };
 
+interface Auto { template: string; status: string; enviar_em: string; enviada_em: string | null; erro: string | null }
+
+/** Envio automático ao cliente (pelo número da MeMude): o que já saiu e o que está programado. */
+function useAutomaticas(visitaId: string) {
+  return useQuery({
+    queryKey: ['comercial', 'mensagens-auto', visitaId],
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('visita_mensagens_auto')
+        .select('template, status, enviar_em, enviada_em, erro').eq('visita_id', visitaId).order('enviar_em', { ascending: false });
+      if (error) return new Map<string, Auto>();
+      const m = new Map<string, Auto>();
+      (data ?? []).forEach((a) => { if (!m.has(a.template)) m.set(a.template, a as Auto); });
+      return m;
+    },
+  });
+}
+
+function SeloAuto({ a }: { a?: Auto }) {
+  if (!a) return null;
+  if (a.status === 'enviada') return <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary"><Send className="h-3 w-3" />Enviada sozinha {formatarDataHora(a.enviada_em)}</span>;
+  if (a.status === 'agendada' || a.status === 'enviando') return <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground"><Clock className="h-3 w-3" />Sai sozinha {formatarDataHora(a.enviar_em)}</span>;
+  if (a.status === 'erro') return <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-[11px] font-semibold text-destructive">Envio automático falhou: envie à mão</span>;
+  if (a.erro === 'Envio automático desligado') return <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">Envio automático desligado</span>;
+  return null;
+}
+
 export function MensagensVisita({ visitaId, liberados, dados, telefones, usadas }: {
   visitaId: string;
   liberados: Momento[];
@@ -20,6 +50,7 @@ export function MensagensVisita({ visitaId, liberados, dados, telefones, usadas 
   usadas: Set<string>;
 }) {
   const { data: templates = [], isLoading } = useTemplates();
+  const { data: automaticas } = useAutomaticas(visitaId);
   const atual = momentoAtual(liberados);
   const [abertos, setAbertos] = useState<Set<Momento>>(() => new Set(atual ? [atual] : []));
 
@@ -54,7 +85,8 @@ export function MensagensVisita({ visitaId, liberados, dados, telefones, usadas 
             <CollapsibleContent className="space-y-2 px-3 pb-3">
               {lista.map((t) => (
                 <CartaoMensagem key={t.id} visitaId={visitaId} chave={t.chave} nome={t.nome.replace(/^Visita · /, '')}
-                  destino={t.destino} texto={renderizar(t.conteudo, dados)} telefones={telefones} usada={usadas.has(t.chave)} />
+                  destino={t.destino} texto={renderizar(t.conteudo, dados)} telefones={telefones} usada={usadas.has(t.chave)}
+                  auto={t.destino === 'cliente' ? automaticas?.get(t.chave) : undefined} />
               ))}
             </CollapsibleContent>
           </Collapsible>
@@ -64,9 +96,9 @@ export function MensagensVisita({ visitaId, liberados, dados, telefones, usadas 
   );
 }
 
-function CartaoMensagem({ visitaId, chave, nome, destino, texto, telefones, usada }: {
+function CartaoMensagem({ visitaId, chave, nome, destino, texto, telefones, usada, auto }: {
   visitaId: string; chave: string; nome: string; destino: Destino; texto: string;
-  telefones: { cliente?: string | null; corretor?: string | null }; usada: boolean;
+  telefones: { cliente?: string | null; corretor?: string | null }; usada: boolean; auto?: Auto;
 }) {
   const [copiado, setCopiado] = useState(false);
   const link = linkMensagem(destino, texto, telefones);
@@ -90,7 +122,10 @@ function CartaoMensagem({ visitaId, chave, nome, destino, texto, telefones, usad
         {destino === 'grupo' ? <Users className="h-3.5 w-3.5 text-muted-foreground" /> : <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />}
         <span className="text-xs font-medium">{nome}</span>
         <span className="rounded bg-muted px-1.5 text-[10px] font-semibold uppercase text-muted-foreground">{ROTULO_DESTINO[destino]}</span>
-        {usada && <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-primary"><Check className="h-3 w-3" />usada</span>}
+        <span className="ml-auto flex items-center gap-2">
+          <SeloAuto a={auto} />
+          {usada && <span className="inline-flex items-center gap-1 text-[11px] text-primary"><Check className="h-3 w-3" />usada</span>}
+        </span>
       </div>
       <pre className="whitespace-pre-wrap break-words px-3 py-2 font-sans text-[13px] leading-relaxed text-foreground">{texto}</pre>
       <div className="flex flex-wrap items-center gap-2 border-t bg-muted/40 px-3 py-2">

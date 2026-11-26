@@ -1,6 +1,6 @@
 // MeMude Conversas — notificações push (Web Push, RFC 8030/8291/8292) sem dependências externas.
 //   GET  (JWT do usuário)            → { chave }  chave pública VAPID para o app se inscrever
-//   POST (x-internal-secret, banco)  → { users[], titulo, corpo, url, tag }  envia para os aparelhos dessas pessoas
+//   POST (x-internal-secret, banco)  → { users[], titulo, corpo, url, tag, imagem? }  envia para os aparelhos dessas pessoas
 // As chaves VAPID são geradas uma única vez e ficam no Vault (nunca saem do servidor).
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { autorizar, clienteServico, ErroHttp, json, lerJson, preflight, responderErro } from '../_shared/fase1-http.ts';
@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
     }
     if (req.method !== 'POST') throw new ErroHttp(405, 'Método não permitido');
     const { servico: db } = await autorizar(req, 'interno');
-    const b = await lerJson<{ users?: string[]; titulo?: string; corpo?: string; url?: string; tag?: string }>(req, 16 * 1024);
+    const b = await lerJson<{ users?: string[]; titulo?: string; corpo?: string; url?: string; tag?: string; imagem?: string }>(req, 16 * 1024);
     const users = (b.users ?? []).filter((u) => /^[0-9a-f-]{36}$/i.test(u)).slice(0, 50);
     if (!users.length) return json(req, { enviados: 0 });
     const { data: insc } = await db.from('push_inscricoes').select('id, endpoint, p256dh, auth').in('user_id', users);
@@ -113,7 +113,9 @@ Deno.serve(async (req) => {
     const v = await vapid(db);
     const url = typeof b.url === 'string' && b.url.startsWith('/') ? b.url : '/';
     const tag = String(b.tag ?? 'memude').slice(0, 64);
-    const carga = JSON.stringify({ titulo: String(b.titulo ?? 'MeMude').slice(0, 80), corpo: String(b.corpo ?? '').slice(0, 180), url, tag });
+    // Foto só do site da MeMude (o aparelho baixa a imagem; nada de endereço de terceiros)
+    const imagem = typeof b.imagem === 'string' && /^https:\/\/(www\.)?memude\.com\.br\/[^\s"<>]{1,400}$/.test(b.imagem) ? b.imagem : undefined;
+    const carga = JSON.stringify({ titulo: String(b.titulo ?? 'MeMude').slice(0, 80), corpo: String(b.corpo ?? '').slice(0, 240), url, tag, imagem });
     let enviados = 0;
     const mortas: string[] = [];
     await Promise.all((insc as Inscricao[]).map(async (i) => {

@@ -48,7 +48,7 @@ const statusConfig = {
     color: 'text-orange-600'
   },
   'visita_realizada': {
-    label: 'Visitou',
+    label: 'Visita realizada',
     variant: 'success' as const,
     icon: CheckCircle,
     color: 'text-green-600'

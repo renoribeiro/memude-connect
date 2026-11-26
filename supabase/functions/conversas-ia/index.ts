@@ -22,7 +22,7 @@ const CAMPOS_FICHA: Record<string, string> = {
   status_atendimento: 'status', renda: 'renda', entrada_fgts: 'entrada/FGTS', prazo: 'prazo', finalidade: 'finalidade', regiao: 'região',
 };
 const ROTULO_ETAPA: Record<string, string> = {
-  novo: 'Novo', em_atendimento: 'Em atendimento', visita_marcada: 'Visita marcada', visitou: 'Visitou', proposta: 'Proposta',
+  novo: 'Novo', em_atendimento: 'Em atendimento', visita_marcada: 'Visita agendada', visitou: 'Visita realizada', proposta: 'Proposta',
   documentacao: 'Documentação', vendido: 'Vendido', perdido: 'Perdido',
 };
 // Telefone no texto de quem atende (tentativa de levar o cliente para o número pessoal)

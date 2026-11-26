@@ -37,7 +37,7 @@ export function useMinhasVisitas() {
     refetchInterval: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase.from('visitas')
-        .select('id, data_visita, horario_visita, status, local_nome, meeting_neighborhood, lead_id, leads(nome), empreendimentos(nome)')
+        .select('id, data_visita, horario_visita, status, local_nome, meeting_address, meeting_neighborhood, lead_id, leads(nome), empreendimentos(nome, imagem_url)')
         .is('deleted_at', null).gte('data_visita', hojeISO()).lte('data_visita', daquiDiasISO(7))
         .in('status', ['agendada', 'confirmada', 'aguardando_corretor']).order('data_visita').order('horario_visita');
       if (error) throw error;

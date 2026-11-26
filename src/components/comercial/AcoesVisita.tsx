@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   AlarmClock, ArrowRight, CalendarClock, Check, CheckCircle2, Flag, Loader2, PhoneOff, RefreshCw, Star, ThumbsDown, ThumbsUp,
-  UserRoundCheck, UserRoundX, XCircle,
+  MessageCircle, Smartphone, UserRoundCheck, UserRoundX, XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -21,7 +21,7 @@ type Visita = {
   proximo_passo: string | null; data_venda: string | null; tentativas_remarcar: number; ultima_tentativa_remarcar: string | null;
   no_show_em: string | null; escalada_em: string | null; motivo_cancelamento: string | null; updated_at: string | null;
 };
-type Convite = { id: string; corretor_id: string; enviado_em: string; resposta: string | null; automatico?: boolean; corretores?: { profiles?: { first_name?: string | null; last_name?: string | null } | null } | null };
+type Convite = { id: string; corretor_id: string; enviado_em: string; resposta: string | null; automatico?: boolean; canal?: string; corretores?: { profiles?: { first_name?: string | null; last_name?: string | null } | null } | null };
 type Tarefa = {
   id: string; tipo: string; status: string; vence_em: string; disponivel_em: string; concluida_em: string | null;
   observacao: string | null; titulo?: string | null;
@@ -63,31 +63,55 @@ export function AcoesVisita({ visita, convites, tarefas, onMensagens }: {
   const inicio = inicioVisita(visita.data_visita, visita.horario_visita);
   const pendente = convites.find((c) => !c.resposta) ?? null;
   const ocupado = acao.isPending;
+  const [respostaPorFora, setRespostaPorFora] = useState(false);
 
   if (visita.status === 'aguardando_corretor') {
     if (pendente) {
       const minutos = Math.floor((agora - new Date(pendente.enviado_em).getTime()) / 60000);
       const atrasado = minutos >= (cfg?.prazo_aceite_min ?? 15);
+      const peloApp = pendente.canal !== 'whatsapp';
+      const botoes = (
+        <div className="grid grid-cols-2 gap-2">
+          <Button disabled={ocupado} onClick={() => executar('visita_resposta_corretor', { p_aceitou: true }, 'Corretor confirmado · visita agendada', true)}>
+            <ThumbsUp /> SIM, aceitou
+          </Button>
+          <Button variant="outline" disabled={ocupado} className="border-rose-300 text-rose-700 hover:bg-rose-50"
+            onClick={() => executar('visita_resposta_corretor', { p_aceitou: false }, 'Recusa registrada · escolha o próximo corretor')}>
+            <ThumbsDown /> NÃO, recusou
+          </Button>
+        </div>
+      );
+      if (peloApp) {
+        return (
+          <Cartao tom={atrasado ? 'perigo' : 'alerta'} icone={Smartphone} titulo="Chamado enviado no app">
+            <p className="text-sm">
+              <strong>{nome(pendente)}</strong> recebeu o chamado no app {relativo(pendente.enviado_em, new Date(agora))}.
+              <span className="mt-1 block text-muted-foreground">Quando ele aceitar, a visita passa para <strong>Agendada</strong> sozinha. Não precisa confirmar aqui.</span>
+              {pendente.automatico ? (
+                <span className="mt-1 block text-muted-foreground">
+                  Chamado automático · {convites.length}º de até {cfg?.chamado_tentativas ?? 3} corretores.
+                  {atrasado ? ' Passando para o próximo…' : ` Se não aceitar em ${Math.max(1, (cfg?.prazo_aceite_min ?? 15) - minutos)} min, o sistema chama o próximo.`}
+                </span>
+              ) : atrasado && <span className="mt-1 block font-semibold text-rose-700">Sem resposta há {minutos} min: troque de corretor.</span>}
+            </p>
+            {respostaPorFora ? botoes : (
+              <button type="button" onClick={() => setRespostaPorFora(true)} className="text-xs font-medium text-muted-foreground underline-offset-2 hover:underline">
+                Ele respondeu por telefone ou WhatsApp? Registrar a resposta
+              </button>
+            )}
+            <TrocarCorretor visita={visita} titulo={atrasado ? 'Escolher outro corretor' : 'Trocar de corretor'} />
+          </Cartao>
+        );
+      }
       return (
         <Cartao tom={atrasado ? 'perigo' : 'alerta'} icone={AlarmClock} titulo="Corretor aceitou?">
           <p className="text-sm">
-            Convite para <strong>{nome(pendente)}</strong> enviado {relativo(pendente.enviado_em, new Date(agora))}.
-            {pendente.automatico ? (
-              <span className="mt-1 block text-muted-foreground">
-                Chamado automático · {convites.length}º de até {cfg?.chamado_tentativas ?? 3} corretores.
-                {atrasado ? ' Passando para o próximo…' : ` Se não aceitar em ${Math.max(1, (cfg?.prazo_aceite_min ?? 15) - minutos)} min, o sistema chama o próximo.`}
-              </span>
-            ) : atrasado && <span className="mt-1 block font-semibold text-rose-700">Sem resposta há {minutos} min: troque de corretor.</span>}
+            Aviso por WhatsApp para <strong>{nome(pendente)}</strong> {relativo(pendente.enviado_em, new Date(agora))}.
+            <span className="mt-1 block text-muted-foreground">Mande a mensagem pronta e registre aqui a resposta dele.</span>
+            {atrasado && <span className="mt-1 block font-semibold text-rose-700">Sem resposta há {minutos} min: troque de corretor.</span>}
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            <Button disabled={ocupado} onClick={() => executar('visita_resposta_corretor', { p_aceitou: true }, 'Corretor confirmado · visita agendada', true)}>
-              <ThumbsUp /> SIM, aceitou
-            </Button>
-            <Button variant="outline" disabled={ocupado} className="border-rose-300 text-rose-700 hover:bg-rose-50"
-              onClick={() => executar('visita_resposta_corretor', { p_aceitou: false }, 'Recusa registrada · escolha o próximo corretor')}>
-              <ThumbsDown /> NÃO, recusou
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={onMensagens}><MessageCircle /> Ver mensagem para o corretor</Button>
+          {botoes}
           <TrocarCorretor visita={visita} titulo={atrasado ? 'Escolher outro corretor' : 'Trocar de corretor'} />
         </Cartao>
       );

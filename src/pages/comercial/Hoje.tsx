@@ -166,6 +166,9 @@ function ItemTarefa({ t, onAbrir, dono }: { t: Tarefa; onAbrir: (id: string) => 
   const etapa = t.tipo.startsWith('confirmacao_') ? t.tipo.replace('confirmacao_', '') : null;
   const navegar = useNavigate();
   const [desmarcou, setDesmarcou] = useState(false);
+  // Chamado pelo app: o aceite entra sozinho; só pelo WhatsApp a SDR registra a resposta
+  const ciclo = (v as { visit_cycles?: { aviso_corretor?: string } | { aviso_corretor?: string }[] | null } | undefined)?.visit_cycles;
+  const peloApp = (Array.isArray(ciclo) ? ciclo[0]?.aviso_corretor : ciclo?.aviso_corretor) !== 'whatsapp';
   const ehAtividade = t.tipo === 'atividade' || t.tipo === 'manual';
   const leadId = (t.leads as { id?: string } | null)?.id ?? t.lead_id;
   const abrirItem = () => { if (v) onAbrir(v.id); else if (leadId) navegar(`/leads/${leadId}`); };
@@ -188,7 +191,10 @@ function ItemTarefa({ t, onAbrir, dono }: { t: Tarefa; onAbrir: (id: string) => 
         </span>
       </button>
       <div className="ml-auto flex shrink-0 flex-wrap gap-2">
-        {t.tipo === 'aceite_corretor' && v?.status === 'aguardando_corretor' && (
+        {t.tipo === 'aceite_corretor' && v?.status === 'aguardando_corretor' && peloApp && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">Aguardando o aceite no app</span>
+        )}
+        {t.tipo === 'aceite_corretor' && v?.status === 'aguardando_corretor' && !peloApp && (
           <>
             <Button size="sm" disabled={acao.isPending} onClick={() => executar('visita_resposta_corretor', { p_aceitou: true }, 'Corretor confirmado')}><ThumbsUp /> Sim</Button>
             <Button size="sm" variant="outline" disabled={acao.isPending} onClick={() => { executar('visita_resposta_corretor', { p_aceitou: false }, 'Recusa registrada'); if (v) onAbrir(v.id); }}><ThumbsDown /> Não</Button>

@@ -312,6 +312,8 @@ export function useVisita(id: string | null) {
   return useQuery({
     queryKey: chaves.visita(id ?? ''),
     enabled: !!id,
+    // Esperando o corretor: confere a cada 10 s (o aceite pelo app muda a visita sem ninguém tocar no Connect)
+    refetchInterval: (q) => ((q.state.data as { visita?: { status?: string } } | undefined)?.visita?.status === 'aguardando_corretor' ? 10_000 : false),
     queryFn: async () => {
       const [v, ciclo, convites, tarefas, eventos] = await Promise.all([
         supabase.from('visitas')
@@ -394,12 +396,12 @@ export async function registrarUsoMensagem(visitaId: string, template: string, d
 export function useTarefasPendentes() {
   return useQuery({
     queryKey: chaves.tarefas,
-    refetchInterval: 120_000,
+    refetchInterval: 30_000,
     queryFn: async () => {
       const fimDoDia = new Date(`${somarDias(hojeISO(), 1)}T00:00:00-03:00`).toISOString();
       const { data, error } = await supabase
         .from('tarefas')
-        .select('*, visitas(id, visit_code, data_visita, horario_visita, status, local_nome, tentativas_remarcar, no_show_em, escalada_em, leads(nome, telefone_exibicao), empreendimentos(nome), corretores(profiles(first_name, last_name))), leads(id, nome)')
+        .select('*, visitas(id, visit_code, data_visita, horario_visita, status, local_nome, tentativas_remarcar, no_show_em, escalada_em, leads(nome, telefone_exibicao), empreendimentos(nome), corretores(profiles(first_name, last_name)), visit_cycles(aviso_corretor)), leads(id, nome)')
         .eq('status', 'pendente')
         .lt('disponivel_em', fimDoDia)
         .order('vence_em')

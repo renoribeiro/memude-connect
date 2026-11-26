@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, ExternalLink, Loader2, Sparkles } from 'lucide-react';
+import { CalendarCheck, ExternalLink, Loader2, MessageCircle, Smartphone, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -35,7 +35,10 @@ export function AgendarVisitaDialog({ aberto, onOpenChange, lead, onAgendada }: 
   const [corretor, setCorretor] = useState<CorretorEscolhido | null>(null);
   // Modo automático: começa com o padrão de Ajustes; a SDR pode trocar nesta visita
   const [autoEscolhido, setAutoEscolhido] = useState<boolean | null>(null);
-  const automatico = autoEscolhido ?? !!config?.chamado_automatico;
+  // Como avisar o corretor: pelo app (o aceite entra sozinho) ou pelo WhatsApp (você registra a resposta). Lembra a última escolha.
+  const [aviso, setAviso] = useState<'app' | 'whatsapp'>(() => (localStorage.getItem('memude.aviso_corretor') === 'whatsapp' ? 'whatsapp' : 'app'));
+  const escolherAviso = (a: 'app' | 'whatsapp') => { setAviso(a); localStorage.setItem('memude.aviso_corretor', a); };
+  const automatico = aviso === 'app' && (autoEscolhido ?? !!config?.chamado_automatico);
   const [tentou, setTentou] = useState(false);
   const [sugeridos, setSugeridos] = useState({ endereco: false, bairro: false, perfil: !!lead.observacoes });
 
@@ -77,12 +80,13 @@ export function AgendarVisitaDialog({ aberto, onOpenChange, lead, onAgendada }: 
     if (!valido) return;
     const r = await agendar.mutateAsync({
       rpc: 'visita_agendar',
-      sucesso: automatico ? 'Visita criada · corretor sendo chamado' : 'Visita criada · aguardando aceite do corretor',
+      sucesso: aviso === 'whatsapp' ? 'Visita criada · mande a mensagem ao corretor e registre a resposta'
+        : 'Visita criada · chamado enviado no app do corretor',
       args: {
         p_dados: {
           lead_id: lead.id, data, hora, empreendimento_id: empId, local_nome: local.trim(), endereco: endereco.trim(),
           bairro: bairro.trim(), corretor_id: corretor?.id ?? null, perfil: perfil.trim() || null,
-          score: corretor?.score ?? null, motivo_sugestao: corretor?.motivo ?? null, automatico,
+          score: corretor?.score ?? null, motivo_sugestao: corretor?.motivo ?? null, automatico, aviso,
         },
       },
     }).catch(() => null);
@@ -173,6 +177,22 @@ export function AgendarVisitaDialog({ aberto, onOpenChange, lead, onAgendada }: 
             </div>
 
             <div className="grid content-start gap-3">
+              <fieldset className="grid gap-2">
+                <legend className="mb-1 text-sm font-medium">Como avisar o corretor</legend>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Como avisar o corretor">
+                  {([
+                    { v: 'app' as const, icone: Smartphone, titulo: 'Chamado no app', texto: 'Ele aceita no celular e a visita fica Agendada sozinha.' },
+                    { v: 'whatsapp' as const, icone: MessageCircle, titulo: 'Mensagem no WhatsApp', texto: 'Você envia a mensagem pronta e registra aqui se ele aceitou.' },
+                  ]).map((o) => (
+                    <button key={o.v} type="button" role="radio" aria-checked={aviso === o.v} onClick={() => escolherAviso(o.v)}
+                      className={cn('rounded-2xl border p-3 text-left transition-colors', aviso === o.v ? 'border-primary bg-accent' : 'hover:bg-muted')}>
+                      <span className="flex items-center gap-2 text-sm font-bold"><o.icone className="h-4 w-4 text-primary" aria-hidden />{o.titulo}</span>
+                      <span className="mt-1 block text-xs text-muted-foreground">{o.texto}</span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              {aviso === 'app' && (
               <label htmlFor="av-auto" className={cn('flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition-colors',
                 automatico ? 'border-primary bg-accent' : 'hover:bg-muted')}>
                 <Switch id="av-auto" checked={automatico} onCheckedChange={setAutoEscolhido} className="mt-0.5" />
@@ -184,6 +204,7 @@ export function AgendarVisitaDialog({ aberto, onOpenChange, lead, onAgendada }: 
                   </span>
                 </span>
               </label>
+              )}
               <Label>Corretor{automatico ? ' (primeiro a ser chamado)' : ' *'}</Label>
               <SeletorCorretor empreendimentoId={empId} data={data || null} hora={hora || null}
                 valor={corretor?.id ?? null} onChange={setCorretor} autoSelecionar />
@@ -194,7 +215,7 @@ export function AgendarVisitaDialog({ aberto, onOpenChange, lead, onAgendada }: 
           <DialogFooter className="mt-6 gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button type="submit" disabled={agendar.isPending}>
-              {agendar.isPending && <Loader2 className="animate-spin" />} {automatico ? 'Criar visita e chamar corretor' : 'Criar visita e convidar corretor'}
+              {agendar.isPending && <Loader2 className="animate-spin" />} {aviso === 'whatsapp' ? 'Criar visita' : automatico ? 'Criar visita e chamar corretor' : 'Criar visita e enviar chamado'}
             </Button>
           </DialogFooter>
         </form>

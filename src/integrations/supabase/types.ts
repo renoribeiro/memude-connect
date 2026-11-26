@@ -5348,6 +5348,7 @@ export type Database = {
       visit_cycles: {
         Row: {
           attendance_overdue: boolean
+          aviso_corretor: string
           broker_confirmed: boolean | null
           broker_feedback_at: string | null
           chamado_automatico: boolean
@@ -5372,6 +5373,7 @@ export type Database = {
         }
         Insert: {
           attendance_overdue?: boolean
+          aviso_corretor?: string
           broker_confirmed?: boolean | null
           broker_feedback_at?: string | null
           chamado_automatico?: boolean
@@ -5396,6 +5398,7 @@ export type Database = {
         }
         Update: {
           attendance_overdue?: boolean
+          aviso_corretor?: string
           broker_confirmed?: boolean | null
           broker_feedback_at?: string | null
           chamado_automatico?: boolean
@@ -6049,6 +6052,7 @@ export type Database = {
       visita_convites: {
         Row: {
           automatico: boolean
+          canal: string
           corretor_id: string
           criado_por: string | null
           enviado_em: string
@@ -6062,6 +6066,7 @@ export type Database = {
         }
         Insert: {
           automatico?: boolean
+          canal?: string
           corretor_id: string
           criado_por?: string | null
           enviado_em?: string
@@ -6075,6 +6080,7 @@ export type Database = {
         }
         Update: {
           automatico?: boolean
+          canal?: string
           corretor_id?: string
           criado_por?: string | null
           enviado_em?: string
@@ -6212,6 +6218,7 @@ export type Database = {
           no_show_em: string | null
           planilha_extra: Json | null
           proximo_passo: string | null
+          resultado_cliente: string | null
           status: string | null
           tentativas_remarcar: number
           ultima_tentativa_remarcar: string | null
@@ -6249,6 +6256,7 @@ export type Database = {
           no_show_em?: string | null
           planilha_extra?: Json | null
           proximo_passo?: string | null
+          resultado_cliente?: string | null
           status?: string | null
           tentativas_remarcar?: number
           ultima_tentativa_remarcar?: string | null
@@ -6286,6 +6294,7 @@ export type Database = {
           no_show_em?: string | null
           planilha_extra?: Json | null
           proximo_passo?: string | null
+          resultado_cliente?: string | null
           status?: string | null
           tentativas_remarcar?: number
           ultima_tentativa_remarcar?: string | null
@@ -6884,6 +6893,10 @@ export type Database = {
           renda: string
           visita_id: string
         }[]
+      }
+      corretor_registrar_visita: {
+        Args: { p_observacao?: string; p_resultado: string; p_visita: string }
+        Returns: Json
       }
       corretor_responder_convite: {
         Args: { p_aceitar: boolean; p_convite: string; p_observacao?: string }

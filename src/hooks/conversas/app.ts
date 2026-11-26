@@ -71,3 +71,44 @@ export function useMeusClientes() {
     },
   });
 }
+
+/** Visitas do corretor que já aconteceram e ainda esperam ele contar como foram (últimos 7 dias). */
+export function useVisitasParaContar() {
+  return useQuery({
+    queryKey: ['conversas', 'visitas-para-contar'],
+    refetchInterval: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('visitas')
+        .select('id, data_visita, horario_visita, status, lead_id, leads(nome), empreendimentos(nome, imagem_url)')
+        .is('deleted_at', null).is('resultado_cliente', null)
+        .gte('data_visita', daquiDiasISO(-7)).lte('data_visita', hojeISO())
+        .in('status', ['agendada', 'confirmada', 'realizada'])
+        .order('data_visita', { ascending: false }).order('horario_visita', { ascending: false });
+      if (error) throw error;
+      const agora = Date.now();
+      // Só depois do horário marcado (com 30 min de folga, como o banco exige)
+      return (data ?? []).filter((v) => new Date(`${v.data_visita}T${String(v.horario_visita).slice(0, 5)}:00-03:00`).getTime() - 30 * 60_000 <= agora);
+    },
+  });
+}
+export type VisitaParaContar = NonNullable<ReturnType<typeof useVisitasParaContar>['data']>[number];
+
+export type ResultadoVisita = 'vai_comprar' | 'pensando' | 'nao_gostou' | 'quer_outros' | 'no_show';
+
+export function useRegistrarVisita() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ visita, resultado, observacao }: { visita: string; resultado: ResultadoVisita; observacao?: string }) => {
+      const { data, error } = await supabase.rpc('corretor_registrar_visita', {
+        p_visita: visita, p_resultado: resultado, p_observacao: observacao?.trim() || null,
+      });
+      if (error) throw error;
+      return data as { volta_para_sdr?: boolean };
+    },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: cc.raiz });
+      toast.success(r?.volta_para_sdr ? 'Obrigado! A equipe da MeMude assume o cliente daqui.' : 'Obrigado! O cliente continua com você.');
+    },
+    onError: (e) => toast.error(mensagemErro(e)),
+  });
+}

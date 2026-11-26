@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
+import '@fontsource-variable/plus-jakarta-sans/wght.css';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { Building2, CalendarCheck, Kanban, Loader2, MessagesSquare, UserRound } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import { useListaConversas, useTempoRealConversas } from '@/hooks/conversas/dados';
 import { useConvites } from '@/hooks/conversas/useConvites';
@@ -48,6 +50,20 @@ export default function AppCorretor() {
     params.delete('convite');
     navigate({ pathname, search: params.toString() ? `?${params}` : '' }, { replace: true });
   }, [search, pathname, navigate]);
+  // Identidade visual do app MeMude no documento inteiro (janelas, gavetas e avisos abrem fora desta árvore)
+  useEffect(() => {
+    document.documentElement.classList.add('tema-memude');
+    return () => document.documentElement.classList.remove('tema-memude');
+  }, []);
+  // Barra do sistema no tom do app (#FAF9FD no claro); volta ao roxo do Connect ao sair
+  const { resolvedTheme } = useTheme();
+  useEffect(() => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!meta) return;
+    const antes = meta.content;
+    meta.content = resolvedTheme === 'dark' ? '#110d1d' : '#FAF9FD';
+    return () => { meta.content = antes; };
+  }, [resolvedTheme]);
   // Ícone do app com contador (Android/desktop que suportam)
   useEffect(() => {
     const nav = navigator as Navigator & { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
@@ -55,7 +71,7 @@ export default function AppCorretor() {
   }, [naoLidas]);
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground md:mx-auto md:max-w-2xl md:border-x md:shadow-xl">
+    <div className="tema-memude flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground md:sombra-elevada md:mx-auto md:max-w-2xl md:border-x md:border-mm-borda-suave">
       <main className="flex min-h-0 flex-1 flex-col">
         <Suspense fallback={<Carregando />}>
           <Routes>
@@ -71,19 +87,17 @@ export default function AppCorretor() {
       </main>
 
       {!noChat && (
-        <nav className="grid grid-cols-5 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-card/85" aria-label="Navegação do app">
+        <nav className="grid grid-cols-5 border-t border-mm-borda-suave bg-card pb-[env(safe-area-inset-bottom)]" aria-label="Navegação do app">
           {ABAS.map((a) => (
             <NavLink key={a.to} to={a.to} end={a.fim}
-              className={({ isActive }) => cn('relative flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition active:scale-95',
-                isActive ? 'text-primary' : 'text-muted-foreground')}>
+              className={({ isActive }) => cn('relative flex h-[68px] flex-col items-center justify-center gap-1 text-[11px] transition active:scale-95',
+                isActive ? 'font-bold text-primary' : 'font-semibold text-muted-foreground')}>
               {({ isActive }) => (
                 <>
-                  <span className={cn('flex h-8 w-14 items-center justify-center rounded-full transition', isActive && 'bg-primary/10')}>
-                    <a.icone className="h-[22px] w-[22px]" strokeWidth={isActive ? 2.4 : 2} aria-hidden />
-                  </span>
+                  <a.icone className="h-6 w-6" strokeWidth={isActive ? 2 : 1.8} aria-hidden />
                   {a.rotulo}
                   {a.to === '/app' && naoLidas > 0 && (
-                    <span className="absolute right-[calc(50%-1.6rem)] top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-secondary px-1 text-[10px] font-bold text-white">
+                    <span className="absolute right-[calc(50%-1.5rem)] top-2.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-mm-acao px-1 text-[10px] font-extrabold text-white">
                       {naoLidas}
                     </span>
                   )}

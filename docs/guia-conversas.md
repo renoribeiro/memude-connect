@@ -1,5 +1,8 @@
 # MeMude Conversas — guia de uso
 
+Guias por público: [corretor](guias/guia-corretor.md) · [SDR](guias/guia-sdr.md) · [cliente](guias/guia-cliente.md).
+Identidade visual desta área: [identidade-visual-conversas.md](identidade-visual-conversas.md).
+
 O cliente fala sempre com **o número da MeMude**. Por dentro, quem atende muda: SDR → corretor → closer.
 A IA lê as conversas e **só sugere**. Nada muda no CRM sem alguém tocar em "Aplicar".
 
@@ -33,7 +36,7 @@ Os números que já existiam (avisos e visitas) **não são tocados**.
 Depois, nas 4 horas seguintes, sai sem assinatura.
 
 **IA (só sugere):**
-- resumo e temperatura (🔥 quente, 🌤️ morno, ❄️ frio);
+- resumo e temperatura (quente, morno, frio);
 - campos da ficha (renda, entrada/FGTS, prazo, finalidade, região);
 - etapa;
 - resposta sugerida (aparece acima da caixa de texto: **Usar** só preenche, você revisa e envia);
@@ -72,8 +75,8 @@ Depois, nas 4 horas seguintes, sai sem assinatura.
 - **Não posso atender:** com motivo; a SDR escolhe outro corretor.
 
 No chat:
-- **🏢** mostra os imóveis que combinam com o cliente, e você envia com um toque;
-- **ⓘ** abre a ficha com as sugestões da IA.
+- o **ícone de prédio** mostra os imóveis que combinam com o cliente, e você envia com um toque;
+- o **ícone de informação** abre a ficha com as sugestões da IA.
 
 Se o cliente faltar ou cancelar a visita, a conversa volta sozinha para a SDR.
 
@@ -89,7 +92,7 @@ Se o cliente faltar ou cancelar a visita, a conversa volta sozinha para a SDR.
 
 | Situação | O que fazer |
 |---|---|
-| Mensagem com ⚠️ | Toque em **Tentar de novo** |
+| Mensagem com aviso de erro | Toque em **Tentar de novo** |
 | Faixa vermelha "número desconectado" | Admin → Números → **Reconectar com QR code** |
 | Notificação não chega no iPhone | O app precisa estar instalado na Tela de Início |
 | Voltar atrás | `supabase/rollback/conversas_reverter.sql` desliga gatilhos e crons sem apagar dados |

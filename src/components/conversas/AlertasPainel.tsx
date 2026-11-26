@@ -20,7 +20,7 @@ export function AlertasPainel({ aoAbrirConversa }: { aoAbrirConversa: (id: strin
   const agora = useAgora(30_000);
   const ordenados = [...alertas].sort((a, b) => ORDEM.indexOf(a.tipo) - ORDEM.indexOf(b.tipo) || b.criado_em.localeCompare(a.criado_em));
 
-  if (isLoading) return <div className="space-y-2 p-4">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}</div>;
+  if (isLoading) return <div className="space-y-2 p-4">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)}</div>;
   if (!ordenados.length) {
     return (
       <div className="p-6">
@@ -31,23 +31,22 @@ export function AlertasPainel({ aoAbrirConversa }: { aoAbrirConversa: (id: strin
   return (
     <div className="mx-auto max-w-3xl space-y-2 p-4">
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <BellRing className="h-4 w-4" /> Sem resposta conta só das 8h às 20h. Os alertas somem sozinhos quando o problema é resolvido.
+        <BellRing className="h-4 w-4 shrink-0 text-primary" /> Sem resposta conta só das 8h às 20h. Os alertas somem sozinhos quando o problema é resolvido.
       </p>
       {ordenados.map((a) => {
         const Icone = ICONE[a.tipo] ?? AlertTriangle;
         const tom = TIPO_ALERTA[a.tipo]?.tom ?? 'aviso';
         return (
-          <div key={a.id} className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border bg-card p-3 shadow-sm',
-            tom === 'perigo' && 'border-l-4 border-l-rose-500', tom === 'aviso' && 'border-l-4 border-l-amber-500', tom === 'sucesso' && 'border-l-4 border-l-emerald-500')}>
-            <span className={cn('rounded-full p-2', tom === 'perigo' ? 'bg-rose-50 text-rose-600 dark:bg-rose-950' : tom === 'aviso' ? 'bg-amber-50 text-amber-600 dark:bg-amber-950' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950')}>
+          <div key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-mm-borda-suave bg-card p-3">
+            <span className={cn('rounded-xl p-2', tom === 'perigo' ? 'bg-mm-rosa-claro text-mm-acao' : tom === 'aviso' ? 'bg-mm-alerta-fundo text-mm-alerta' : 'bg-mm-sucesso-fundo text-mm-sucesso')}>
               <Icone className="h-4 w-4" aria-hidden />
             </span>
             <div className="min-w-0 flex-1 basis-48">
-              <p className="truncate text-sm font-semibold">{a.titulo}</p>
+              <p className="truncate text-sm font-bold">{a.titulo}</p>
               <p className="truncate text-xs text-muted-foreground">{TIPO_ALERTA[a.tipo]?.rotulo} · {a.detalhe} · {haQuanto(a.criado_em, agora)}</p>
             </div>
             <div className="ml-auto flex shrink-0 gap-1.5">
-              {a.conversa_id && <Button size="sm" variant="outline" onClick={() => aoAbrirConversa(a.conversa_id!)}>Abrir conversa</Button>}
+              {a.conversa_id && <Button size="sm" variant="contorno" onClick={() => aoAbrirConversa(a.conversa_id!)}>Abrir conversa</Button>}
               <Button size="sm" variant="ghost" onClick={() => resolver.mutate(a.id)} disabled={resolver.isPending}>Resolvido</Button>
             </div>
           </div>

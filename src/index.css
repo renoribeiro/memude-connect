@@ -127,6 +127,154 @@
   }
 }
 
+/* ============================================================
+   Identidade visual do app MeMude (guia de 26/11/2026)
+   Vale só dentro de .tema-memude: Conversas no Connect e o app do corretor (/app).
+   Tokens "mm-*" seguem a tabela de cores do guia; os do shadcn são remapeados no tema.
+   ============================================================ */
+@layer base {
+  :root {
+    --mm-roxo: 252 51% 37.6%;          /* #422F91 */
+    --mm-rosa: 342 82% 53.1%;          /* #E92662 marca */
+    --mm-acao: 341 74% 47.6%;          /* #D41F58 botão principal */
+    --mm-rosa-texto: 340 78% 38.8%;    /* #B0164A texto rosa e erro */
+    --mm-lilas: 257 50% 94.5%;         /* #EEEAF8 */
+    --mm-rosa-claro: 340 84% 95.1%;    /* #FDE8EF */
+    --mm-rosa-palido: 343 100% 97.3%;  /* #FFF1F5 */
+    --mm-borda-rosa: 338 71% 87.8%;    /* #F6CADA */
+    --mm-borda-suave: 258 36% 94.5%;   /* #EFECF6 */
+    --mm-campo: 254 19% 67.3%;         /* #A39CBB */
+    --mm-divisor: 258 32% 87.8%;       /* #DCD6EA */
+    --mm-sobre-roxo: 254 61% 92%;      /* #E4DEF7 */
+    --mm-sucesso: 150 59% 30%;         /* #1F7A4D */
+    --mm-sucesso-fundo: 145 44% 92.4%; /* #E3F4EA */
+    --mm-alerta: 36 100% 23.9%;        /* #7A4A00 */
+    --mm-alerta-fundo: 40 100% 92%;    /* #FFF1D6 */
+    --mm-sombra: 251 49% 16.9%;        /* sombras no tom do texto, nunca preto puro */
+  }
+
+  .dark {
+    --mm-rosa-texto: 340 85% 76%;
+    --mm-lilas: 252 32% 20%;
+    --mm-rosa-claro: 340 40% 18%;
+    --mm-rosa-palido: 340 35% 14%;
+    --mm-borda-rosa: 340 40% 32%;
+    --mm-borda-suave: 252 25% 18%;
+    --mm-campo: 254 15% 42%;
+    --mm-divisor: 252 20% 30%;
+    --mm-sucesso: 150 50% 66%;
+    --mm-sucesso-fundo: 150 40% 14%;
+    --mm-alerta: 40 90% 70%;
+    --mm-alerta-fundo: 38 60% 14%;
+    --mm-sombra: 0 0% 0%;
+  }
+
+  .tema-memude {
+    --background: 257 41% 96.7%;       /* fundo-suave #F5F3FA */
+    --foreground: 251 49% 16.9%;       /* texto #1E1640 */
+    --card: 0 0% 100%;
+    --card-foreground: 251 49% 16.9%;
+    --card-border: 257 33% 91.8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 251 49% 16.9%;
+    --primary: 252 51% 37.6%;          /* roxo conduz */
+    --primary-light: 252 51% 45%;
+    --primary-dark: 252 51% 30%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 341 74% 47.6%;        /* rosa chama para a ação */
+    --secondary-light: 341 74% 55%;
+    --secondary-dark: 340 78% 38.8%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 257 41% 96.7%;
+    --muted-foreground: 254 15% 45.5%; /* texto-secundário #6B6385 */
+    --muted-dark: 257 33% 91.8%;
+    --accent: 257 50% 94.5%;           /* lilás */
+    --accent-foreground: 252 51% 37.6%;
+    --destructive: 340 78% 38.8%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 150 59% 30%;
+    --border: 257 33% 91.8%;           /* borda #E7E3F1 */
+    --input: 254 19% 67.3%;            /* borda de campo #A39CBB */
+    --ring: 252 51% 37.6%;
+    --radius: 1rem;                    /* cartão 16 · campo 14 (rounded-md) */
+    color-scheme: light;
+  }
+
+  .dark .tema-memude,
+  .dark.tema-memude {
+    --background: 251 45% 7%;
+    --foreground: 255 40% 96%;
+    --card: 251 40% 11%;
+    --card-foreground: 255 40% 96%;
+    --card-border: 251 30% 20%;
+    --popover: 251 40% 11%;
+    --popover-foreground: 255 40% 96%;
+    --primary: 254 70% 76%;
+    --primary-light: 254 70% 82%;
+    --primary-dark: 254 60% 66%;
+    --primary-foreground: 251 49% 16.9%;
+    --secondary: 342 82% 58%;
+    --secondary-dark: 340 85% 76%;
+    --muted: 251 35% 14%;
+    --muted-foreground: 254 20% 72%;
+    --muted-dark: 251 30% 22%;
+    --accent: 251 35% 18%;
+    --accent-foreground: 254 70% 85%;
+    --destructive: 340 80% 62%;
+    --success: 150 50% 66%;
+    --border: 251 30% 20%;
+    --input: 254 15% 42%;
+    --ring: 254 70% 76%;
+    color-scheme: dark;
+  }
+
+  .tema-memude,
+  .tema-memude body {
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-feature-settings: normal;
+  }
+
+  /* Títulos em 800 com espaço levemente negativo */
+  .tema-memude :is(h1, h2, h3, [role="heading"]) {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .tema-memude ::placeholder {
+    color: hsl(253 15% 57.6%);         /* placeholder #8A83A3 */
+  }
+}
+
+@layer components {
+  /* Botões sempre em pílula, texto 700; o neutro (outline) tem borda #E7E3F1 sobre branco.
+     As classes .bg-background/.border-input só existem quando a tela não trocou o padrão (tailwind-merge). */
+  .tema-memude [data-botao] {
+    border-radius: 9999px;
+    font-weight: 700;
+  }
+  .tema-memude [data-botao][class~="border-input"] {
+    border-color: hsl(var(--border));
+  }
+  .tema-memude [data-botao][class~="bg-background"],
+  .tema-memude [data-campo][class~="bg-background"] {
+    background-color: hsl(var(--card));
+  }
+
+  /* Campos: raio 14 (rounded-md com --radius 1rem), borda #A39CBB; no foco borda roxa e anel roxo 15% */
+  .tema-memude [data-campo]:focus-visible {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
+    outline: none;
+  }
+
+  /* Sombras: flutuante e elevada, sempre no tom do texto */
+  .sombra-flutuante { box-shadow: 0 4px 12px hsl(var(--mm-sombra) / 0.18); }
+  .sombra-elevada { box-shadow: 0 14px 30px hsl(var(--mm-sombra) / 0.16); }
+
+  /* Preço: números em colunas alinhadas */
+  .preco { font-variant-numeric: tabular-nums; font-weight: 800; letter-spacing: -0.01em; }
+}
+
 @layer base {
   * {
     @apply border-border;

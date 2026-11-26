@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Bell, BellOff, BellRing, Gauge, Inbox, MessagesSquare, PanelRight, Smartphone, Zap } from 'lucide-react';
+import { Bell, BellOff, BellRing, Gauge, Inbox, PanelRight, Smartphone, Zap } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -20,6 +20,8 @@ import { DesempenhoPainel } from '@/components/conversas/DesempenhoPainel';
 import { NumerosPainel } from '@/components/conversas/NumerosPainel';
 import { RespostasRapidasPainel } from '@/components/conversas/RespostasRapidasPainel';
 import { NovaConversaDialog } from '@/components/conversas/NovaConversaDialog';
+import { Simbolo } from '@/components/app/Marca';
+import '@fontsource-variable/plus-jakarta-sans/wght.css';
 
 type Aba = 'caixa' | 'alertas' | 'desempenho' | 'respostas' | 'numeros';
 
@@ -35,7 +37,7 @@ function BotaoPush() {
           {ativo ? <BellRing className="h-5 w-5 text-primary" /> : estado === 'negado' ? <BellOff className="h-5 w-5" /> : <Bell className="h-5 w-5" />}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>
+      <TooltipContent className="tema-memude">
         {ativo ? 'Notificações ativas neste computador' : estado === 'negado' ? 'Notificações bloqueadas no navegador' : 'Avisar aqui quando um cliente escrever'}
       </TooltipContent>
     </Tooltip>
@@ -115,17 +117,18 @@ export default function ConversasPage() {
 
   return (
     <DashboardLayout telaCheia>
-      <div className="flex h-full min-h-0 flex-col">
+      {/* Identidade visual do app MeMude vale só nesta tela (e nas janelas que ela abre) */}
+      <div className="tema-memude flex h-full min-h-0 flex-col bg-background text-foreground">
         <div className="flex items-center gap-1 border-b bg-card px-2 sm:px-4">
           <nav className="-mb-px flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none]" aria-label="Seções de conversas">
             {ABAS.filter((a) => !a.admin || isAdmin).map((a) => (
               <button key={a.id} type="button" onClick={() => mudar({ aba: a.id === 'caixa' ? null : a.id })} aria-current={aba === a.id ? 'page' : undefined}
-                className={cn('flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-sm font-medium transition',
-                  aba === a.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+                className={cn('flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-sm transition',
+                  aba === a.id ? 'border-primary font-bold text-primary' : 'border-transparent font-semibold text-muted-foreground hover:text-primary')}>
                 <a.icone className="h-4 w-4" aria-hidden />
                 <span className={cn(a.id !== 'caixa' && 'sr-only sm:not-sr-only')}>{a.rotulo}</span>
                 {!!a.badge && (
-                  <span className={cn('rounded-full px-1.5 text-[11px] font-bold tabular-nums', a.id === 'alertas' ? 'bg-rose-500 text-white' : 'bg-secondary text-secondary-foreground')}>
+                  <span className="rounded-full bg-mm-acao px-1.5 text-[11px] font-extrabold tabular-nums text-white">
                     {a.badge}
                   </span>
                 )}
@@ -138,7 +141,7 @@ export default function ConversasPage() {
         {aba === 'caixa' ? (
           <div className="flex min-h-0 flex-1">
             {mostrarLista && (
-              <div className="flex w-full min-w-0 flex-col border-r md:w-[340px] lg:w-[380px] md:shrink-0">
+              <div className="flex w-full min-w-0 flex-col border-r border-mm-borda-suave md:w-[340px] lg:w-[380px] md:shrink-0">
                 <ListaConversas conversas={conversas} carregando={isLoading} erro={isError} aoTentar={() => refetch()} filtro={filtro} aoFiltrar={setFiltro}
                   busca={busca} aoBuscar={setBusca} ativa={ativa} aoAbrir={abrir} aoNova={() => setNova(true)} />
               </div>
@@ -161,18 +164,18 @@ export default function ConversasPage() {
                         )} />
                     </div>
                     {fichaAberta && (
-                      <aside className="hidden w-[340px] shrink-0 overflow-y-auto border-l bg-card xl:block" aria-label="Ficha do cliente">
+                      <aside className="hidden w-[340px] shrink-0 overflow-y-auto border-l border-mm-borda-suave bg-card xl:block" aria-label="Ficha do cliente">
                         <PainelCliente conversaId={ativa} equipe />
                       </aside>
                     )}
                   </>
                 ) : (
-                  <div className="hidden flex-1 flex-col items-center justify-center gap-3 bg-[hsl(var(--muted)/0.45)] p-8 text-center md:flex">
-                    <span className="rounded-full bg-primary/10 p-4"><MessagesSquare className="h-8 w-8 text-primary" /></span>
-                    <p className="text-lg font-semibold">Escolha uma conversa</p>
+                  <div className="hidden flex-1 flex-col items-center justify-center gap-3 bg-background p-8 text-center md:flex">
+                    <Simbolo className="h-14" />
+                    <h2 className="text-xl">Escolha uma conversa</h2>
                     <p className="max-w-sm text-sm text-muted-foreground">
                       Todas as conversas dos números da MeMude ficam aqui. A IA resume e sugere; você decide.
-                      Atalhos: <kbd className="rounded border bg-card px-1 text-xs">/</kbd> busca, <kbd className="rounded border bg-card px-1 text-xs">Esc</kbd> fecha.
+                      Atalhos: <kbd className="rounded-md border bg-card px-1.5 text-xs font-bold">/</kbd> busca, <kbd className="rounded-md border bg-card px-1.5 text-xs font-bold">Esc</kbd> fecha.
                     </p>
                   </div>
                 )}
@@ -190,7 +193,7 @@ export default function ConversasPage() {
       </div>
 
       <Sheet open={fichaMovel && !!ativa} onOpenChange={setFichaMovel}>
-        <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-md">
+        <SheetContent side="right" className="tema-memude w-full overflow-y-auto bg-card p-0 text-foreground sm:max-w-md">
           <SheetTitle className="sr-only">Ficha do cliente</SheetTitle>
           {ativa && <PainelCliente conversaId={ativa} equipe />}
         </SheetContent>

@@ -117,8 +117,9 @@ export function iniciais(nome: string | null | undefined): string {
 /** Cor estável do avatar a partir do nome (8 tons da marca). */
 export function corAvatar(chave: string | null | undefined): string {
   const cores = [
-    'bg-violet-100 text-violet-700', 'bg-rose-100 text-rose-700', 'bg-sky-100 text-sky-700', 'bg-emerald-100 text-emerald-700',
-    'bg-amber-100 text-amber-800', 'bg-fuchsia-100 text-fuchsia-700', 'bg-indigo-100 text-indigo-700', 'bg-teal-100 text-teal-700',
+    // Só tons da identidade MeMude
+    'bg-mm-lilas text-primary', 'bg-mm-rosa-claro text-mm-rosa-texto', 'bg-mm-sucesso-fundo text-mm-sucesso', 'bg-mm-alerta-fundo text-mm-alerta',
+    'bg-mm-roxo text-white', 'bg-mm-sobre-roxo text-mm-roxo', 'bg-mm-rosa-palido text-mm-acao', 'bg-mm-borda-suave text-foreground',
   ];
   let h = 0;
   for (const ch of chave ?? '') h = (h * 31 + ch.charCodeAt(0)) >>> 0;

@@ -27,6 +27,8 @@ interface AuthContextType {
   isCorretor: boolean;
   /** Equipe comercial do módulo Leads e Visitas: admin, SDR ou closer. */
   isComercial: boolean;
+  /** Atualiza a foto na tela na hora (depois de gravada no banco). */
+  definirAvatar: (url: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -267,6 +269,10 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     });
   }, [toast, queryClient]);
 
+  const definirAvatar = useCallback((url: string | null) => {
+    setProfile((p) => (p ? { ...p, avatar_url: url ?? undefined } : p));
+  }, []);
+
   const isAdmin = useMemo(() => profile?.role === 'admin', [profile]);
   const isCorretor = useMemo(() => profile?.role === 'corretor', [profile]);
   const isComercial = useMemo(() => ['admin', 'sdr', 'closer'].includes(profile?.role ?? ''), [profile]);
@@ -282,7 +288,8 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     isAdmin,
     isCorretor,
     isComercial,
-  }), [user, session, profile, loading, isAuthenticating, signIn, signUp, signOut, isAdmin, isCorretor, isComercial]);
+    definirAvatar,
+  }), [user, session, profile, loading, isAuthenticating, signIn, signUp, signOut, isAdmin, isCorretor, isComercial, definirAvatar]);
 
   return (
     <AuthContext.Provider value={value}>

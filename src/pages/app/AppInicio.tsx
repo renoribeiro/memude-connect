@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Bell, BellRing, Check, ChevronRight, Loader2, MapPin, MessageCircle, Navigation, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -128,9 +128,9 @@ export default function AppInicio({ conversas, carregando, erro, tentar }: {
 
       {/* Saudação com o rosto de quem está usando */}
       <header className="flex items-center gap-3 px-5 pb-4 pt-3">
-        {foto
-          ? <img src={foto} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-mm-lilas" />
-          : <AvatarContato nome={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Corretor'} tamanho="lg" />}
+        <Link to="/app/perfil" aria-label="Meu perfil e foto" className="shrink-0 rounded-full">
+          <AvatarContato nome={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Corretor'} chave={profile?.user_id} foto={foto} tamanho="lg" className="ring-2 ring-mm-lilas" />
+        </Link>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[22px] font-extrabold leading-tight tracking-[-0.02em]">{periodoDoDia()}{nome ? `, ${nome}` : ''}</p>
           <p className="text-[13px] text-muted-foreground">{dataDeHoje()}</p>
@@ -245,7 +245,7 @@ export default function AppInicio({ conversas, carregando, erro, tentar }: {
                     <button type="button" onClick={() => navigate(`/app/c/${c.id}`)} className="flex w-[68px] flex-col items-center gap-1.5"
                       aria-label={`Responder ${nomeDaConversa(c)}, esperando há ${min} minutos`}>
                       <span className={cn('rounded-full p-[3px]', nivel === 'atrasado' ? 'bg-mm-acao' : nivel === 'atencao' ? 'bg-mm-alerta' : 'bg-mm-sucesso')}>
-                        <AvatarContato nome={nomeDaConversa(c)} chave={c.id} tamanho="lg" className="ring-2 ring-background" />
+                        <AvatarContato nome={nomeDaConversa(c)} chave={c.id} foto={c.foto_url} tamanho="lg" className="ring-2 ring-background" />
                       </span>
                       <span className="w-full truncate text-center text-[12px] font-bold">{nomeDaConversa(c).split(' ')[0]}</span>
                       <span className={cn('-mt-1 text-[11px] font-semibold', nivel === 'atrasado' ? 'text-mm-rosa-texto' : 'text-muted-foreground')}>
@@ -267,7 +267,7 @@ export default function AppInicio({ conversas, carregando, erro, tentar }: {
                 <li key={c.id}>
                   <button type="button" onClick={() => navigate(`/app/c/${c.id}`)}
                     className="flex w-full items-start gap-3 rounded-2xl border border-mm-borda-suave bg-card p-3.5 text-left transition active:scale-[0.99]">
-                    <AvatarContato nome={nomeDaConversa(c)} chave={c.id} />
+                    <AvatarContato nome={nomeDaConversa(c)} chave={c.id} foto={c.foto_url} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5"><span className="truncate text-[15px] font-bold">{nomeDaConversa(c)}</span><Temperatura valor={c.temperatura} /></span>
                       <span className="line-clamp-2 text-[13px] text-muted-foreground">{c.resumo_ia ?? c.ultima_previa ?? 'Visitou o imóvel. Que tal retomar?'}</span>

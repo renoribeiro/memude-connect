@@ -161,3 +161,6 @@ verify_jwt = false
 
 [functions.conversas-automaticas]
 verify_jwt = false
+
+[functions.conversas-fotos]
+verify_jwt = false

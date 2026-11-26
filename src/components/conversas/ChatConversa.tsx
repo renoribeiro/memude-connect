@@ -14,6 +14,8 @@ import { AvatarContato, EtapaBadge } from './pecas';
 interface Props {
   conversaId: string;
   nome: string;
+  /** Foto do WhatsApp do cliente (copiada para o nosso armazenamento) */
+  foto?: string | null;
   telefone: string;
   etapa: string;
   numeroNome?: string | null;
@@ -33,7 +35,7 @@ interface Props {
 const PERTO_DO_FIM = 160;
 
 export function ChatConversa({
-  conversaId, nome, telefone, etapa, numeroNome, numeroStatus, podeResponder, subtitulo, acoes, aoVoltar, aoAbrirFicha, compacto, lerNoWhatsApp, topo,
+  conversaId, nome, foto, telefone, etapa, numeroNome, numeroStatus, podeResponder, subtitulo, acoes, aoVoltar, aoAbrirFicha, compacto, lerNoWhatsApp, topo,
 }: Props) {
   const [limite, setLimite] = useState(120);
   const { data: msgs = [], isLoading, isFetching } = useMensagens(conversaId, limite);
@@ -119,7 +121,7 @@ export function ChatConversa({
         )}
         <button type="button" onClick={aoAbrirFicha} disabled={!aoAbrirFicha}
           className="flex min-w-0 flex-1 items-center gap-3 rounded-[14px] p-1 text-left transition enabled:hover:bg-muted">
-          <AvatarContato nome={nome} chave={conversaId} />
+          <AvatarContato nome={nome} chave={conversaId} foto={foto} />
           <span className="min-w-0">
             <span className="block truncate text-[17px] font-extrabold leading-tight tracking-[-0.01em]">{nome}</span>
             <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">

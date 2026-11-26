@@ -126,7 +126,7 @@ export function PainelCliente({ conversaId, equipe }: { conversaId: string; equi
   return (
     <div className="space-y-5 p-4">
       <div className="text-center">
-        <AvatarContato nome={nome} chave={conversaId} tamanho="xl" className="mx-auto" />
+        <AvatarContato nome={nome} chave={conversaId} foto={conv?.foto_url} tamanho="xl" className="mx-auto" />
         <h2 className="mt-2 text-xl leading-tight">{nome}</h2>
         <button type="button" onClick={copiar} className="mt-0.5 inline-flex items-center gap-1 rounded-md px-1 text-sm text-muted-foreground hover:text-primary">
           {telefoneLegivel(conv.telefone)} <Copy className="h-3 w-3" aria-label="Copiar telefone" />

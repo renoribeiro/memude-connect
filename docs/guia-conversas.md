@@ -1,7 +1,7 @@
 # MeMude Conversas — guia de uso
 
 Guias por público: [corretor](guias/guia-corretor.md) · [SDR](guias/guia-sdr.md) · [cliente](guias/guia-cliente.md).
-Identidade visual desta área: [identidade-visual-conversas.md](identidade-visual-conversas.md).
+Identidade visual desta área: [identidade-visual.md](identidade-visual.md).
 
 O cliente fala sempre com **o número da MeMude**. Por dentro, quem atende muda: SDR → corretor → closer.
 A IA lê as conversas e **só sugere**. Nada muda no CRM sem alguém tocar em "Aplicar".

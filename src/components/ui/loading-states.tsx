@@ -1,15 +1,15 @@
 import { Skeleton } from "./skeleton";
 import { Card, CardContent, CardHeader } from "./card";
 import { Loader2 } from "lucide-react";
+import simbolo from "@/assets/memude-simbolo.svg";
 
+/** Abertura: símbolo sobre rosa #E92662, como no guia da marca. */
 export const AuthLoadingScreen = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-500 to-violet-600">
-    <div className="text-center text-white space-y-4">
-      <Loader2 className="mx-auto h-12 w-12 animate-spin" />
-      <div className="space-y-2">
-        <p className="text-lg font-medium">MeMude Connect</p>
-        <p className="text-sm opacity-80">Carregando sistema...</p>
-      </div>
+  <div className="flex min-h-[100dvh] items-center justify-center bg-mm-rosa" role="status" aria-live="polite">
+    <div className="flex flex-col items-center gap-6 text-white">
+      <img src={simbolo} alt="MeMude" className="h-24 w-auto" />
+      <Loader2 className="h-6 w-6 animate-spin opacity-90" aria-hidden />
+      <span className="sr-only">Carregando</span>
     </div>
   </div>
 );

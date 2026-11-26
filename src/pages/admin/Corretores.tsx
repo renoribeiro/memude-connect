@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, User, Star, Calendar, Edit, Eye, Phone, Upload, Download, Trash2 } from "lucide-react";
+import { Plus, Search, User, Star, Calendar, Edit, Eye, Phone, Upload, Download, Trash2, Mail } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { TableSkeleton } from "@/components/ui/loading-skeleton";
@@ -308,7 +308,7 @@ export default function Corretores() {
                           </div>
                           {corretor.email && (
                             <div className="flex items-center gap-1">
-                              <span className="w-3 h-3">📧</span>
+                              <Mail className="h-3 w-3" aria-hidden />
                               {corretor.email}
                             </div>
                           )}

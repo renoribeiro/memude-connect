@@ -224,14 +224,14 @@ export default function Configuracoes() {
       if (data?.success && data?.connected) {
         setWahaStatus('connected');
         toast({
-          title: "✅ Conexão bem-sucedida",
+          title: "Conexão bem-sucedida",
           description: `Sessão WAHA "default" ativa e pronta para uso. Status: ${data.instance_state}`,
         });
       } else {
         setWahaStatus('error');
         const errorMsg = data?.error || "A sessão 'default' do WAHA não está com status WORKING";
         toast({
-          title: "❌ Falha na conexão",
+          title: "Falha na conexão",
           description: errorMsg,
           variant: "destructive",
         });
@@ -260,7 +260,7 @@ export default function Configuracoes() {
       }
       
       toast({
-        title: "❌ Erro de conexão",
+        title: "Erro de conexão",
         description: errorMsg,
         variant: "destructive",
       });
@@ -552,7 +552,7 @@ export default function Configuracoes() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Zap className="w-5 h-5" />
-                  🔗 URL do Webhook Evolution API
+                  URL do Webhook Evolution API
                 </CardTitle>
                 <CardDescription>
                   Use a configuração automática ou gere uma URL autenticada para o procedimento manual
@@ -659,12 +659,12 @@ export default function Configuracoes() {
 
                         if (data.success) {
                           toast({
-                            title: "✅ Webhook funcionando!",
+                            title: "Webhook funcionando!",
                             description: data.message || "O webhook está recebendo eventos corretamente.",
                           });
                         } else {
                           toast({
-                            title: "⚠️ Webhook com problemas",
+                            title: "Webhook com problemas",
                             description: data.message || "O webhook não está funcionando corretamente.",
                             variant: "destructive",
                           });
@@ -717,7 +717,7 @@ export default function Configuracoes() {
 
                         if (data?.success) {
                           toast({
-                            title: "✅ Webhook configurado!",
+                            title: "Webhook configurado!",
                             description: `Webhook ativo na instância ${data.instance}. Eventos: ${data.events?.join(', ')}`,
                           });
 
@@ -728,7 +728,7 @@ export default function Configuracoes() {
                       } catch (error: unknown) {
                         console.error('Erro ao configurar webhook:', error);
                         toast({
-                          title: "❌ Erro ao configurar webhook",
+                          title: "Erro ao configurar webhook",
                           description: error instanceof Error
                             ? error.message
                             : "Verifique se a Evolution API está configurada corretamente",
@@ -753,7 +753,7 @@ export default function Configuracoes() {
                 <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>📝 Como configurar manualmente:</strong>
+                    <strong>Como configurar manualmente:</strong>
                     <ol className="list-decimal ml-4 mt-2 space-y-1 text-sm">
                       <li>Clique em “Gerar URL manual segura”</li>
                       <li>Copie a URL gerada; ela contém a credencial de autenticação</li>
@@ -776,7 +776,7 @@ export default function Configuracoes() {
                 <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200">
                   <Info className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>📚 Documentação Oficial:</strong>
+                    <strong>Documentação Oficial:</strong>
                     <br />
                     <a
                       href="https://doc.evolution-api.com/v2/pt/configuration/webhooks"
@@ -803,11 +803,11 @@ export default function Configuracoes() {
 
                 {/* Eventos monitorados */}
                 <div className="bg-muted/50 p-4 rounded-md space-y-2">
-                  <h4 className="text-sm font-medium">📋 Eventos Monitorados pelo Webhook:</h4>
+                  <h4 className="text-sm font-medium">Eventos Monitorados pelo Webhook:</h4>
                   <ul className="text-xs space-y-1 text-muted-foreground">
-                    <li>✅ <strong>messages.upsert / MESSAGES_UPSERT</strong> - Mensagens recebidas (respostas dos corretores)</li>
-                    <li>✅ <strong>messages.update / MESSAGES_UPDATE</strong> - Atualização de status de mensagens</li>
-                    <li>✅ <strong>connection.update / CONNECTION_UPDATE</strong> - Status de conexão da instância</li>
+                    <li><strong>messages.upsert / MESSAGES_UPSERT</strong> - Mensagens recebidas (respostas dos corretores)</li>
+                    <li><strong>messages.update / MESSAGES_UPDATE</strong> - Atualização de status de mensagens</li>
+                    <li><strong>connection.update / CONNECTION_UPDATE</strong> - Status de conexão da instância</li>
                   </ul>
                 </div>
               </CardContent>

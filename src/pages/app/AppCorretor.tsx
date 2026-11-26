@@ -1,5 +1,4 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import '@fontsource-variable/plus-jakarta-sans/wght.css';
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, CircleUserRound, House, Loader2, MessagesSquare, Users } from 'lucide-react';
 import { useTheme } from 'next-themes';

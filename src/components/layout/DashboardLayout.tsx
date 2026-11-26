@@ -42,7 +42,7 @@ const DashboardLayout = ({ children, telaCheia = false }: DashboardLayoutProps) 
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      <header className="sticky top-0 z-50 border-b border-border bg-card shadow-sm">
+      <header className="sticky top-0 z-50 border-b border-mm-borda-suave bg-card">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-2">
@@ -55,7 +55,7 @@ const DashboardLayout = ({ children, telaCheia = false }: DashboardLayoutProps) 
                 <SheetContent side="left" className="w-72 p-0">
                   <SheetTitle className="sr-only">Menu</SheetTitle>
                   <div className="flex h-full flex-col bg-card">
-                    <div className="flex h-16 items-center border-b px-6">
+                    <div className="flex h-16 items-center border-b border-mm-borda-suave px-6">
                       <Logo size="md" />
                     </div>
                     <div className="flex-1 overflow-y-auto py-4">
@@ -90,14 +90,14 @@ const DashboardLayout = ({ children, telaCheia = false }: DashboardLayoutProps) 
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="Menu de perfil do usuário">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={profile?.avatar_url} alt={profile?.first_name} />
-                      <AvatarFallback className="bg-gradient-primary text-white">{iniciais}</AvatarFallback>
+                      <AvatarFallback className="bg-mm-lilas text-xs font-extrabold text-primary">{iniciais}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
+                      <p className="text-sm font-bold leading-none">
                         {profile?.first_name} {profile?.last_name}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">
@@ -118,7 +118,7 @@ const DashboardLayout = ({ children, telaCheia = false }: DashboardLayoutProps) 
       </header>
 
       <div className="flex h-[calc(100vh-4rem)] supports-[height:100dvh]:h-[calc(100dvh-4rem)]">
-        <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-border bg-card/70 py-4 md:block">
+        <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-mm-borda-suave bg-card py-4 md:block">
           <MenuLateral entradas={entradas} />
         </aside>
 

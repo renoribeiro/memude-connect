@@ -97,14 +97,14 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-violet-600 to-pink-500 p-4 flex items-center justify-center">
+    <main className="flex min-h-[100dvh] items-center justify-center bg-background px-5 py-8">
       <div className="w-full max-w-md space-y-6">
         <div className="flex justify-center">
-          <Logo size="lg" variant="white" />
+          <Logo size="md" />
         </div>
-        <Card className="border-white/30 bg-card/95 shadow-2xl">
+        <Card className="rounded-[22px] border-mm-borda-suave shadow-none">
           <CardHeader>
-            <CardTitle>Redefinir senha</CardTitle>
+            <CardTitle className="text-[26px] font-extrabold tracking-[-0.02em]">Redefinir senha</CardTitle>
             <CardDescription>
               Crie uma senha forte com pelo menos {MIN_PASSWORD_LENGTH} caracteres.
             </CardDescription>

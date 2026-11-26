@@ -64,7 +64,7 @@ const UserManagement = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['managed-users'] });
       toast({
-        title: data.is_active ? '✅ Usuário ativado' : '⛔ Usuário desativado',
+        title: data.is_active ? 'Usuário ativado' : 'Usuário desativado',
         description: data.is_active
           ? 'O usuário agora pode acessar o sistema.'
           : 'O usuário foi bloqueado e não poderá fazer login.',

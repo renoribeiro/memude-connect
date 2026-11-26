@@ -2,140 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-/* MeMude Connect Design System - Portal Imobiliário */
-
-@layer base {
-  :root {
-    /* Base colors */
-    --background: 250 30% 99%;
-    --foreground: 240 10% 15%;
-
-    /* Identidade MeMude: roxo #422f91 e rosa #e92662 */
-    --primary: 252 51% 38%;        /* Roxo MeMude */
-    --primary-light: 252 51% 48%;
-    --primary-dark: 252 51% 30%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 342 82% 53%;      /* Rosa MeMude */
-    --secondary-light: 342 82% 63%;
-    --secondary-dark: 342 82% 43%;
-    --secondary-foreground: 0 0% 100%;
-    
-    /* System colors */
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --error: 0 84% 60%;
-    --error-foreground: 0 0% 100%;
-    --info: 221 83% 53%;
-    --info-foreground: 0 0% 100%;
-
-    /* UI Component colors */
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 15%;
-    --card-border: 240 6% 90%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 15%;
-
-    /* Neutral grays */
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --muted-dark: 240 5% 84%;
-    
-    --accent: 240 5% 96%;
-    --accent-foreground: 240 10% 15%;
-
-    /* Destructive colors */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    /* Form elements */
-    --border: 240 6% 90%;
-    --input: 0 0% 100%;
-    --input-border: 240 6% 85%;
-    --ring: 252 51% 48%;
-
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(252 51% 38%), hsl(342 82% 53%));
-    --gradient-subtle: linear-gradient(135deg, hsl(252 40% 98.5%), hsl(342 60% 99%));
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100% / 0.9), hsl(252 40% 99% / 0.8));
-    
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(240 10% 15% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(240 10% 15% / 0.1), 0 2px 4px -2px hsl(240 10% 15% / 0.1);
-    --shadow-lg: 0 10px 15px -3px hsl(240 10% 15% / 0.1), 0 4px 6px -4px hsl(240 10% 15% / 0.1);
-    --shadow-xl: 0 20px 25px -5px hsl(240 10% 15% / 0.1), 0 8px 10px -6px hsl(240 10% 15% / 0.1);
-    --shadow-glow: 0 4px 14px hsl(252 51% 38% / 0.25);
-    --shadow-glow-pink: 0 4px 14px hsl(342 82% 53% / 0.25);
-
-    --radius: 0.75rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 240 10% 6%;
-    --foreground: 0 0% 95%;
-
-    --card: 240 10% 8%;
-    --card-foreground: 0 0% 95%;
-    --card-border: 240 10% 15%;
-
-    --popover: 240 10% 8%;
-    --popover-foreground: 0 0% 95%;
-
-    --muted: 240 10% 15%;
-    --muted-foreground: 240 5% 65%;
-    --muted-dark: 240 10% 20%;
-    
-    --accent: 240 10% 15%;
-    --accent-foreground: 0 0% 95%;
-
-    --border: 240 10% 15%;
-    --input: 240 10% 8%;
-    --input-border: 240 10% 20%;
-    --ring: 252 60% 65%;
-
-    --gradient-subtle: linear-gradient(135deg, hsl(240 10% 7%), hsl(252 30% 10%));
-    --gradient-card: linear-gradient(145deg, hsl(240 10% 8% / 0.9), hsl(240 10% 12% / 0.8));
-    --shadow-glow: 0 4px 14px hsl(252 51% 38% / 0.4);
-    --shadow-glow-pink: 0 4px 14px hsl(342 82% 53% / 0.4);
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-}
-
 /* ============================================================
-   Identidade visual do app MeMude (guia de 26/11/2026)
-   Vale só dentro de .tema-memude: Conversas no Connect e o app do corretor (/app).
-   Tokens "mm-*" seguem a tabela de cores do guia; os do shadcn são remapeados no tema.
+   MeMude — identidade visual (guia de 26/11/2026), Connect inteiro
+   Mesma paleta, fonte, cantos e sombras do app MeMude Corretor. O Connect mantém o desenho
+   de desktop (menu lateral, tabelas); Conversas e o app do corretor usam .tema-memude (títulos 800).
+   Tokens "mm-*" seguem a tabela de cores do guia; os do shadcn apontam para eles.
    ============================================================ */
 @layer base {
   :root {
-    --mm-roxo: 252 51% 37.6%;          /* #422F91 */
-    --mm-rosa: 342 82% 53.1%;          /* #E92662 marca */
+    /* Paleta do guia */
+    --mm-roxo: 252 51% 37.6%;          /* #422F91 roxo conduz */
+    --mm-rosa: 342 82% 53.1%;          /* #E92662 rosa da marca */
     --mm-acao: 341 74% 47.6%;          /* #D41F58 botão principal */
     --mm-rosa-texto: 340 78% 38.8%;    /* #B0164A texto rosa e erro */
     --mm-lilas: 257 50% 94.5%;         /* #EEEAF8 */
@@ -151,6 +28,63 @@
     --mm-alerta: 36 100% 23.9%;        /* #7A4A00 */
     --mm-alerta-fundo: 40 100% 92%;    /* #FFF1D6 */
     --mm-sombra: 251 49% 16.9%;        /* sombras no tom do texto, nunca preto puro */
+
+    /* shadcn -> identidade */
+    --background: 257 41% 96.7%;       /* fundo-suave #F5F3FA */
+    --foreground: 251 49% 16.9%;       /* texto #1E1640 */
+    --card: 0 0% 100%;
+    --card-foreground: 251 49% 16.9%;
+    --card-border: 257 33% 91.8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 251 49% 16.9%;
+    --primary: 252 51% 37.6%;
+    --primary-light: 252 51% 45%;
+    --primary-dark: 252 51% 30%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 341 74% 47.6%;        /* rosa chama para a ação */
+    --secondary-light: 341 74% 55%;
+    --secondary-dark: 340 78% 38.8%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 257 41% 96.7%;
+    --muted-foreground: 254 15% 45.5%; /* texto-secundário #6B6385 */
+    --muted-dark: 257 33% 91.8%;
+    --accent: 257 50% 94.5%;           /* lilás */
+    --accent-foreground: 252 51% 37.6%;
+    --destructive: 340 78% 38.8%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 150 59% 30%;
+    --success-foreground: 0 0% 100%;
+    --warning: 36 100% 23.9%;
+    --warning-foreground: 40 100% 92%;
+    --error: 340 78% 38.8%;
+    --error-foreground: 0 0% 100%;
+    --info: 252 51% 37.6%;
+    --info-foreground: 0 0% 100%;
+    --border: 257 33% 91.8%;           /* borda #E7E3F1 */
+    --input: 254 19% 67.3%;            /* borda de campo #A39CBB */
+    --input-border: 254 19% 67.3%;
+    --ring: 252 51% 37.6%;
+    --radius: 1rem;                    /* cartão 16 · campo 14 (rounded-md) */
+
+    --gradient-primary: linear-gradient(135deg, hsl(252 51% 37.6%), hsl(252 51% 37.6%)); /* o guia usa cor cheia, sem degradê */
+    --gradient-subtle: linear-gradient(180deg, hsl(257 41% 96.7%), hsl(257 41% 96.7%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(255 50% 98.4%));
+    --shadow-sm: 0 1px 2px hsl(var(--mm-sombra) / 0.05);
+    --shadow-md: 0 4px 12px hsl(var(--mm-sombra) / 0.08);
+    --shadow-lg: 0 10px 24px hsl(var(--mm-sombra) / 0.1);
+    --shadow-xl: 0 14px 30px hsl(var(--mm-sombra) / 0.16);
+    --shadow-glow: 0 4px 14px hsl(252 51% 38% / 0.25);
+    --shadow-glow-pink: 0 4px 14px hsl(342 82% 53% / 0.25);
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 254 15% 45.5%;
+    --sidebar-primary: 252 51% 37.6%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 257 50% 94.5%;
+    --sidebar-accent-foreground: 252 51% 37.6%;
+    --sidebar-border: 258 36% 94.5%;
+    --sidebar-ring: 252 51% 37.6%;
+    color-scheme: light;
   }
 
   .dark {
@@ -167,41 +101,7 @@
     --mm-alerta: 40 90% 70%;
     --mm-alerta-fundo: 38 60% 14%;
     --mm-sombra: 0 0% 0%;
-  }
 
-  .tema-memude {
-    --background: 257 41% 96.7%;       /* fundo-suave #F5F3FA */
-    --foreground: 251 49% 16.9%;       /* texto #1E1640 */
-    --card: 0 0% 100%;
-    --card-foreground: 251 49% 16.9%;
-    --card-border: 257 33% 91.8%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 251 49% 16.9%;
-    --primary: 252 51% 37.6%;          /* roxo conduz */
-    --primary-light: 252 51% 45%;
-    --primary-dark: 252 51% 30%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 341 74% 47.6%;        /* rosa chama para a ação */
-    --secondary-light: 341 74% 55%;
-    --secondary-dark: 340 78% 38.8%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 257 41% 96.7%;
-    --muted-foreground: 254 15% 45.5%; /* texto-secundário #6B6385 */
-    --muted-dark: 257 33% 91.8%;
-    --accent: 257 50% 94.5%;           /* lilás */
-    --accent-foreground: 252 51% 37.6%;
-    --destructive: 340 78% 38.8%;
-    --destructive-foreground: 0 0% 100%;
-    --success: 150 59% 30%;
-    --border: 257 33% 91.8%;           /* borda #E7E3F1 */
-    --input: 254 19% 67.3%;            /* borda de campo #A39CBB */
-    --ring: 252 51% 37.6%;
-    --radius: 1rem;                    /* cartão 16 · campo 14 (rounded-md) */
-    color-scheme: light;
-  }
-
-  .dark .tema-memude,
-  .dark.tema-memude {
     --background: 251 45% 7%;
     --foreground: 255 40% 96%;
     --card: 251 40% 11%;
@@ -222,46 +122,74 @@
     --accent-foreground: 254 70% 85%;
     --destructive: 340 80% 62%;
     --success: 150 50% 66%;
+    --success-foreground: 150 40% 10%;
+    --warning: 40 90% 70%;
+    --warning-foreground: 38 60% 10%;
+    --error: 340 80% 62%;
+    --info: 254 70% 76%;
+    --info-foreground: 251 49% 16.9%;
     --border: 251 30% 20%;
     --input: 254 15% 42%;
+    --input-border: 254 15% 42%;
     --ring: 254 70% 76%;
+
+    --gradient-subtle: linear-gradient(180deg, hsl(251 45% 7%), hsl(251 45% 7%));
+    --gradient-card: linear-gradient(145deg, hsl(251 40% 11%), hsl(251 40% 12%));
+
+    --sidebar-background: 251 40% 11%;
+    --sidebar-foreground: 254 20% 72%;
+    --sidebar-primary: 254 70% 76%;
+    --sidebar-primary-foreground: 251 49% 16.9%;
+    --sidebar-accent: 251 35% 18%;
+    --sidebar-accent-foreground: 254 70% 85%;
+    --sidebar-border: 251 30% 20%;
+    --sidebar-ring: 254 70% 76%;
     color-scheme: dark;
   }
 
-  .tema-memude,
-  .tema-memude body {
+  html,
+  body {
     font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    font-feature-settings: normal;
   }
 
-  /* Títulos em 800 com espaço levemente negativo */
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  /* Títulos: espaço levemente negativo; o peso fica com cada tela (no Connect, 600-800) */
+  h1, h2, h3 { letter-spacing: -0.01em; }
+  :where(h1) { font-weight: 800; }
+
+  ::placeholder { color: hsl(253 15% 57.6%); } /* placeholder #8A83A3 */
+
+  /* Conversas e app do corretor: títulos sempre 800, como no app MeMude Corretor */
   .tema-memude :is(h1, h2, h3, [role="heading"]) {
     font-weight: 800;
     letter-spacing: -0.02em;
-  }
-
-  .tema-memude ::placeholder {
-    color: hsl(253 15% 57.6%);         /* placeholder #8A83A3 */
   }
 }
 
 @layer components {
   /* Botões sempre em pílula, texto 700; o neutro (outline) tem borda #E7E3F1 sobre branco.
-     As classes .bg-background/.border-input só existem quando a tela não trocou o padrão (tailwind-merge). */
-  .tema-memude [data-botao] {
+     As classes bg-background/border-input só existem quando a tela não trocou o padrão (tailwind-merge). */
+  [data-botao][data-botao] { /* atributo repetido: precisa vencer rounded-md/font-medium do próprio botão */
     border-radius: 9999px;
     font-weight: 700;
   }
-  .tema-memude [data-botao][class~="border-input"] {
+  [data-botao][class~="border-input"] {
     border-color: hsl(var(--border));
   }
-  .tema-memude [data-botao][class~="bg-background"],
-  .tema-memude [data-campo][class~="bg-background"] {
+  [data-botao][class~="bg-background"],
+  [data-campo][class~="bg-background"] {
     background-color: hsl(var(--card));
   }
 
   /* Campos: raio 14 (rounded-md com --radius 1rem), borda #A39CBB; no foco borda roxa e anel roxo 15% */
-  .tema-memude [data-campo]:focus-visible {
+  [data-campo][data-campo]:focus-visible {
     border-color: hsl(var(--primary));
     box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
     outline: none;
@@ -275,29 +203,15 @@
   .preco { font-variant-numeric: tabular-nums; font-weight: 800; letter-spacing: -0.01em; }
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground font-inter antialiased;
-  }
-
-  html {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  }
-}
-
 @layer components {
   .sale-modal {
-    --input: 240 5% 60%;
-    --border: 240 6% 78%;
+    --input: 254 19% 60%;
+    --border: 257 25% 82%;
   }
 
   .dark .sale-modal {
-    --input: 240 5% 44%;
-    --border: 240 6% 32%;
+    --input: 254 15% 44%;
+    --border: 251 25% 30%;
   }
 
   .sale-modal input,

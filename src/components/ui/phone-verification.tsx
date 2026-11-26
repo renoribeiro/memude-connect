@@ -45,12 +45,12 @@ export function PhoneVerification({ phoneNumber, size = "sm" }: PhoneVerificatio
 
       if (data.exists) {
         toast({
-          title: "✅ Número verificado",
+          title: "Número verificado",
           description: "Este número está ativo no WhatsApp.",
         });
       } else {
         toast({
-          title: "⚠️ Número não encontrado",
+          title: "Número não encontrado",
           description: "Este número não está registrado no WhatsApp.",
           variant: "destructive",
         });

@@ -75,9 +75,9 @@ const AVAILABLE_VARIABLES = [
 ];
 
 const MEDIA_TYPE_OPTIONS = [
-    { value: 'text', label: '💬 Texto', icon: MessageSquare },
-    { value: 'audio', label: '🎵 Áudio Pré-gravado', icon: Mic },
-    { value: 'image', label: '🖼️ Imagem', icon: Image },
+    { value: 'text', label: 'Texto', icon: MessageSquare },
+    { value: 'audio', label: 'Áudio Pré-gravado', icon: Mic },
+    { value: 'image', label: 'Imagem', icon: Image },
 ];
 
 export function FollowupEditor({ agentId }: FollowupEditorProps) {
@@ -232,7 +232,7 @@ export function FollowupEditor({ agentId }: FollowupEditorProps) {
             <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
                 <Volume2 className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
-                    <p className="font-medium text-blue-800 dark:text-blue-200">💡 Dica: Use áudios para aumentar engajamento</p>
+                    <p className="font-medium text-blue-800 dark:text-blue-200">Dica: Use áudios para aumentar engajamento</p>
                     <p className="text-blue-700 dark:text-blue-300 text-xs mt-1">
                         Follow-ups com áudio pré-gravado têm até 3x mais taxa de resposta. Grave mensagens autênticas e humanizadas para captar a atenção dos leads.
                     </p>
@@ -363,7 +363,7 @@ function FollowupCard({ followup, index, total, isEditing, onEdit, onSave, onDel
                                     {getMediaLabel()}
                                 </Badge>
                                 {followup.include_property_reminder && (
-                                    <Badge variant="outline" className="text-xs">🏠 Lembrete</Badge>
+                                    <Badge variant="outline" className="text-xs">Lembrete</Badge>
                                 )}
                             </div>
 
@@ -560,7 +560,7 @@ function FollowupCard({ followup, index, total, isEditing, onEdit, onSave, onDel
                             checked={form.include_property_reminder || false}
                             onCheckedChange={(checked) => setForm({ ...form, include_property_reminder: checked })}
                         />
-                        <Label>🏠 Incluir lembrete do imóvel</Label>
+                        <Label>Incluir lembrete do imóvel</Label>
                     </div>
                 </div>
 

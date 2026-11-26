@@ -303,7 +303,7 @@ export function VisitaActions({
               <AlertDialogHeader>
                 <AlertDialogTitle>Excluir Permanentemente</AlertDialogTitle>
                 <AlertDialogDescription className="text-red-600 font-medium">
-                  ⚠️ ATENÇÃO: Esta ação é IRREVERSÍVEL! A visita será excluída permanentemente do sistema e não poderá ser recuperada.
+                  Atenção: esta ação não pode ser desfeita. A visita será excluída do sistema para sempre.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

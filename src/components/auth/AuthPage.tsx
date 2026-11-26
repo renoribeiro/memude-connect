@@ -14,7 +14,6 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import Logo from '@/components/ui/logo';
 import { signInSchema, SignInFormData } from '@/lib/validations';
 import { AuthLoadingScreen } from '@/components/ui/loading-states';
-import heroImage from '@/assets/hero-dashboard.jpg';
 
 const AuthPage = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -96,29 +95,19 @@ const AuthPage = () => {
   }
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-      style={{
-        backgroundImage: `linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(236, 72, 153, 0.8)), url(${heroImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
-    >
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-5 py-8">
       <div className="w-full max-w-md space-y-6">
-        <div className="text-center text-white space-y-2">
-          <div className="flex justify-center mb-6">
-            <Logo size="lg" variant="white" />
-          </div>
-          <p className="text-white/90 text-lg font-medium">Portal de Gestão Imobiliária</p>
+        <div className="flex justify-center">
+          <Logo size="md" />
         </div>
 
-        <Card className="backdrop-blur-xl bg-card/95 border border-white/30 shadow-2xl">
-          <CardHeader className="space-y-3">
-            <CardTitle className="text-2xl font-bold text-center text-foreground">
-              Entrar na sua conta
+        <Card className="rounded-[22px] border-mm-borda-suave shadow-none">
+          <CardHeader className="space-y-2 pb-4">
+            <CardTitle className="text-center text-[30px] font-extrabold tracking-[-0.02em]">
+              Entrar no MeMude
             </CardTitle>
-            <CardDescription className="text-center text-muted-foreground">
-              Digite suas credenciais para acessar o sistema
+            <CardDescription className="text-center text-[15px]">
+              Corretores e equipe usam o mesmo acesso.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -129,13 +118,15 @@ const AuthPage = () => {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-foreground font-medium">Email</FormLabel>
+                      <FormLabel className="text-[13px] font-semibold text-foreground">E-mail</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
                           type="email"
                           placeholder="seu@email.com"
-                          className="bg-background border-input text-foreground placeholder:text-muted-foreground"
+                          autoComplete="email"
+                          inputMode="email"
+                          className="h-[50px] text-base"
                           disabled={isLoading}
                         />
                       </FormControl>
@@ -148,7 +139,7 @@ const AuthPage = () => {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-foreground font-medium">Senha</FormLabel>
+                      <FormLabel className="text-[13px] font-semibold text-foreground">Senha</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Input
@@ -156,12 +147,12 @@ const AuthPage = () => {
                             type={showPassword ? 'text' : 'password'}
                             placeholder="Sua senha"
                             autoComplete="current-password"
-                            className="bg-background border-input pr-10 text-foreground placeholder:text-muted-foreground"
+                            className="h-[50px] pr-12 text-base"
                             disabled={isLoading}
                           />
                           <button
                             type="button"
-                            className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+                            className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-muted-foreground hover:text-primary"
                             onClick={() => setShowPassword((visible) => !visible)}
                             aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                           >
@@ -179,20 +170,21 @@ const AuthPage = () => {
                   <Button
                     type="button"
                     variant="link"
-                    className="h-auto p-0 text-sm"
+                    className="h-auto p-0 text-sm font-bold text-mm-acao"
                     disabled={isLoading || isResetting}
                     onClick={handlePasswordReset}
                   >
                     {isResetting ? 'Enviando instruções...' : 'Esqueci minha senha'}
                   </Button>
                 </div>
-                <Button 
-                  type="submit" 
-                  className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+                <Button
+                  type="submit"
+                  variant="acao"
+                  className="h-[54px] w-full text-base"
                   disabled={isLoading}
                 >
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Entrar no Sistema
+                  Entrar
                 </Button>
               </form>
             </Form>

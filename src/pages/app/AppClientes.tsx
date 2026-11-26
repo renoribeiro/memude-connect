@@ -18,6 +18,7 @@ import { ETAPAS, type ConversaItem } from '@/lib/conversas/tipos';
 type Aba = 'funil' | 'lista';
 type Filtro = 'todos' | 'esperando' | 'parados' | 'visita';
 const TRES_DIAS = 3 * 86_400_000;
+const ETAPAS_SDR: string[] = ['novo', 'em_atendimento'];
 const FILTROS: { valor: Filtro; rotulo: string }[] = [
   { valor: 'todos', rotulo: 'Todos' }, { valor: 'esperando', rotulo: 'Esperando' },
   { valor: 'parados', rotulo: 'Parados 3 dias+' }, { valor: 'visita', rotulo: 'Com visita' },
@@ -54,9 +55,10 @@ export default function AppClientes({ conversas, carregando, erro, tentar }: {
         : filtro === 'parados' ? !c.aguardando_desde && !!c.ultima_mensagem_em && agora - new Date(c.ultima_mensagem_em).getTime() > TRES_DIAS && !['vendido', 'perdido'].includes(c.etapa)
           : !!c.proxima_visita
   )), [clientes.data, busca, filtro, agora]);
-  const colunas = ETAPAS.filter((e) => e.valor !== 'novo');
+  // O corretor só recebe o cliente com a visita agendada: o funil dele começa aí (Novo e Em atendimento são da SDR)
+  const colunas = ETAPAS.filter((e) => !ETAPAS_SDR.includes(e.valor));
   const trilho = useRef<HTMLDivElement>(null);
-  const naEtapa = (c: ConversaItem, etapa: string) => c.etapa === etapa || (etapa === 'em_atendimento' && c.etapa === 'novo');
+  const naEtapa = (c: ConversaItem, etapa: string) => c.etapa === etapa || (etapa === 'visita_marcada' && ETAPAS_SDR.includes(c.etapa));
   const irPara = (etapa: string) => trilho.current?.querySelector<HTMLElement>(`[data-etapa="${etapa}"]`)
     ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
 
@@ -131,7 +133,7 @@ export default function AppClientes({ conversas, carregando, erro, tentar }: {
                             <DropdownMenuContent align="end" className="rounded-2xl">
                               <DropdownMenuLabel>Mover para</DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              {ETAPAS.filter((x) => x.valor !== c.etapa && x.valor !== 'novo').map((x) => (
+                              {colunas.filter((x) => x.valor !== c.etapa).map((x) => (
                                 <DropdownMenuItem key={x.valor} onClick={() => mover.mutate({ id: c.id, etapa: x.valor })}>
                                   <span className={cn('mr-2 h-2 w-2 rounded-full', x.ponto)} aria-hidden />{x.rotulo}
                                 </DropdownMenuItem>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Building2, CalendarDays, Clock, Loader2, MapPin, Sparkles, Volume2, VolumeX, Wallet, X } from 'lucide-react';
+import { Clock, Loader2, Sparkles, Volume2, VolumeX, Wallet, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,7 +10,9 @@ import { useAgora } from '@/hooks/conversas/useAgora';
 import { tocarAviso } from '@/lib/conversas/push';
 import { mensagemErro } from '@/lib/conversas/servidor';
 import type { Convite } from '@/lib/conversas/tipos';
+import { AvatarContato } from '@/components/conversas/pecas';
 import { Simbolo } from './Marca';
+import { BarraPrazo, FotoEmpreendimento, prazoDoChamado } from './Chamado';
 
 const dataLonga = (d: string, h: string) => {
   const dt = new Date(`${d}T${h.slice(0, 5)}:00-03:00`);
@@ -23,7 +25,7 @@ function Item({ icone: Icone }: { icone: typeof Clock }) {
   return <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#FDE8EF] text-[#D41F58]" aria-hidden><Icone className="h-4 w-4" /></span>;
 }
 
-/** Tela cheia "Cliente novo": aceitar ou recusar antes do prazo (estilo app de corrida). */
+/** Tela cheia "Cliente novo": foto do imóvel, cliente, quando e prazo correndo; aceitar ou recusar (estilo app de corrida). */
 export function ConviteNovo({ convites, aoAceitar, abrirId, aoFecharAberto }: {
   convites: Convite[]; aoAceitar: (conversaId: string | null) => void;
   /** Convite aberto de propósito (pela tela Hoje ou pela notificação), mesmo com o prazo esgotado. */
@@ -119,27 +121,26 @@ export function ConviteNovo({ convites, aoAceitar, abrirId, aoFecharAberto }: {
   }, [tocando, c?.convite_id]);
 
   if (!c) return null;
-  const total = Math.max(1, new Date(c.prazo_em).getTime() - new Date(c.enviado_em).getTime());
-  const resta = Math.max(0, new Date(c.prazo_em).getTime() - agora);
-  const pct = resta / total;
-  const min = Math.floor(resta / 60_000);
-  const seg = Math.floor((resta % 60_000) / 1000);
-  const esgotado = resta === 0;
-  const R = 46;
-  const C = 2 * Math.PI * R;
+  const p = prazoDoChamado(c, agora);
+  const esgotado = p.esgotado;
+  const primeiro = c.lead_nome?.split(' ')[0] ?? 'Cliente';
 
   return (
     <div ref={tela} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="convite-titulo"
-      className="pointer-events-auto fixed inset-0 z-[60] flex flex-col bg-mm-roxo text-white outline-none animate-in fade-in duration-300">
-      <div className="flex items-center gap-2.5 px-5 pt-[max(1rem,env(safe-area-inset-top))]">
+      className="pointer-events-auto fixed inset-0 z-[60] flex flex-col overflow-hidden bg-[#120C2E] text-white outline-none animate-in fade-in duration-300">
+      {/* Fundo: a própria foto do empreendimento, desfocada (tela de "chamada chegando") */}
+      {c.imagem && <img src={c.imagem} alt="" aria-hidden className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl" />}
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#120C2E]/55 via-[#120C2E]/85 to-[#120C2E]" />
+
+      <div className="relative flex items-center gap-2.5 px-5 pt-[max(1rem,env(safe-area-inset-top))]">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white" aria-hidden><Simbolo className="h-6" /></span>
-        <span className="mr-auto rounded-full bg-white/15 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider">
+        <span className="mr-auto rounded-full bg-white/15 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider backdrop-blur">
           {esgotado ? 'Prazo esgotado' : validos.length > 1 ? `${validos.length} clientes esperando` : 'Novo cliente para você'}
         </span>
         {!esgotado && (
           <button type="button" onClick={() => setMudo((m) => !m)} aria-pressed={mudo}
             aria-label={mudo ? 'Ligar o som do chamado' : 'Silenciar o chamado'}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25">
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur hover:bg-white/25">
             {mudo ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
           </button>
         )}
@@ -151,40 +152,48 @@ export function ConviteNovo({ convites, aoAceitar, abrirId, aoFecharAberto }: {
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 py-4 text-center">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-4">
         {/* mt-auto/mb-auto centralizam sem cortar o topo quando o conteúdo não cabe (iPhone pequeno) */}
-        <div className="relative mb-4 mt-auto h-24 w-24 shrink-0 [@media(min-height:700px)]:mb-6 [@media(min-height:700px)]:h-32 [@media(min-height:700px)]:w-32">
-          {!esgotado && <span className="absolute inset-0 animate-ping rounded-full bg-white/10" aria-hidden />}
-          <svg viewBox="0 0 100 100" className="relative h-full w-full -rotate-90" aria-hidden>
-            <circle cx="50" cy="50" r={R} fill="none" stroke="rgb(255 255 255 / 0.15)" strokeWidth="6" />
-            <circle cx="50" cy="50" r={R} fill="none" stroke={pct < 0.25 ? '#E92662' : '#fff'} strokeWidth="6" strokeLinecap="round"
-              strokeDasharray={C} strokeDashoffset={C * (1 - pct)} className="transition-[stroke-dashoffset] duration-1000 ease-linear" />
-          </svg>
-          <span className="absolute inset-0 flex flex-col items-center justify-center">
-            {esgotado ? (
-              <span className="px-2 text-xs font-bold leading-tight">Ainda pode aceitar</span>
-            ) : (
-              <>
-                <span className="text-3xl font-extrabold tabular-nums">{min}:{String(seg).padStart(2, '0')}</span>
-                <span className="text-[11px] font-bold uppercase tracking-wide text-mm-sobre-roxo">para aceitar</span>
-              </>
-            )}
-          </span>
-        </div>
-        <h1 id="convite-titulo" className="line-clamp-2 break-words text-[28px] font-extrabold leading-tight tracking-[-0.02em] [@media(min-height:700px)]:text-[32px]">{c.lead_nome}</h1>
-        <p className="mt-1 text-mm-sobre-roxo">{esgotado ? 'O prazo passou, mas a visita ainda está com você até a SDR escolher outro corretor.' : 'quer visitar um imóvel com você'}</p>
+        <div className="mx-auto mt-auto w-full max-w-sm">
+          {/* Foto do imóvel com o cliente sobreposto */}
+          <div className="relative">
+            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[28px] shadow-[0_24px_60px_-24px_rgba(0,0,0,0.8)]">
+              <FotoEmpreendimento url={c.imagem} nome={c.empreendimento} className="absolute inset-0 h-full w-full" />
+              <div aria-hidden className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/75 to-transparent" />
+              <div className="absolute inset-x-4 bottom-3.5 pr-20">
+                <p className="truncate text-lg font-extrabold leading-tight">{c.empreendimento ?? 'Empreendimento'}</p>
+                {(c.bairro || c.local_nome) && <p className="truncate text-sm text-white/80">{[c.local_nome, c.bairro].filter(Boolean).join(' · ')}</p>}
+              </div>
+            </div>
+            <AvatarContato nome={c.lead_nome} tamanho="xl" className="absolute -bottom-7 right-4 ring-4 ring-[#120C2E]" />
+          </div>
 
-        <div className="mb-auto mt-4 w-full max-w-sm space-y-2.5 rounded-2xl bg-white p-4 text-left text-[15px] font-semibold text-[#1E1640] [@media(min-height:700px)]:mt-6">
-          {c.empreendimento && <p className="flex items-center gap-3 font-extrabold"><Item icone={Building2} />{c.empreendimento}</p>}
-          <p className="flex items-center gap-3"><Item icone={CalendarDays} />{dataLonga(c.data_visita, c.horario_visita)}</p>
-          {(c.local_nome || c.bairro) && <p className="flex items-center gap-3"><Item icone={MapPin} />{[c.local_nome, c.bairro].filter(Boolean).join(' · ')}</p>}
-          {c.renda && <p className="flex items-center gap-3"><Item icone={Wallet} />Renda {c.renda}</p>}
-          {c.perfil && <p className="flex items-start gap-3"><Item icone={Sparkles} /><span className="line-clamp-3 font-normal">{c.perfil}</span></p>}
-          {c.fonte && <p className="flex items-center gap-3 text-sm font-normal text-[#6B6385]"><Item icone={Clock} />Veio por {c.fonte}</p>}
+          <h1 id="convite-titulo" className="mt-6 line-clamp-2 break-words pr-24 text-[28px] font-extrabold leading-tight tracking-[-0.02em]">
+            {primeiro} quer visitar com você
+          </h1>
+          <p className="mt-1 text-[15px] text-white/75">{dataLonga(c.data_visita, c.horario_visita)}</p>
+
+          {/* Prazo correndo, como no aviso "seu motorista está chegando" */}
+          <div className="mt-4 rounded-2xl bg-white/10 p-3.5 backdrop-blur">
+            <div className="mb-2 flex items-baseline justify-between">
+              <span className="text-[13px] font-bold text-white/80">{esgotado ? 'O prazo passou, mas ainda pode aceitar' : 'Tempo para aceitar'}</span>
+              {!esgotado && <span className="text-xl font-extrabold tabular-nums">{p.texto}</span>}
+            </div>
+            <BarraPrazo fracao={p.fracao} />
+          </div>
+
+          {(c.renda || c.perfil || c.fonte) && (
+            <div className="mb-auto mt-3 space-y-2.5 rounded-2xl bg-white p-4 text-left text-[15px] font-semibold text-[#1E1640]">
+              {c.renda && <p className="flex items-center gap-3"><Item icone={Wallet} />Renda {c.renda}</p>}
+              {c.perfil && <p className="flex items-start gap-3"><Item icone={Sparkles} /><span className="line-clamp-3 font-normal">{c.perfil}</span></p>}
+              {c.fonte && <p className="flex items-center gap-3 text-sm font-normal text-[#6B6385]"><Item icone={Clock} />Veio por {c.fonte}</p>}
+            </div>
+          )}
         </div>
+        <div className="mb-auto" />
       </div>
 
-      <div className="shrink-0 space-y-3 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="relative shrink-0 space-y-3 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
         {recusando ? (
           <div className="tema-memude space-y-2 rounded-[22px] bg-card p-3 text-card-foreground">
             <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} maxLength={200} autoFocus placeholder="Por que não pode? (ex.: já tenho visita nesse horário)" className="text-base" />

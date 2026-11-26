@@ -291,7 +291,7 @@ export function ReportBuilder({ template, onSave, onGenerate }: ReportBuilderPro
                     <SelectItem value="novo">Novo</SelectItem>
                     <SelectItem value="buscando_corretor">Em Contato</SelectItem>
                     <SelectItem value="visita_agendada">Agendado</SelectItem>
-                    <SelectItem value="visita_realizada">Visitou</SelectItem>
+                    <SelectItem value="visita_realizada">Visita realizada</SelectItem>
                     <SelectItem value="cancelado">Perdido</SelectItem>
                     <SelectItem value="follow_up">Follow-up</SelectItem>
                   </SelectContent>

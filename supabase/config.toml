@@ -158,3 +158,6 @@ verify_jwt = false
 
 [functions.conversas-push]
 verify_jwt = false
+
+[functions.conversas-automaticas]
+verify_jwt = false

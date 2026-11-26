@@ -62,7 +62,7 @@ const statusLabels = {
   'novo': 'Novo',
   'buscando_corretor': 'Em Contato',
   'visita_agendada': 'Agendado',
-  'visita_realizada': 'Visitou',
+  'visita_realizada': 'Visita realizada',
   'cancelado': 'Perdido',
   'follow_up': 'Follow-up'
 };

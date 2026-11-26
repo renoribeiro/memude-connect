@@ -21,7 +21,6 @@ import { NumerosPainel } from '@/components/conversas/NumerosPainel';
 import { RespostasRapidasPainel } from '@/components/conversas/RespostasRapidasPainel';
 import { NovaConversaDialog } from '@/components/conversas/NovaConversaDialog';
 import { Simbolo } from '@/components/app/Marca';
-import '@fontsource-variable/plus-jakarta-sans/wght.css';
 
 type Aba = 'caixa' | 'alertas' | 'desempenho' | 'respostas' | 'numeros';
 

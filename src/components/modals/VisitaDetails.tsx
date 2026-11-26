@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Calendar, Clock, User, Phone, MapPin } from "lucide-react";
+import { Calendar, Clock, User, Phone, MapPin, Mail, Star } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { parseLocalDate } from "@/utils/dateHelpers";
@@ -101,7 +101,7 @@ export function VisitaDetails({ visitaId }: { visitaId: string }) {
             </div>
             {visita.leads?.email && (
               <div className="flex items-center gap-1.5">
-                <span>📧</span>
+                <Mail className="h-3.5 w-3.5" aria-hidden />
                 <span>{visita.leads?.email}</span>
               </div>
             )}
@@ -159,9 +159,7 @@ export function VisitaDetails({ visitaId }: { visitaId: string }) {
           <Label className="text-sm font-medium text-muted-foreground">Avaliação histórica (escala de 1 a 5)</Label>
           <div className="mt-1 flex items-center gap-1">
             {[...Array(5)].map((_, i) => (
-              <span key={i} className={`text-lg ${i < visita.avaliacao_lead ? 'text-yellow-400' : 'text-muted-foreground'}`}>
-                ⭐
-              </span>
+              <Star key={i} aria-hidden className={`h-5 w-5 ${i < visita.avaliacao_lead ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'}`} />
             ))}
             <span className="ml-2 text-sm text-muted-foreground">({visita.avaliacao_lead}/5)</span>
           </div>

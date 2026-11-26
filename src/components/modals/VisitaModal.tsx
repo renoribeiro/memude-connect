@@ -185,19 +185,19 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId, isC
 
       // FASE 2: Mensagens de erro específicas e acionáveis
       if (error.message?.includes('webhook') || error.message?.includes('Webhook não configurado')) {
-        errorTitle = "⚙️ Webhook não configurado";
+        errorTitle = "Webhook não configurado";
         errorMessage = "O webhook da Evolution API não está configurado. Configure para receber respostas dos corretores.";
         actionLink = { text: "Ir para Configurações", url: "/configuracoes" };
       } else if (error.message?.includes('WhatsApp') || error.message?.includes('whatsapp')) {
-        errorTitle = "📱 Erro ao enviar WhatsApp";
+        errorTitle = "Erro ao enviar WhatsApp";
         errorMessage = "Não foi possível enviar mensagem WhatsApp. Verifique se a API Evolution está configurada corretamente.";
         actionLink = { text: "Testar Conexão", url: "/configuracoes" };
       } else if (error.message?.includes('telefone') || error.message?.includes('phone')) {
-        errorTitle = "📞 Corretor sem contato válido";
+        errorTitle = "Corretor sem contato válido";
         errorMessage = "O corretor selecionado não possui WhatsApp ou telefone cadastrado. Atualize os dados do corretor.";
         actionLink = { text: "Ver Corretores", url: "/corretores" };
       } else if (error.message?.includes('pending') || error.message?.includes('aguardando')) {
-        errorTitle = "✅ Mensagem enviada";
+        errorTitle = "Mensagem enviada";
         errorMessage = "A mensagem foi enviada ao corretor. Aguardando resposta...";
         errorTitle = "Sucesso"; // Change to success
       } else if (error.message?.includes('duplicate key') || error.message?.includes('visitas_lead_id_key')) {
@@ -274,7 +274,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId, isC
               {existingVisitas.length > 0 && !visitaId && (
                 <div className="mb-4 p-4 bg-warning/10 border border-warning rounded-lg">
                   <p className="text-sm text-warning-foreground font-medium">
-                    ⚠️ Atenção: Este lead já possui {existingVisitas.length} visita(s) ativa(s):
+                    Atenção: este lead já possui {existingVisitas.length} visita(s) ativa(s):
                   </p>
                   <ul className="mt-2 text-sm text-muted-foreground space-y-1">
                     {existingVisitas.map((v) => (

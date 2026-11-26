@@ -156,7 +156,7 @@ export default function MinhasVisitas() {
         <Card className="glass-card border-red-100 shadow-lg">
           <CardHeader>
             <CardTitle className="text-red-500 text-center font-bold text-xl flex items-center justify-center gap-2">
-              <span>⚠️ Perfil Não Ativado</span>
+              <span>Perfil Não Ativado</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="text-center space-y-4">

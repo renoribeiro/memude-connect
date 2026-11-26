@@ -148,13 +148,13 @@ export default function ImportExportModal({ open, onOpenChange, type }: ImportEx
                   <div className="text-xs space-y-1">
                     {type === 'import' && (
                       <div className="grid grid-cols-3 gap-2">
-                        <span>✅ Importados: {result.imported || 0}</span>
-                        <span>🔄 Atualizados: {result.updated || 0}</span>
-                        <span>❌ Erros: {result.errors || 0}</span>
+                        <span>Importados: {result.imported || 0}</span>
+                        <span>Atualizados: {result.updated || 0}</span>
+                        <span>Erros: {result.errors || 0}</span>
                       </div>
                     )}
                     {type === 'export' && (
-                      <p>✅ Exportados: {result.exported || 0} corretores</p>
+                      <p>Exportados: {result.exported || 0} corretores</p>
                     )}
                   </div>
                 </div>

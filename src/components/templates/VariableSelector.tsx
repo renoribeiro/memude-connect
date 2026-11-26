@@ -38,11 +38,11 @@ export const VariableSelector: React.FC<VariableSelectorProps> = ({
   }, {} as Record<string, typeof variables>);
 
   const categoryLabels: Record<string, string> = {
-    lead: "🧑‍💼 Dados do Lead",
-    empreendimento: "🏢 Empreendimento",
-    corretor: "👨‍💼 Corretor",
-    sistema: "⚙️ Sistema",
-    visita: "📅 Visita"
+    lead: "Dados do lead",
+    empreendimento: "Empreendimento",
+    corretor: "Corretor",
+    sistema: "Sistema",
+    visita: "Visita"
   };
 
   const handleVariableClick = (variableName: string) => {

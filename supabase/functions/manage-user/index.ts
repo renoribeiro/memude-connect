@@ -6,7 +6,7 @@ import {
   safeError,
 } from '../_shared/security.ts';
 
-type AppRole = 'admin' | 'corretor' | 'cliente';
+type AppRole = 'admin' | 'sdr' | 'closer' | 'corretor' | 'cliente';
 type ManageAction = 'update' | 'delete' | 'toggle_active' | 'list';
 
 interface ManageUserRequest {
@@ -22,7 +22,16 @@ interface ManageUserRequest {
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ALLOWED_ROLES = new Set<AppRole>(['admin', 'corretor', 'cliente']);
+const ALLOWED_ROLES = new Set<AppRole>(['admin', 'sdr', 'closer', 'corretor', 'cliente']);
+const ROTULO_HISTORICO: Record<string, string> = {
+  visitas: 'visita(s)', vendas: 'venda(s)', convites: 'chamado(s) de visita', leads: 'lead(s) sob responsabilidade', conversas: 'conversa(s)',
+};
+
+class ErroUsuario extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
 
 function isUuid(value: unknown): value is string {
   return typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value);
@@ -123,7 +132,14 @@ Deno.serve(async (req) => {
         || (email !== undefined && !EMAIL_PATTERN.test(email))
         || (role !== undefined && !ALLOWED_ROLES.has(role))
       ) {
-        return jsonResponse(req, { error: 'Dados de atualização inválidos' }, 400);
+        return jsonResponse(req, { error: 'Confira nome, sobrenome, e-mail e função.' }, 400);
+      }
+      if (email) {
+        const { data: atual } = await access.supabase.auth.admin.getUserById(userId);
+        if (atual?.user?.email?.toLowerCase() !== email) {
+          const { data: dono } = await access.supabase.rpc('usuario_por_email', { p_email: email });
+          if (dono) throw new ErroUsuario(409, `O e-mail ${email} já é de ${dono}.`);
+        }
       }
       if (userId === access.userId && role && role !== 'admin') {
         return jsonResponse(req, {
@@ -212,14 +228,33 @@ Deno.serve(async (req) => {
       return jsonResponse(req, { success: true, is_active: isActive });
     }
 
+    // Excluir apagaria (ou deixaria órfão) o histórico de visitas, vendas e leads: nesses casos, só desativar
+    const { data: historico, error: histError } = await access.supabase.rpc('usuario_historico', { p_user: userId });
+    if (histError) throw histError;
+    const itens = Object.entries((historico ?? {}) as Record<string, number>).filter(([, n]) => n > 0);
+    if (itens.length) {
+      const lista = itens.map(([k, n]) => `${n} ${ROTULO_HISTORICO[k] ?? k}`).join(', ');
+      throw new ErroUsuario(409, `Este usuário tem histórico (${lista}). Para não perder esse histórico, use Desativar: ele perde o acesso e sai das sugestões, sem apagar nada.`);
+    }
     const { error: deleteError } =
       await access.supabase.auth.admin.deleteUser(userId);
-    if (deleteError) throw deleteError;
+    if (deleteError) {
+      if (/database error/i.test(deleteError.message ?? '')) {
+        throw new ErroUsuario(409, 'Este usuário tem registros ligados a ele no sistema. Use Desativar: ele perde o acesso sem apagar nada.');
+      }
+      throw deleteError;
+    }
     return jsonResponse(req, { success: true });
   } catch (error) {
-    console.error('Falha ao gerenciar usuário:', safeError(error));
+    if (error instanceof ErroUsuario) {
+      return jsonResponse(req, { error: error.message }, error.status);
+    }
+    const message = safeError(error);
+    console.error('Falha ao gerenciar usuário:', message);
     return jsonResponse(req, {
-      error: 'Não foi possível concluir a operação de usuário',
-    }, 500);
+      error: /already|registered|exists/i.test(message)
+        ? 'Este e-mail já é de outro usuário.'
+        : 'Não foi possível concluir. Tente de novo; se repetir, avise o suporte.',
+    }, /already|registered|exists/i.test(message) ? 409 : 500);
   }
 });

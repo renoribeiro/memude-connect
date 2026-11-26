@@ -14,9 +14,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { chamarFuncao, erroAmigavel } from '@/lib/erroAmigavel';
 import { User, Phone, UserCircle, Award } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
+type Papel = 'admin' | 'sdr' | 'closer' | 'corretor' | 'cliente';
 type CorretorEstado = NonNullable<Database['public']['Tables']['corretores']['Row']['estado']>;
 type TipoImovel = NonNullable<Database['public']['Tables']['corretores']['Row']['tipo_imovel']>;
 interface CorretorFormData {
@@ -33,7 +35,7 @@ interface ManagedUser {
   id: string;
   first_name: string;
   last_name: string;
-  role: 'admin' | 'corretor' | 'cliente';
+  role: Papel;
   phone?: string;
   email?: string;
   user_id: string;
@@ -50,7 +52,7 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
     first_name: '',
     last_name: '',
     email: '',
-    role: 'cliente' as 'admin' | 'corretor' | 'cliente',
+    role: 'cliente' as Papel,
     phone: '',
   });
 
@@ -121,9 +123,16 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
     mutationFn: async (userData: typeof formData) => {
       if (!user) throw new Error('Usuário não encontrado');
 
-      // Update profile, role and auth data (like email)
-      const { data, error } = await supabase.functions.invoke('manage-user', {
-        body: {
+      const creci = corretorData.creci.trim().toUpperCase();
+      // CRECI de outro corretor: avisa antes de mexer em qualquer coisa
+      if (userData.role === 'corretor') {
+        const { data: outro } = await supabase.from('corretores').select('id')
+          .ilike('creci', creci).neq('profile_id', user.id).limit(1).maybeSingle();
+        if (outro) throw new Error(`O CRECI ${creci} já está cadastrado para outro corretor.`);
+      }
+
+      // Nome, telefone, função e e-mail (no servidor)
+      await chamarFuncao('manage-user', {
           action: 'update',
           user_id: user.user_id,
           data: {
@@ -133,22 +142,20 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
             phone: userData.phone || null,
             role: userData.role,
           }
-        }
       });
-
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
 
       // If role is corretor, we update or insert corretores table details
       if (userData.role === 'corretor') {
         const { data: existingCorretor } = await supabase
           .from('corretores')
-          .select('id')
+          .select('id, creci, status')
           .eq('profile_id', user.id)
           .maybeSingle();
 
         const corretorPayload = {
-          creci: corretorData.creci,
+          creci,
+          // Ficha recém-criada pela troca de função (CRECI provisório): o admin acabou de completar, já entra ativo
+          ...(existingCorretor?.creci?.startsWith('PROV-') && existingCorretor.status === 'em_avaliacao' ? { status: 'ativo' as const } : {}),
           cpf: corretorData.cpf || null,
           whatsapp: corretorData.whatsapp || userData.phone || '',
           telefone: userData.phone || null,
@@ -165,7 +172,7 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
             .update(corretorPayload)
             .eq('id', existingCorretor.id);
           
-          if (corretorUpdateError) throw corretorUpdateError;
+          if (corretorUpdateError) throw new Error(await erroAmigavel(corretorUpdateError));
         } else {
           const { error: corretorInsertError } = await supabase
             .from('corretores')
@@ -177,7 +184,7 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
               ...corretorPayload
             });
 
-          if (corretorInsertError) throw corretorInsertError;
+          if (corretorInsertError) throw new Error(await erroAmigavel(corretorInsertError));
         }
       }
     },
@@ -189,9 +196,9 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
       });
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
-        title: 'Erro ao atualizar usuário',
+        title: 'Não foi possível salvar',
         description: error.message || 'Não foi possível atualizar o usuário.',
         variant: 'destructive',
       });
@@ -298,6 +305,8 @@ export function EditUserModal({ open, onOpenChange, user }: EditUserModalProps) 
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="sdr">SDR</SelectItem>
+                  <SelectItem value="closer">Closer</SelectItem>
                   <SelectItem value="corretor">Corretor</SelectItem>
                   <SelectItem value="cliente">Cliente</SelectItem>
                 </SelectContent>

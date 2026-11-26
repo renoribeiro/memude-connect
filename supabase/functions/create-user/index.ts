@@ -6,7 +6,17 @@ import {
   safeError,
 } from '../_shared/security.ts';
 
-type AppRole = 'admin' | 'corretor' | 'cliente';
+type AppRole = 'admin' | 'sdr' | 'closer' | 'corretor' | 'cliente';
+
+interface DadosCorretor {
+  creci?: string;
+  cpf?: string;
+  whatsapp?: string;
+  cidade?: string;
+  estado?: string;
+  tipo_imovel?: string;
+  observacoes?: string;
+}
 
 interface CreateUserRequest {
   email?: string;
@@ -16,14 +26,24 @@ interface CreateUserRequest {
   phone?: string;
   /** Quando false, cria a conta sem disparar email de convite. */
   send_invite?: boolean;
+  /** Obrigatório quando role = corretor: gravado junto, na mesma operação. */
+  corretor?: DadosCorretor;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ALLOWED_ROLES = new Set<AppRole>(['admin', 'corretor', 'cliente']);
+const ALLOWED_ROLES = new Set<AppRole>(['admin', 'sdr', 'closer', 'corretor', 'cliente']);
+
+class ErroUsuario extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
 
 function cleanText(value: unknown, maxLength: number): string {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
 }
+
+const soDigitos = (v: string) => v.replace(/\D/g, '');
 
 /**
  * Senha aleatória para contas criadas sem convite. Não é retornada, exibida
@@ -59,14 +79,25 @@ Deno.serve(async (req) => {
     // Convite é o padrão: só não envia quando o admin desmarca explicitamente.
     const sendInvite = body.send_invite !== false;
 
-    if (
-      !EMAIL_PATTERN.test(email)
-      || !firstName
-      || !lastName
-      || !role
-      || !ALLOWED_ROLES.has(role)
-    ) {
-      return jsonResponse(req, { error: 'Dados do usuário inválidos' }, 400);
+    if (!firstName || !lastName) throw new ErroUsuario(400, 'Preencha nome e sobrenome.');
+    if (!EMAIL_PATTERN.test(email)) throw new ErroUsuario(400, 'Confira o e-mail: ele parece incompleto.');
+    if (!role || !ALLOWED_ROLES.has(role)) throw new ErroUsuario(400, 'Escolha a função do usuário.');
+
+    // Dados do corretor validados ANTES de criar a conta (nada fica pela metade)
+    const c = body.corretor ?? {};
+    const creci = cleanText(c.creci, 30).toUpperCase();
+    const whatsapp = soDigitos(cleanText(c.whatsapp, 30) || phone);
+    if (role === 'corretor') {
+      if (!creci) throw new ErroUsuario(400, 'Informe o CRECI do corretor.');
+      if (whatsapp.length < 10) throw new ErroUsuario(400, 'Informe o WhatsApp do corretor com DDD.');
+      const { data: dono } = await access.supabase.rpc('usuario_creci_em_uso', { p_creci: creci });
+      if (dono) throw new ErroUsuario(409, `O CRECI ${creci} já está cadastrado para ${dono}.`);
+    }
+
+    // E-mail já usado: diz de quem é, para o admin editar a conta certa
+    const { data: existente } = await access.supabase.rpc('usuario_por_email', { p_email: email });
+    if (existente) {
+      throw new ErroUsuario(409, `O e-mail ${email} já é de ${existente}. Use outro e-mail ou edite esse usuário na lista.`);
     }
 
     const configuredAppUrl = Deno.env.get('APP_URL')?.trim()
@@ -118,14 +149,16 @@ Deno.serve(async (req) => {
       createdUserId = userData.user.id;
     }
 
-    const { error: profileError } = await access.supabase
+    const { data: perfil, error: profileError } = await access.supabase
       .from('profiles')
       .upsert({
         user_id: createdUserId,
         first_name: firstName,
         last_name: lastName,
         phone: phone || null,
-      }, { onConflict: 'user_id' });
+      }, { onConflict: 'user_id' })
+      .select('id')
+      .single();
     if (profileError) throw profileError;
 
     const { error: clearRoleError } = await access.supabase
@@ -134,6 +167,7 @@ Deno.serve(async (req) => {
       .eq('user_id', createdUserId);
     if (clearRoleError) throw clearRoleError;
 
+    // Papel corretor: o banco cria a ficha do corretor (CRECI provisório); aqui ela é completada
     const { error: roleError } = await access.supabase
       .from('user_roles')
       .insert({
@@ -142,6 +176,28 @@ Deno.serve(async (req) => {
         created_by: access.userId,
       });
     if (roleError) throw roleError;
+
+    if (role === 'corretor') {
+      const ficha = {
+        creci,
+        cpf: soDigitos(cleanText(c.cpf, 20)) || null,
+        whatsapp,
+        telefone: phone || null,
+        cidade: cleanText(c.cidade, 80) || null,
+        estado: cleanText(c.estado, 2).toUpperCase() || 'CE',
+        tipo_imovel: cleanText(c.tipo_imovel, 20) || 'todos',
+        observacoes: cleanText(c.observacoes, 2000) || null,
+        status: 'ativo',   // cadastrado pelo admin: já entra nas sugestões de visita
+      };
+      const { data: atualizado, error: corretorError } = await access.supabase
+        .from('corretores').update(ficha).eq('profile_id', perfil.id).select('id');
+      if (corretorError) throw corretorError;
+      if (!atualizado?.length) {
+        const { error: insertError } = await access.supabase
+          .from('corretores').insert({ profile_id: perfil.id, nota_media: 5, total_visitas: 0, ...ficha });
+        if (insertError) throw insertError;
+      }
+    }
 
     return jsonResponse(req, {
       success: true,
@@ -152,19 +208,29 @@ Deno.serve(async (req) => {
       },
     }, 201);
   } catch (error) {
+    // Desfaz a conta criada: nada fica pela metade (perfil, papel e ficha do corretor caem junto)
     if (createdUserId) {
       await access.supabase.auth.admin.deleteUser(createdUserId);
+    }
+    if (error instanceof ErroUsuario) {
+      return jsonResponse(req, { error: error.message }, error.status);
     }
     const message = safeError(error);
     console.error('Falha ao criar usuário:', message);
     const duplicate = /already|registered|exists/i.test(message);
     const rateLimited = /rate limit/i.test(message);
+    const creciDuplicado = /creci/i.test(message) && /duplicate|unique/i.test(message);
+    const enumInvalido = /invalid input value for enum/i.test(message);
     return jsonResponse(req, {
       error: duplicate
-        ? 'Já existe uma conta com este email'
-        : rateLimited
-          ? 'Limite de envio de email do Supabase atingido. Desmarque "Enviar convite por email" para cadastrar agora sem disparar email.'
-          : 'Não foi possível criar o convite de usuário',
-    }, duplicate ? 409 : 400);
+        ? 'Já existe uma conta com este e-mail. Use outro e-mail ou edite esse usuário na lista.'
+        : creciDuplicado
+          ? 'Este CRECI já está cadastrado para outro corretor.'
+          : enumInvalido
+            ? 'Confira o estado e o tipo de imóvel do corretor.'
+            : rateLimited
+              ? 'Limite de envio de e-mail atingido. Desmarque "Enviar convite por e-mail" para cadastrar agora sem disparar e-mail.'
+              : 'Não foi possível criar o usuário. Tente de novo; se repetir, avise o suporte.',
+    }, duplicate || creciDuplicado ? 409 : 400);
   }
 });

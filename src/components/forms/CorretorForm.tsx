@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { erroAmigavel } from "@/lib/erroAmigavel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -275,7 +276,9 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
               last_name: lastName,
               role: 'corretor',
               phone: telefone,
-              send_invite: enviarConvite
+              send_invite: enviarConvite,
+              // Ficha do corretor vai junto: a conta só é criada se o CRECI e o WhatsApp estiverem certos
+              corretor: { creci, whatsapp: telefone, cpf, cidade, estado, tipo_imovel, observacoes },
             }
           });
 
@@ -316,16 +319,24 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
 
           if (profileFetchError) throw profileFetchError;
 
-          const { error: roleUpsertError } = await supabase
-            .from('user_roles')
-            .upsert({
-              user_id: profileData.user_id,
-              role: 'corretor'
-            }, {
-              onConflict: 'user_id,role'
-            });
+          // Cada conta tem uma função só: vincular não pode tirar o acesso de um admin, SDR ou closer
+          const { data: papelAtual } = await supabase
+            .from('user_roles').select('role').eq('user_id', profileData.user_id).maybeSingle();
+          if (papelAtual?.role && !['corretor', 'cliente'].includes(papelAtual.role)) {
+            throw new Error('Esta conta é da equipe (administrador, SDR ou closer). Cada conta tem uma função só: cadastre o corretor com outro e-mail.');
+          }
 
-          if (roleUpsertError) throw roleUpsertError;
+          if (papelAtual?.role !== 'corretor') {
+            const { error: roleUpsertError } = await supabase
+              .from('user_roles')
+              .upsert({
+                user_id: profileData.user_id,
+                role: 'corretor'
+              }, {
+                onConflict: 'user_id'
+              });
+            if (roleUpsertError) throw roleUpsertError;
+          }
         }
 
         // Check if corretor record exists (it might due to trigger!)
@@ -358,7 +369,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
             .select()
             .single();
 
-          if (corretorError) throw corretorError;
+          if (corretorError) throw new Error(await erroAmigavel(corretorError));
           corretor = updatedCorretor;
         } else {
           const { data: insertedCorretor, error: corretorError } = await supabase
@@ -381,7 +392,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
             .select()
             .single();
 
-          if (corretorError) throw corretorError;
+          if (corretorError) throw new Error(await erroAmigavel(corretorError));
           corretor = insertedCorretor;
         }
 
@@ -470,7 +481,7 @@ export default function CorretorForm({ initialData, onSuccess, onCancel }: Corre
           })
           .eq('id', initialData.id);
 
-        if (corretorError) throw corretorError;
+        if (corretorError) throw new Error(await erroAmigavel(corretorError));
 
         // Update profile if needed
         if (initialData?.profiles) {

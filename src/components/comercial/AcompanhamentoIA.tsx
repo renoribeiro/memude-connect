@@ -40,7 +40,7 @@ export function AcompanhamentoIA({ leadId, conversa, qualificacao, mudancas, nom
       <div className="mb-3 flex items-center gap-2">
         <h2 id="acomp-ia" className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-primary" aria-hidden /> O que está acontecendo</h2>
         {conversa?.temperatura && <Temperatura valor={conversa.temperatura} comRotulo />}
-        {conversa && (
+        {conversa?.id && (
           <Link to={`/conversas?c=${conversa.id}`} className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
             <MessagesSquare className="h-3.5 w-3.5" aria-hidden /> Abrir conversa
           </Link>

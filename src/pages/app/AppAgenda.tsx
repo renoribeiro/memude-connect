@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, MessageCircle, PartyPopper } from 'lucide-react';
+import { AlarmClockPlus, Check, MessageCircle, PartyPopper } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Topo } from '@/components/app/Topo';
+import { BotaoTopo, Topo } from '@/components/app/Topo';
+import { NovoLembrete } from '@/components/app/NovoLembrete';
 import { Bloco, FalhaCarregar, Segmentado } from '@/components/app/ui';
 import { ListaVisitas } from '@/components/app/ListaVisitas';
 import { useAtividades, useConcluirAtividade, useMinhasVisitas } from '@/hooks/conversas/app';
@@ -13,6 +14,7 @@ type Aba = 'hoje' | 'proximos';
 
 /** Agenda do corretor: atividades e visitas de hoje, e as visitas dos próximos 7 dias. */
 export default function AppAgenda() {
+  const [lembrete, setLembrete] = useState(false);
   const navigate = useNavigate();
   const [aba, setAba] = useState<Aba>('hoje');
   const { data: atividades = [], isLoading: carregandoAtiv, isError: erroAtiv, refetch: recarregarAtiv } = useAtividades();
@@ -26,14 +28,18 @@ export default function AppAgenda() {
   // Aba Hoje: só o que já está liberado (as de dias seguintes aparecem quando chegar o dia)
   const deHoje = atividades.filter((a) => isoDoInstante(a.disponivel_em) <= hoje);
   const atrasadas = deHoje.filter((a) => new Date(a.vence_em).getTime() < agora).length;
+  // Lembretes dos próximos dias (aparecem na aba Hoje quando chegar o dia)
+  const lembretesFuturos = atividades.filter((a) => isoDoInstante(a.disponivel_em) > hoje);
 
   return (
     <>
+      <NovoLembrete aberto={lembrete} aoFechar={() => setLembrete(false)} />
       <Topo titulo="Agenda" subtitulo={`${plural(visitasHoje.length, 'visita', 'visitas')} hoje · ${plural(deHoje.length, 'atividade', 'atividades')}`}
+        direita={<BotaoTopo rotulo="Novo lembrete" aoTocar={() => setLembrete(true)} cheio><AlarmClockPlus className="h-5 w-5" /></BotaoTopo>}
         abaixo={(
           <Segmentado<Aba> rotulo="Período" valor={aba} aoMudar={setAba} opcoes={[
             { valor: 'hoje', rotulo: 'Hoje', contador: atrasadas },
-            { valor: 'proximos', rotulo: 'Próximos dias', contador: proximas.length },
+            { valor: 'proximos', rotulo: 'Próximos dias', contador: proximas.length + lembretesFuturos.length },
           ]} />
         )} />
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 pb-6 pt-2">
@@ -84,9 +90,31 @@ export default function AppAgenda() {
                   : <ListaVisitas visitas={visitasHoje} porDia={false} />}
             </section>
           </>
-        ) : carregandoVis ? <Skeleton className="h-40 w-full rounded-2xl" /> : erroVis && !visitas.length ? <FalhaCarregar aoTentar={() => recarregarVis()} />
-          : !proximas.length ? <p className="rounded-2xl bg-mm-lilas p-4 text-sm font-semibold text-primary">Nenhuma visita nos próximos 7 dias.</p>
-            : <ListaVisitas visitas={proximas} porDia />}
+        ) : (
+          <>
+            {lembretesFuturos.length > 0 && (
+              <Bloco titulo="Lembretes" extra={plural(lembretesFuturos.length, 'lembrete', 'lembretes')} semPadding>
+                <ul className="divide-y divide-mm-borda-suave">
+                  {lembretesFuturos.map((a) => (
+                    <li key={a.id} className="flex items-center gap-3 px-4 py-3">
+                      <span className="w-20 shrink-0 text-[12px] font-extrabold uppercase text-primary">{diaRotulo(isoDoInstante(a.disponivel_em))} {horaDe(a.disponivel_em)}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] font-bold">{a.titulo}</span>
+                        {a.lead_nome && <span className="block truncate text-[13px] text-muted-foreground">{a.lead_nome}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Bloco>
+            )}
+            <section className="space-y-2">
+              <h2 className="text-lg leading-tight">Visitas</h2>
+              {carregandoVis ? <Skeleton className="h-40 w-full rounded-2xl" /> : erroVis && !visitas.length ? <FalhaCarregar aoTentar={() => recarregarVis()} />
+                : !proximas.length ? <p className="rounded-2xl bg-mm-lilas p-4 text-sm font-semibold text-primary">Nenhuma visita nos próximos 7 dias.</p>
+                  : <ListaVisitas visitas={proximas} porDia />}
+            </section>
+          </>
+        )}
       </div>
     </>
   );

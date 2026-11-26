@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Building2, ChevronDown, Info, Sparkles } from 'lucide-react';
+import { AlarmClockPlus, Building2, ChevronDown, Info, Sparkles } from 'lucide-react';
+import { NovoLembrete } from '@/components/app/NovoLembrete';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { ChatConversa } from '@/components/conversas/ChatConversa';
@@ -16,6 +17,7 @@ export default function AppChat() {
   const { user } = useAuth();
   const { data: conv, isLoading, isError } = useConversa(id ?? null, 30_000);
   const [painel, setPainel] = useState<'ficha' | 'imoveis' | null>(null);
+  const [lembrete, setLembrete] = useState(false);
 
   // Conversa que não é (mais) do corretor some da lista: volta para o início
   const location = useLocation();
@@ -35,6 +37,9 @@ export default function AppChat() {
         topo={conv ? <ResumoAnterior conv={conv as unknown as ConvResumo} /> : undefined}
         acoes={(
           <div className="flex shrink-0">
+            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full" onClick={() => setLembrete(true)} aria-label="Criar lembrete para este cliente">
+              <AlarmClockPlus className="h-5 w-5" />
+            </Button>
             <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full" onClick={() => setPainel('imoveis')} aria-label="Imóveis para enviar">
               <Building2 className="h-5 w-5" />
             </Button>
@@ -43,6 +48,7 @@ export default function AppChat() {
             </Button>
           </div>
         )} />
+      <NovoLembrete aberto={lembrete} aoFechar={() => setLembrete(false)} conversaId={id} nomeCliente={conv ? nome : null} />
       <Drawer open={!!painel} onOpenChange={(v) => !v && setPainel(null)}>
         <DrawerContent className="tema-memude max-h-[88dvh] bg-card">
           <DrawerTitle className="sr-only">{painel === 'imoveis' ? 'Imóveis' : 'Ficha do cliente'}</DrawerTitle>

@@ -24,6 +24,7 @@ import { linkEmpreendimento, momentosLiberados } from '@/lib/comercial/mensagens
 import { telefoneCanonico } from '@/lib/comercial/telefone';
 import { AcoesVisita, CancelarDialog, ReagendarDialog } from './AcoesVisita';
 import { MensagensVisita } from './MensagensVisita';
+import { PerfilCliente } from './PerfilCliente';
 import { StatusVisitaBadge } from './ui';
 import { descreverEvento } from '@/lib/comercial/eventos';
 
@@ -154,9 +155,10 @@ function ConteudoVisita({ id }: { id: string }) {
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-4">
           <TabsContent value="andamento" className="mt-0 space-y-4">
             <AcoesVisita visita={v as never} convites={convites as never} tarefas={tarefas as never} onMensagens={() => setAba('mensagens')} />
+            <PerfilCliente leadId={v.lead_id} />
             {v.customer_profile && (
               <section className="rounded-xl border bg-card p-4">
-                <h3 className="text-sm font-semibold">Perfil do cliente</h3>
+                <h3 className="text-sm font-semibold">Anotado no agendamento</h3>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{v.customer_profile}</p>
               </section>
             )}

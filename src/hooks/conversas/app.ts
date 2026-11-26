@@ -112,3 +112,21 @@ export function useRegistrarVisita() {
     onError: (e) => toast.error(mensagemErro(e)),
   });
 }
+
+/** Corretor cria um lembrete (tarefa na Agenda); o celular avisa na hora marcada. */
+export function useCriarLembrete() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ titulo, quando, conversa, lead }: { titulo: string; quando: Date; conversa?: string | null; lead?: string | null }) => {
+      const { error } = await supabase.rpc('minha_atividade_criar', {
+        p_titulo: titulo.trim(), p_quando: quando.toISOString(), p_conversa: conversa ?? undefined, p_lead: lead ?? undefined,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: cc.atividades });
+      toast.success('Lembrete criado. O celular avisa na hora.');
+    },
+    onError: (e) => toast.error(mensagemErro(e)),
+  });
+}

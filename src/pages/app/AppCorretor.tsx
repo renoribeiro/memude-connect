@@ -15,6 +15,7 @@ const AppAgenda = lazy(() => import('./AppAgenda'));
 const AppClientes = lazy(() => import('./AppClientes'));
 const AppImoveis = lazy(() => import('./AppImoveis'));
 const AppPerfil = lazy(() => import('./AppPerfil'));
+const AppComissoes = lazy(() => import('./AppComissoes'));
 
 // Mesmas cinco abas do app MeMude Corretor, adaptadas ao atendimento
 const ABAS = [
@@ -84,6 +85,7 @@ export default function AppCorretor() {
             <Route path="clientes" element={<AppClientes {...lista} />} />
             <Route path="imoveis" element={<AppImoveis />} />
             <Route path="perfil" element={<AppPerfil />} />
+            <Route path="comissoes" element={<AppComissoes />} />
             {/* Endereços antigos (notificações e atalhos já instalados) */}
             <Route path="hoje" element={<Navigate to="/app/agenda" replace />} />
             <Route path="funil" element={<Navigate to="/app/clientes" replace />} />

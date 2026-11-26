@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { HistoricoLead } from '@/components/comercial/HistoricoLead';
+import { PerfilCliente } from '@/components/comercial/PerfilCliente';
 
 interface CrmLeadDetailPanelProps {
     open: boolean;
@@ -343,6 +344,9 @@ export default function CrmLeadDetailPanel({
                     </div>
 
                     <Separator />
+
+                    {/* Perfil único do cliente (o mesmo de Leads, visita e app) */}
+                    <PerfilCliente leadId={crmLead.lead_id} />
 
                     {/* Histórico do cliente (o mesmo do retorno da visita) + notas */}
                     <div className="space-y-3">

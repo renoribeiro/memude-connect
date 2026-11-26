@@ -224,7 +224,7 @@ function CartaoRelatorio({ relatorio, envios, whatsappConectado }: { relatorio: 
 
         <div className="space-y-1.5">
           <Label htmlFor={`email-${relatorio.id}`}>Destinatários ({form.destinatarios.length})</Label>
-          <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border bg-background p-1.5 focus-within:ring-2 focus-within:ring-ring">
+          <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border bg-card p-1.5 focus-within:ring-2 focus-within:ring-ring">
             {form.destinatarios.map((e) => (
               <Badge key={e} variant="outline" className="gap-1 bg-muted pr-1 font-normal">
                 {e}

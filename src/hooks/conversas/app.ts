@@ -33,6 +33,8 @@ export function useConcluirAtividade() {
 export function useMinhasVisitas() {
   return useQuery({
     queryKey: ['conversas', 'minhas-visitas'],
+    // A SDR pode remarcar ou cancelar a qualquer momento, e a virada do dia muda o "hoje"
+    refetchInterval: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase.from('visitas')
         .select('id, data_visita, horario_visita, status, local_nome, meeting_neighborhood, lead_id, leads(nome), empreendimentos(nome)')

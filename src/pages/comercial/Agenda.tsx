@@ -193,7 +193,7 @@ export default function AgendaPage() {
             </div>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline"><Filter /> Filtros{nFiltros > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 text-xs text-white">{nFiltros}</span>}</Button>
+                <Button variant="outline"><Filter /> Filtros{nFiltros > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 text-xs text-primary-foreground">{nFiltros}</span>}</Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80 space-y-3">
                 <div className="space-y-1.5"><p className="text-xs font-semibold uppercase text-muted-foreground">Corretor</p>
@@ -243,7 +243,7 @@ export default function AgendaPage() {
                     className={cn('min-h-28 border-b border-r p-1.5', foraDoMes && 'bg-muted/40')}>
                     <button type="button" onClick={() => { setRef(dia); setVisao('dia'); }}
                       className={cn('mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold tabular-nums hover:bg-muted',
-                        dia === hoje && 'bg-primary text-white hover:bg-primary', foraDoMes && 'text-muted-foreground')}>
+                        dia === hoje && 'bg-primary text-primary-foreground hover:bg-primary', foraDoMes && 'text-muted-foreground')}>
                       {Number(dia.slice(8))}
                     </button>
                     <div className="space-y-1">

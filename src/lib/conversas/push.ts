@@ -62,11 +62,32 @@ export async function desativarPush(): Promise<void> {
   await sub.unsubscribe();
 }
 
-/** Bipe curto (sem arquivo de áudio): avisa mensagem nova com o app aberto. */
+// Um só AudioContext para o app inteiro. iPhone e Chrome só liberam som depois de um toque na tela:
+// o primeiro toque destrava o contexto e os bipes seguintes (inclusive os do chamado) saem com som.
+let contexto: AudioContext | null = null;
+function obterAudio(): AudioContext | null {
+  try {
+    if (!contexto || contexto.state === 'closed') {
+      const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return null;
+      contexto = new Ctx();
+    }
+    if (contexto.state === 'suspended') contexto.resume().catch(() => undefined);
+    return contexto;
+  } catch { return null; }
+}
+if (typeof window !== 'undefined') {
+  const destravar = () => { obterAudio(); window.removeEventListener('pointerdown', destravar); window.removeEventListener('keydown', destravar); };
+  window.addEventListener('pointerdown', destravar);
+  window.addEventListener('keydown', destravar);
+}
+
+/** Bipe curto (sem arquivo de áudio): avisa mensagem nova com o app aberto; forte = chamado de cliente novo. */
 export function tocarAviso(forte = false) {
   try {
-    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
+    const ctx = obterAudio();
+    if (forte) navigator.vibrate?.([250, 100, 250, 100, 500]);
+    if (!ctx) return;
     const notas = forte ? [880, 1175, 1568] : [988, 1319];
     notas.forEach((f, i) => {
       const o = ctx.createOscillator();
@@ -81,7 +102,5 @@ export function tocarAviso(forte = false) {
       o.start(t);
       o.stop(t + 0.25);
     });
-    setTimeout(() => ctx.close(), 1200);
-    if (forte) navigator.vibrate?.([250, 100, 250, 100, 500]);
   } catch { /* sem áudio */ }
 }

@@ -74,7 +74,7 @@ export default function AppCorretor() {
 
   return (
     <div className="tema-memude flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground md:sombra-elevada md:mx-auto md:max-w-[480px] md:border-x md:border-mm-borda-suave">
-      <main className="flex min-h-0 flex-1 flex-col">
+      <main data-sob-convite className="flex min-h-0 flex-1 flex-col">
         <Suspense fallback={<Carregando />}>
           <Routes>
             <Route index element={<AppInicio {...lista} />} />
@@ -94,7 +94,7 @@ export default function AppCorretor() {
       </main>
 
       {!noChat && (
-        <nav className="grid shrink-0 grid-cols-5 border-t border-mm-borda-suave bg-card pb-[env(safe-area-inset-bottom)]" aria-label="Navegação do app">
+        <nav data-sob-convite className="grid shrink-0 grid-cols-5 border-t border-mm-borda-suave bg-card pb-[env(safe-area-inset-bottom)]" aria-label="Navegação do app">
           {ABAS.map((a) => (
             <NavLink key={a.to} to={a.to} end={a.fim}
               className={({ isActive }) => cn('relative flex h-[68px] flex-col items-center justify-center gap-1 text-[11px] transition active:scale-95',

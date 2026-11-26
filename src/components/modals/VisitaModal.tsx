@@ -273,7 +273,7 @@ export function VisitaModal({ isOpen, onClose, visitaId, leadId, corretorId, isC
             <>
               {existingVisitas.length > 0 && !visitaId && (
                 <div className="mb-4 p-4 bg-warning/10 border border-warning rounded-lg">
-                  <p className="text-sm text-warning-foreground font-medium">
+                  <p className="text-sm text-warning font-medium">
                     Atenção: este lead já possui {existingVisitas.length} visita(s) ativa(s):
                   </p>
                   <ul className="mt-2 text-sm text-muted-foreground space-y-1">

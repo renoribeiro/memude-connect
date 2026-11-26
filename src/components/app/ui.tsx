@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -100,9 +100,12 @@ export function Atalho({ icone: Icone, rotulo, tom, para, aoTocar, contador }: {
 /** Topo de tela interna: voltar + título (Imóveis, Respostas…). */
 export function TopoVoltar({ titulo, subtitulo, voltarPara, direita }: { titulo: string; subtitulo?: ReactNode; voltarPara?: string; direita?: ReactNode }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Volta de verdade (o botão voltar do celular continua coerente); sem tela anterior, vai para o destino padrão
+  const voltar = () => (location.key === 'default' ? navigate(voltarPara ?? '/app', { replace: true }) : navigate(-1));
   return (
     <header className="flex items-center gap-2 bg-background px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
-      <button type="button" onClick={() => (voltarPara ? navigate(voltarPara) : navigate(-1))} aria-label="Voltar"
+      <button type="button" onClick={voltar} aria-label="Voltar"
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground transition active:scale-95">
         <ArrowLeft className="h-5 w-5" />
       </button>

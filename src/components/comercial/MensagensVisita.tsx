@@ -44,7 +44,7 @@ export function MensagensVisita({ visitaId, liberados, dados, telefones, usadas 
             className={cn('rounded-lg border', m.chave === atual && 'border-primary/40 bg-primary/[0.03]')}>
             <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
               <span className="text-sm font-semibold">{m.titulo}</span>
-              {m.chave === atual && <span className="rounded bg-primary px-1.5 text-[10px] font-semibold uppercase text-white">Agora</span>}
+              {m.chave === atual && <span className="rounded bg-primary px-1.5 text-[10px] font-semibold uppercase text-primary-foreground">Agora</span>}
               <span className="text-xs text-muted-foreground">· envia {m.quem}</span>
               <span className={cn('ml-auto text-xs tabular-nums', enviadas === lista.length && lista.length ? 'text-primary' : 'text-muted-foreground')}>
                 {enviadas}/{lista.length} usadas

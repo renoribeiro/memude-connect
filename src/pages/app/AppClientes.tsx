@@ -36,7 +36,8 @@ export default function AppClientes({ conversas, carregando, erro, tentar }: {
 }) {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const filtroUrl = params.get('filtro') as Filtro | null;
+  const filtroParam = params.get('filtro');
+  const filtroUrl = FILTROS.some((f) => f.valor === filtroParam) ? filtroParam as Filtro : null;
   const [aba, setAba] = useState<Aba>(filtroUrl ? 'lista' : 'funil');
   const [filtro, setFiltro] = useState<Filtro>(filtroUrl ?? 'todos');
   const [buscando, setBuscando] = useState(false);

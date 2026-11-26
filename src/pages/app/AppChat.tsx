@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Building2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
@@ -18,11 +18,14 @@ export default function AppChat() {
   const [painel, setPainel] = useState<'ficha' | 'imoveis' | null>(null);
 
   // Conversa que não é (mais) do corretor some da lista: volta para o início
-  if (!id || (isError && !conv) || (!isLoading && conv === null)) return <Navigate to="/app" replace />;
+  const location = useLocation();
+  // Só sai do chat se a conversa não existe mais para o corretor (erro de rede momentâneo não expulsa)
+  if (!id || (!isLoading && !isError && conv === null)) return <Navigate to="/app/conversas" replace />;
   const lead = conv?.leads as unknown as { nome?: string } | null;
   const numero = conv?.conv_numeros as unknown as { nome?: string; status?: string } | null;
   const nome = lead?.nome || conv?.nome_contato || telefoneLegivel(conv?.telefone);
-  const voltar = () => (window.history.length > 1 ? navigate(-1) : navigate('/app/conversas'));
+  // Aberto direto pela notificação não há tela anterior no app: volta para Conversas
+  const voltar = () => (location.key === 'default' ? navigate('/app/conversas') : navigate(-1));
 
   return (
     <>

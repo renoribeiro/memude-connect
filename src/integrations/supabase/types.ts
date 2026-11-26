@@ -1853,6 +1853,8 @@ export type Database = {
           dono_id: string | null
           dono_papel: string
           etapa: string
+          foto_em: string | null
+          foto_url: string | null
           ia_analisada_em: string | null
           ia_falta: string | null
           ia_pendente_desde: string | null
@@ -1876,6 +1878,8 @@ export type Database = {
           dono_id?: string | null
           dono_papel?: string
           etapa?: string
+          foto_em?: string | null
+          foto_url?: string | null
           ia_analisada_em?: string | null
           ia_falta?: string | null
           ia_pendente_desde?: string | null
@@ -1899,6 +1903,8 @@ export type Database = {
           dono_id?: string | null
           dono_papel?: string
           etapa?: string
+          foto_em?: string | null
+          foto_url?: string | null
           ia_analisada_em?: string | null
           ia_falta?: string | null
           ia_pendente_desde?: string | null
@@ -6747,6 +6753,18 @@ export type Database = {
         Args: { p_instancia: string; p_status: string; p_wa_id: string }
         Returns: undefined
       }
+      conv_foto_gravar: {
+        Args: { p_conversa: string; p_url: string }
+        Returns: undefined
+      }
+      conv_fotos_pendentes: {
+        Args: { p_limite?: number }
+        Returns: {
+          conversa_id: string
+          instancia: string
+          telefone: string
+        }[]
+      }
       conv_ia_proximas: {
         Args: { p_limite?: number }
         Returns: {
@@ -6756,6 +6774,8 @@ export type Database = {
           dono_id: string | null
           dono_papel: string
           etapa: string
+          foto_em: string | null
+          foto_url: string | null
           ia_analisada_em: string | null
           ia_falta: string | null
           ia_pendente_desde: string | null
@@ -6854,6 +6874,7 @@ export type Database = {
           dono_nome: string
           dono_papel: string
           etapa: string
+          foto_url: string
           id: string
           lead_id: string
           lead_nome: string
@@ -6879,6 +6900,7 @@ export type Database = {
           conversa_id: string
           empreendimento: string
           etapa: string
+          foto_url: string
           lead_id: string
           nome: string
           proxima_visita: Json
@@ -7252,6 +7274,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      meu_avatar_definir: { Args: { p_caminho: string }; Returns: string }
       minha_atividade_concluir: {
         Args: { p_tarefa: string }
         Returns: undefined

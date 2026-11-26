@@ -67,7 +67,7 @@ export default function ConversasPage() {
     lead_nome: (detalhe.leads as unknown as { nome?: string } | null)?.nome ?? null,
     numero_nome: (detalhe.conv_numeros as unknown as { nome?: string } | null)?.nome ?? null,
     numero_status: (detalhe.conv_numeros as unknown as { status?: string } | null)?.status ?? null,
-    dono_id: detalhe.dono_id,
+    dono_id: detalhe.dono_id, foto_url: detalhe.foto_url,
   } : null);
   // Contador de quem espera resposta vale para todas as conversas, não só para o filtro aberto
   const { data: esperando = [] } = useListaConversas('sem_resposta', '');
@@ -151,7 +151,7 @@ export default function ConversasPage() {
                   <>
                     <div className="min-w-0 flex-1">
                       <ChatConversa key={ativa} conversaId={ativa}
-                        nome={atual ? nomeDaConversa(atual) : 'Conversa'} telefone={atual?.telefone ?? ''} etapa={atual?.etapa ?? 'novo'}
+                        nome={atual ? nomeDaConversa(atual) : 'Conversa'} foto={atual?.foto_url} telefone={atual?.telefone ?? ''} etapa={atual?.etapa ?? 'novo'}
                         numeroNome={atual?.numero_nome} numeroStatus={atual?.numero_status} podeResponder lerNoWhatsApp={lerNoWhatsApp}
                         aoVoltar={mobile ? () => mudar({ c: null }) : undefined}
                         aoAbrirFicha={() => (mobile || window.innerWidth < 1280 ? setFichaMovel(true) : setFichaAberta((v) => !v))}

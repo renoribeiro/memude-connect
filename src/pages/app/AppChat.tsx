@@ -31,7 +31,7 @@ export default function AppChat() {
 
   return (
     <>
-      <ChatConversa key={id} conversaId={id} nome={conv ? nome : '…'} telefone={conv?.telefone ?? ''} etapa={conv?.etapa ?? 'novo'}
+      <ChatConversa key={id} conversaId={id} nome={conv ? nome : '…'} foto={conv?.foto_url} telefone={conv?.telefone ?? ''} etapa={conv?.etapa ?? 'novo'}
         numeroNome={numero?.nome} numeroStatus={numero?.status} podeResponder={!conv || conv.dono_id === user?.id} lerNoWhatsApp={!!conv && conv.dono_id === user?.id}
         compacto aoVoltar={voltar} aoAbrirFicha={() => setPainel('ficha')}
         topo={conv ? <ResumoAnterior conv={conv as unknown as ConvResumo} /> : undefined}

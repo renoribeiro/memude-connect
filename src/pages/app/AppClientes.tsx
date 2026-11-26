@@ -120,7 +120,7 @@ export default function AppClientes({ conversas, carregando, erro, tentar }: {
                       <div key={c.id} className="rounded-2xl border border-mm-borda-suave bg-card p-3">
                         <div className="flex items-start gap-2.5">
                           <button type="button" onClick={() => navigate(`/app/c/${c.id}`)} className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
-                            <AvatarContato nome={nomeDaConversa(c)} chave={c.id} tamanho="sm" />
+                            <AvatarContato nome={nomeDaConversa(c)} chave={c.id} foto={c.foto_url} tamanho="sm" />
                             <span className="min-w-0 flex-1">
                               <span className="flex items-center gap-1.5"><span className="truncate text-sm font-bold">{nomeDaConversa(c)}</span><Temperatura valor={c.temperatura} /></span>
                               <span className="line-clamp-2 text-xs text-muted-foreground">{c.resumo_ia ?? c.ultima_previa}</span>
@@ -179,7 +179,7 @@ export default function AppClientes({ conversas, carregando, erro, tentar }: {
                   <li key={c.conversa_id}>
                     <button type="button" onClick={() => navigate(`/app/c/${c.conversa_id}`)}
                       className="flex w-full items-center gap-3 rounded-2xl border border-mm-borda-suave bg-card p-3 text-left transition active:scale-[0.99]">
-                      <AvatarContato nome={c.nome} chave={c.conversa_id} />
+                      <AvatarContato nome={c.nome} chave={c.conversa_id} foto={c.foto_url} />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5"><span className="truncate text-[15px] font-bold">{c.nome}</span><Temperatura valor={c.temperatura} /></span>
                         <span className="mt-0.5 flex flex-wrap items-center gap-1.5">

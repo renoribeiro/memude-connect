@@ -20,7 +20,7 @@ export const ItemConversa = memo(function ItemConversa({ c, ativa, agora, aoAbri
       className={cn('group flex w-full items-center gap-3 border-b border-mm-borda-suave px-3 py-2.5 text-left transition',
         ativa ? 'bg-mm-lilas' : 'hover:bg-muted', c.nao_lidas > 0 && !ativa && 'bg-mm-rosa-palido/70')}>
       <span className="relative">
-        <AvatarContato nome={nome} chave={c.id} />
+        <AvatarContato nome={nome} chave={c.id} foto={c.foto_url} />
         {etapa && <span className={cn('absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card', etapa.ponto)} title={etapa.rotulo} />}
       </span>
       <span className="min-w-0 flex-1">

@@ -1,17 +1,22 @@
+import { useState } from 'react';
 import { AlertTriangle, Check, CheckCheck, Clock, Flame, Snowflake, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { haQuanto, minutosEsperando, nivelEspera } from '@/lib/conversas/formato';
 import { AvatarIlustrado } from './AvatarIlustrado';
 import { ETAPA, type Etapa } from '@/lib/conversas/tipos';
 
-export function AvatarContato({ nome, chave, tamanho = 'md', className }: {
-  nome: string | null | undefined; chave?: string | null; tamanho?: 'sm' | 'md' | 'lg' | 'xl'; className?: string;
+export function AvatarContato({ nome, chave, foto, tamanho = 'md', className }: {
+  nome: string | null | undefined; chave?: string | null; foto?: string | null; tamanho?: 'sm' | 'md' | 'lg' | 'xl'; className?: string;
 }) {
   const t = { sm: 'h-8 w-8', md: 'h-11 w-11', lg: 'h-12 w-12', xl: 'h-20 w-20' }[tamanho];
-  // Sempre um bonequinho ilustrado (nunca a letra): mais humano e lúdico
+  const [falhou, setFalhou] = useState<string | null>(null);
+  const usarFoto = !!foto && falhou !== foto;
+  // Foto real (WhatsApp do cliente ou a que o corretor enviou); sem foto, um bonequinho ilustrado (nunca a letra)
   return (
-    <span aria-hidden className={cn('inline-flex shrink-0 select-none overflow-hidden rounded-full', t, className)}>
-      <AvatarIlustrado nome={nome} chave={chave ?? nome} className="h-full w-full" />
+    <span aria-hidden className={cn('inline-flex shrink-0 select-none overflow-hidden rounded-full bg-muted', t, className)}>
+      {usarFoto
+        ? <img src={foto} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFalhou(foto)} className="h-full w-full object-cover" />
+        : <AvatarIlustrado nome={nome} chave={chave ?? nome} className="h-full w-full" />}
     </span>
   );
 }

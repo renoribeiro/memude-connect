@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { Topo } from '@/components/app/Topo';
 import { Bloco, CartaoNumero } from '@/components/app/ui';
-import { AvatarContato } from '@/components/conversas/pecas';
+import { TrocarFoto } from '@/components/app/TrocarFoto';
 import { RespostasRapidasPainel } from '@/components/conversas/RespostasRapidasPainel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -59,11 +59,12 @@ export default function AppPerfil() {
       <Topo titulo="Meu perfil" />
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 pb-6 pt-1">
         <Bloco>
-          <div className="flex items-center gap-3">
-            <AvatarContato nome={nome} chave={user?.id} tamanho="lg" />
+          <div className="flex items-center gap-4">
+            <TrocarFoto nome={nome} />
             <div className="min-w-0">
               <p className="truncate text-[17px] font-extrabold tracking-[-0.01em]">{nome}</p>
               <p className="truncate text-sm text-muted-foreground">Corretor parceiro · MeMude</p>
+              {!profile?.avatar_url && <p className="text-[12px] font-semibold text-primary">Toque na foto para colocar a sua</p>}
               {corretor?.creci && (
                 <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-mm-sucesso-fundo px-2 py-0.5 text-[11px] font-extrabold text-mm-sucesso">
                   <ShieldCheck className="h-3 w-3" aria-hidden /> CRECI {corretor.creci}

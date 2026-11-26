@@ -160,7 +160,7 @@ export const Bolha = memo(function Bolha({ m, citada, mostrarAutor, aoResponder,
     <div className={cn('group my-0.5 flex items-end gap-1', minha ? 'justify-end' : 'justify-start')}>
       {minha && aoResponder && m.wa_id && (
         <button type="button" onClick={() => aoResponder(m)} aria-label="Responder esta mensagem"
-          className="mb-2 rounded-full p-1.5 text-muted-foreground opacity-0 transition hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100 [@media(pointer:coarse)]:opacity-70">
+          className="mb-2 rounded-full p-1.5 text-muted-foreground opacity-0 transition hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100 [@media(pointer:coarse)]:opacity-40">
           <Reply className="h-4 w-4" />
         </button>
       )}
@@ -200,7 +200,7 @@ export const Bolha = memo(function Bolha({ m, citada, mostrarAutor, aoResponder,
       </div>
       {!minha && aoResponder && m.wa_id && (
         <button type="button" onClick={() => aoResponder(m)} aria-label="Responder esta mensagem"
-          className="mb-2 rounded-full p-1.5 text-muted-foreground opacity-0 transition hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100 [@media(pointer:coarse)]:opacity-70">
+          className="mb-2 rounded-full p-1.5 text-muted-foreground opacity-0 transition hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100 [@media(pointer:coarse)]:opacity-40">
           <Reply className="h-4 w-4" />
         </button>
       )}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, BellOff, ChevronRight, Download, ExternalLink, LogOut, Moon, Share, ShieldCheck, Sun, Zap } from 'lucide-react';
+import { Bell, BellOff, ChevronRight, Download, ExternalLink, LogOut, Moon, Share, ShieldCheck, Sun, Wallet, Zap } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -72,6 +72,15 @@ export default function AppPerfil() {
             </div>
           </div>
         </Bloco>
+
+        <Link to="/app/comissoes" className="flex items-center gap-3 rounded-2xl bg-mm-roxo p-4 text-white transition active:scale-[0.99]">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15"><Wallet className="h-5 w-5" aria-hidden /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[16px] font-extrabold">Minhas comissões</span>
+            <span className="block text-[13px] text-white/80">Vendas, valores e andamento do pagamento</span>
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0" aria-hidden />
+        </Link>
 
         <section className="space-y-2">
           <h2 className="text-lg leading-tight">Meu desempenho · 30 dias</h2>

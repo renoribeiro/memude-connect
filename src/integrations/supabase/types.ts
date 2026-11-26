@@ -3830,6 +3830,10 @@ export type Database = {
           nome: string
           observacoes: string | null
           origem: string | null
+          perfil_falta: string | null
+          perfil_ia: string | null
+          perfil_ia_em: string | null
+          perfil_temperatura: string | null
           planilha_extra: Json | null
           qualificacao: Json | null
           responsavel_id: string | null
@@ -3856,6 +3860,10 @@ export type Database = {
           nome: string
           observacoes?: string | null
           origem?: string | null
+          perfil_falta?: string | null
+          perfil_ia?: string | null
+          perfil_ia_em?: string | null
+          perfil_temperatura?: string | null
           planilha_extra?: Json | null
           qualificacao?: Json | null
           responsavel_id?: string | null
@@ -3882,6 +3890,10 @@ export type Database = {
           nome?: string
           observacoes?: string | null
           origem?: string | null
+          perfil_falta?: string | null
+          perfil_ia?: string | null
+          perfil_ia_em?: string | null
+          perfil_temperatura?: string | null
           planilha_extra?: Json | null
           qualificacao?: Json | null
           responsavel_id?: string | null
@@ -5043,6 +5055,7 @@ export type Database = {
           dono_id: string | null
           id: string
           lead_id: string | null
+          lembrete_push_em: string | null
           observacao: string | null
           status: string
           tipo: string
@@ -5058,6 +5071,7 @@ export type Database = {
           dono_id?: string | null
           id?: string
           lead_id?: string | null
+          lembrete_push_em?: string | null
           observacao?: string | null
           status?: string
           tipo: string
@@ -5073,6 +5087,7 @@ export type Database = {
           dono_id?: string | null
           id?: string
           lead_id?: string | null
+          lembrete_push_em?: string | null
           observacao?: string | null
           status?: string
           tipo?: string
@@ -6894,6 +6909,27 @@ export type Database = {
           visita_id: string
         }[]
       }
+      corretor_minhas_comissoes: {
+        Args: never
+        Returns: {
+          atualizado_em: string
+          cliente: string
+          comissao_percentual: number
+          data_pagamento: string
+          data_venda: string
+          empreendimento: string
+          imagem: string
+          imposto_percentual: number
+          observacoes: string
+          status: string
+          tem_comprovante: boolean
+          valor_comissao_bruta: number
+          valor_corretor: number
+          valor_imovel: number
+          valor_imposto: number
+          venda_id: string
+        }[]
+      }
       corretor_registrar_visita: {
         Args: { p_observacao?: string; p_resultado: string; p_visita: string }
         Returns: Json
@@ -7219,6 +7255,15 @@ export type Database = {
       minha_atividade_concluir: {
         Args: { p_tarefa: string }
         Returns: undefined
+      }
+      minha_atividade_criar: {
+        Args: {
+          p_conversa?: string
+          p_lead?: string
+          p_quando: string
+          p_titulo: string
+        }
+        Returns: string
       }
       minhas_atividades: {
         Args: never

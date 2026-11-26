@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { BellRing, Check, ChevronRight, Loader2, MapPin, MessageCircle, Navigation, Star } from 'lucide-react';
+import { Bell, BellRing, Check, ChevronRight, Loader2, MapPin, MessageCircle, Navigation, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { FalhaCarregar } from '@/components/app/ui';
+import { Marca } from '@/components/app/Marca';
 import { CartaoChamado, FotoEmpreendimento, quandoCurto } from '@/components/app/Chamado';
 import { AvatarContato, Temperatura } from '@/components/conversas/pecas';
 import { useAuth } from '@/hooks/useAuth';
@@ -108,13 +109,25 @@ export default function AppInicio({ conversas, carregando, erro, tentar }: {
   };
 
   const convite = convites[0];
+  const avisos = esperando.length + convites.length;
   const nome = profile?.first_name;
   const foto = (profile as { avatar_url?: string | null } | null)?.avatar_url;
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-6">
+      {/* Cabeçalho da marca: me mude | CONNECT e o sino com o que espera por você */}
+      <div className="flex items-center justify-between px-5 pb-1 pt-[max(0.9rem,env(safe-area-inset-top))]">
+        <Marca rotulo="Connect" />
+        <button type="button" onClick={() => navigate('/app/conversas?filtro=aguardando')}
+          aria-label={avisos ? `${avisos} cliente(s) esperando você` : 'Avisos'}
+          className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-mm-borda-suave bg-card text-primary shadow-sm transition active:scale-95">
+          <Bell className="h-5 w-5" aria-hidden />
+          {avisos > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-mm-acao px-1 text-[11px] font-extrabold text-white">{avisos > 9 ? '9+' : avisos}</span>}
+        </button>
+      </div>
+
       {/* Saudação com o rosto de quem está usando */}
-      <header className="flex items-center gap-3 px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))]">
+      <header className="flex items-center gap-3 px-5 pb-4 pt-3">
         {foto
           ? <img src={foto} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-mm-lilas" />
           : <AvatarContato nome={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Corretor'} tamanho="lg" />}

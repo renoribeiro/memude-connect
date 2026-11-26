@@ -152,7 +152,14 @@ export default function LeadPerfilPage() {
           </section>
 
           <div className="space-y-5">
-            <AcompanhamentoIA leadId={lead.id} conversa={data.conversa as ConversaIA | null}
+            <AcompanhamentoIA leadId={lead.id} conversa={(data.conversa || lead.perfil_ia) ? {
+                ...((data.conversa ?? { id: '', etapa: 'em_atendimento', ia_analisada_em: null, ultima_mensagem_em: null }) as ConversaIA),
+                // Perfil único do cliente (o mesmo do CRM, da visita e do app)
+                resumo_ia: lead.perfil_ia ?? data.conversa?.resumo_ia ?? null,
+                ia_falta: lead.perfil_falta ?? data.conversa?.ia_falta ?? null,
+                temperatura: lead.perfil_temperatura ?? data.conversa?.temperatura ?? null,
+                ia_analisada_em: lead.perfil_ia_em ?? data.conversa?.ia_analisada_em ?? null,
+              } : null}
               qualificacao={(lead.qualificacao ?? null) as Record<string, unknown> | null} mudancas={data.mudancasIa as MudancaIA[]} nomes={nomes} />
 
             <section className="rounded-xl border bg-card p-5 shadow-sm">

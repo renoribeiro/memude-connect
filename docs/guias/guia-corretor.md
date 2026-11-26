@@ -48,7 +48,9 @@ O catálogo de **Imóveis** fica no atalho do Início e no ícone de prédio den
 | Enviar um imóvel | Ícone de prédio no topo do chat |
 | Ficha do cliente | Ícone de informação no topo do chat |
 
-A sua primeira mensagem sai assinada como *Seu nome · Corretor(a)*. Nas 4 horas seguintes, sai sem assinatura.
+Toda mensagem sua sai assinada como *Seu nome · Corretor(a)*.
+
+Você vê a conversa a partir do momento em que o cliente é seu. O que a MeMude conversou antes não aparece: no topo do chat fica o **Resumo do atendimento antes de você**, com o que o cliente procura e o próximo passo.
 
 ### A IA e a ficha do cliente
 

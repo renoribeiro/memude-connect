@@ -65,7 +65,7 @@ export function CartaoChamado({ convite, agora, aoAbrir, quantos = 1 }: {
   return (
     <button type="button" onClick={aoAbrir}
       aria-label={`Chamado: ${primeiro} quer visitar ${convite.empreendimento ?? 'um imóvel'}. ${p.esgotado ? 'Prazo esgotado' : `${p.texto} para aceitar`}. Toque para ver.`}
-      className="block w-full rounded-[26px] bg-[#1E1640] p-4 text-left text-white shadow-[0_18px_40px_-18px_rgba(30,22,64,0.75)] transition active:scale-[0.99]">
+      className="block w-full rounded-[26px] bg-mm-roxo p-4 text-left text-white shadow-[0_18px_40px_-18px_rgba(66,47,145,0.7)] transition active:scale-[0.99]">
       <div className="flex items-center gap-2 text-[12px] font-bold text-white/70">
         <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white" aria-hidden><Simbolo className="h-3.5" /></span>
         MeMude
@@ -84,7 +84,7 @@ export function CartaoChamado({ convite, agora, aoAbrir, quantos = 1 }: {
         {/* Foto do imóvel com o rosto do cliente sobreposto */}
         <div className="relative h-16 w-[86px] shrink-0">
           <FotoEmpreendimento url={convite.imagem} nome={convite.empreendimento} className="absolute right-0 top-0 h-16 w-16 rounded-2xl" />
-          <AvatarContato nome={convite.lead_nome} tamanho="lg" className="absolute bottom-[-4px] left-0 ring-[3px] ring-[#1E1640]" />
+          <AvatarContato nome={convite.lead_nome} tamanho="lg" className="absolute bottom-[-4px] left-0 ring-[3px] ring-mm-roxo" />
         </div>
       </div>
       <div className="mt-3.5"><BarraPrazo fracao={p.fracao} /></div>

@@ -32,8 +32,9 @@ Os números que já existiam (avisos e visitas) **não são tocados**.
 | Conversa nova com um lead | Botão **+** ao lado da busca |
 | Avisos no computador | Sininho no canto da barra de abas |
 
-**Assinatura automática.** A primeira mensagem de cada pessoa sai com *Nome · Atendimento*, *Nome · Corretor(a)* ou *Nome · Especialista*.
-Depois, nas 4 horas seguintes, sai sem assinatura.
+**Assinatura automática.** Toda mensagem sai identificada com *Nome · Atendimento*, *Nome · Corretor(a)* ou *Nome · Especialista*.
+
+**Privacidade.** O corretor vê a conversa só a partir do momento em que assume o cliente. O atendimento anterior da SDR não aparece para ele: no topo do chat ele recebe o resumo da IA e o que já se sabe do cliente.
 
 **IA aplica sozinha:**
 - resumo, próximo passo e temperatura (quente, morno, frio);

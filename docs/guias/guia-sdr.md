@@ -39,7 +39,7 @@ Se o corretor recusar, o convite volta para você escolher outro. Se o cliente f
 | Arquivar | Ficha → **Arquivar**. Volta sozinha quando o cliente escrever |
 | Avisos no computador | Sininho no canto da barra de abas |
 
-A primeira mensagem de cada pessoa sai assinada como *Seu nome · Atendimento*. Nas 4 horas seguintes, sai sem assinatura.
+Toda mensagem sai assinada como *Seu nome · Atendimento*. Quando o corretor assume, ele não vê a sua conversa com o cliente, só o resumo da IA: deixe a ficha bem preenchida.
 
 ## 4. IA: atualiza a ficha sozinha
 

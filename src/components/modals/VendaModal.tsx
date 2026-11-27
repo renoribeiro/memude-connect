@@ -23,9 +23,19 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Loader2, DollarSign, TrendingDown, ArrowRight, Paperclip } from 'lucide-react';
+import { CalendarIcon, Loader2, DollarSign, TrendingDown, ArrowRight, Paperclip, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/utils/formatters';
@@ -62,6 +72,9 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
     const [valorImovel, setValorImovel] = useState('');
     const [comissaoPercentual, setComissaoPercentual] = useState('6');
     const [impostoPercentual, setImpostoPercentual] = useState('20');
+    // Divisão padrão da MeMude: 50% corretor / 50% MeMude (o corretor vê esse valor no app)
+    const [percentualCorretor, setPercentualCorretor] = useState('50');
+    const [confirmarForaPadrao, setConfirmarForaPadrao] = useState<string[] | null>(null);
     const [status, setStatus] = useState<VendaStatus>('pendente');
     const [dataVenda, setDataVenda] = useState<Date>(new Date());
     const [dataPagamento, setDataPagamento] = useState<Date | undefined>();
@@ -149,7 +162,7 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
             if (!vendaId) return null;
             const { data, error } = await supabase
                 .from('vendas')
-                .select('id, lead_id, corretor_id, empreendimento_id, data_venda, valor_imovel, comissao_percentual, imposto_percentual, is_venda_direta, status, observacoes, data_pagamento, comprovantes')
+                .select('id, lead_id, corretor_id, empreendimento_id, data_venda, valor_imovel, comissao_percentual, imposto_percentual, percentual_corretor, is_venda_direta, status, observacoes, data_pagamento, comprovantes')
                 .eq('id', vendaId)
                 .abortSignal(signal)
                 .single();
@@ -179,6 +192,7 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
             setValorImovel(String(vendaData.valor_imovel || ''));
             setComissaoPercentual(String(vendaData.comissao_percentual || '6'));
             setImpostoPercentual(String(vendaData.imposto_percentual || '20'));
+            setPercentualCorretor(String(vendaData.percentual_corretor ?? 50));
             setStatus(vendaData.status || 'pendente');
             setDataVenda(vendaData.data_venda ? new Date(vendaData.data_venda + 'T12:00:00') : new Date());
             setDataPagamento(vendaData.data_pagamento ? new Date(vendaData.data_pagamento + 'T12:00:00') : undefined);
@@ -224,6 +238,8 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
             setValorImovel('');
             setComissaoPercentual('6');
             setImpostoPercentual('20');
+            setPercentualCorretor('50');
+            setConfirmarForaPadrao(null);
             setStatus('pendente');
             setDataVenda(new Date());
             setDataPagamento(undefined);
@@ -251,15 +267,17 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
         const valor = parseFloat(valorImovel) || 0;
         const comissao = parseFloat(comissaoPercentual) || 0;
         const imposto = parseFloat(impostoPercentual) || 0;
+        const lida = parseFloat(percentualCorretor);
+        const parte = Math.min(100, Math.max(0, Number.isFinite(lida) ? lida : 50));
 
         const comissaoBruta = valor * comissao / 100;
         const valorImposto = comissaoBruta * imposto / 100;
         const comissaoLiquida = comissaoBruta - valorImposto;
-        const valorCorretor = vendaDireta ? 0 : comissaoLiquida * 0.5;
-        const valorMemude = vendaDireta ? comissaoLiquida : comissaoLiquida * 0.5;
+        const valorCorretor = vendaDireta ? 0 : comissaoLiquida * parte / 100;
+        const valorMemude = vendaDireta ? comissaoLiquida : comissaoLiquida * (100 - parte) / 100;
 
-        return { comissaoBruta, valorImposto, comissaoLiquida, valorCorretor, valorMemude };
-    }, [valorImovel, comissaoPercentual, impostoPercentual, vendaDireta]);
+        return { comissaoBruta, valorImposto, comissaoLiquida, valorCorretor, valorMemude, parte };
+    }, [valorImovel, comissaoPercentual, impostoPercentual, percentualCorretor, vendaDireta]);
 
     // Save mutation
     const saveMutation = useMutation({
@@ -271,6 +289,7 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
                 valor_imovel: parseFloat(valorImovel),
                 comissao_percentual: parseFloat(comissaoPercentual),
                 imposto_percentual: parseFloat(impostoPercentual),
+                percentual_corretor: vendaDireta ? 50 : calculations.parte,
                 is_venda_direta: vendaDireta,
                 status,
                 data_venda: format(dataVenda, 'yyyy-MM-dd'),
@@ -445,6 +464,27 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
             return;
         }
 
+        // Fora do padrão: pergunta antes de gravar (o corretor vê o valor no app)
+        const parte = Number(percentualCorretor);
+        if (!vendaDireta && (percentualCorretor.trim() === '' || !Number.isFinite(parte) || parte < 0 || parte > 100)) {
+            toast({ title: 'A parte do corretor deve estar entre 0 e 100%', variant: 'destructive' });
+            return;
+        }
+        const avisos: string[] = [];
+        if (!vendaDireta && parte !== 50) {
+            avisos.push(`Divisão: corretor ${parte}% e MeMude ${100 - parte}% (o padrão é 50% / 50%).`);
+        }
+        const padraoComissao = Number(settings?.find(s => s.key === 'default_commission_percentage')?.value ?? 6);
+        const padraoImposto = Number(settings?.find(s => s.key === 'tax_rate_percentage')?.value ?? 20);
+        if (comissao !== padraoComissao) avisos.push(`Comissão da venda: ${comissao}% (o padrão é ${padraoComissao}%).`);
+        if (imposto !== padraoImposto) avisos.push(`Imposto: ${imposto}% (o padrão é ${padraoImposto}%).`);
+        // Na edição, só pergunta de novo se algum desses números mudou
+        const mudou = !isEditing || !vendaData
+            || Number(vendaData.percentual_corretor ?? 50) !== (vendaDireta ? 50 : parte)
+            || Number(vendaData.comissao_percentual) !== comissao
+            || Number(vendaData.imposto_percentual) !== imposto;
+        if (avisos.length && mudou) { setConfirmarForaPadrao(avisos); return; }
+
         saveMutation.mutate();
     };
 
@@ -536,7 +576,7 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
                     <Separator />
 
                     {/* Valores */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                         <div className="space-y-2">
                             <Label htmlFor="valor">Valor do Imóvel (R$) *</Label>
                             <Input
@@ -564,6 +604,24 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
                                 id="imposto" value={impostoPercentual}
                                 onChange={(e) => setImpostoPercentual(e.target.value)}
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="parte-corretor">Parte do corretor (%)</Label>
+                            <Input
+                                type="number"
+                                step="1"
+                                min={0}
+                                max={100}
+                                id="parte-corretor"
+                                value={vendaDireta ? '0' : percentualCorretor}
+                                disabled={vendaDireta}
+                                aria-describedby="parte-corretor-ajuda"
+                                className={!vendaDireta && Number(percentualCorretor) !== 50 ? 'border-amber-500 focus-visible:ring-amber-500' : undefined}
+                                onChange={(e) => setPercentualCorretor(e.target.value)}
+                            />
+                            <p id="parte-corretor-ajuda" className={!vendaDireta && Number(percentualCorretor) !== 50 ? 'flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400' : 'text-xs text-muted-foreground'}>
+                                {!vendaDireta && Number(percentualCorretor) !== 50 ? <><AlertTriangle className="h-3 w-3" /> Fora do padrão (50%)</> : 'Padrão: 50%'}
+                            </p>
                         </div>
                     </div>
 
@@ -594,7 +652,7 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
                             <div className="grid grid-cols-2 gap-3 text-sm">
                                 <div className="flex justify-between items-center">
                                     <span className="text-muted-foreground flex items-center gap-1">
-                                        <ArrowRight className="h-3 w-3" /> Corretor (50%):
+                                        <ArrowRight className="h-3 w-3" /> Corretor ({vendaDireta ? 0 : calculations.parte}%):
                                     </span>
                                     <span className="font-mono font-semibold text-blue-700 dark:text-blue-300">
                                         {formatCurrency(calculations.valorCorretor)}
@@ -602,7 +660,7 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-muted-foreground flex items-center gap-1">
-                                        <ArrowRight className="h-3 w-3" /> MeMude ({vendaDireta ? '100%' : '50%'}):
+                                        <ArrowRight className="h-3 w-3" /> MeMude ({vendaDireta ? 100 : 100 - calculations.parte}%):
                                     </span>
                                     <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-300">
                                         {formatCurrency(calculations.valorMemude)}
@@ -771,6 +829,34 @@ const VendaModal = ({ isOpen, onClose, vendaId, crmLead }: VendaModalProps) => {
                     </div>
                 </form>
             </DialogContent>
+            <AlertDialog open={!!confirmarForaPadrao} onOpenChange={(o) => !o && setConfirmarForaPadrao(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-amber-600" /> Venda fora do padrão. Está certo?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-3 text-sm">
+                                <ul className="list-disc space-y-1 pl-5 text-foreground">
+                                    {(confirmarForaPadrao ?? []).map((a) => <li key={a}>{a}</li>)}
+                                </ul>
+                                {!vendaDireta && (
+                                    <p>
+                                        O corretor vai ver no app: <strong className="text-foreground">{formatCurrency(calculations.valorCorretor)}</strong> ({calculations.parte}% da comissão líquida).
+                                        Se foi combinado assim, anote o motivo em Observações.
+                                    </p>
+                                )}
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Revisar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => { setConfirmarForaPadrao(null); saveMutation.mutate(); }}>
+                            Está certo, salvar
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </Dialog>
     );
 };

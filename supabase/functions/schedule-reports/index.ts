@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import { authorize, readJson } from '../_shared/security.ts';
 import { Resend } from 'npm:resend@4.6.0';
+import { emailMeMude, escapar } from '../_shared/email-modelo.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://core.memudecore.com.br',
@@ -181,20 +182,20 @@ async function sendReportEmail(scheduledReport: any, reportData: any) {
     from: Deno.env.get('REPORT_FROM_EMAIL') || 'MeMude Connect <relatorios@memude.com>',
     to: recipients,
     subject: scheduledReport.email_subject,
-    html: `
-      <main style="font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#172033">
-        <h1>${escapeHtml(scheduledReport.report_templates?.name || 'Relatório MeMude')}</h1>
-        <p>${escapeHtml(scheduledReport.email_message || 'Segue o resumo programado.')}</p>
-        <table style="border-collapse:collapse;width:100%">
-          <tr><td style="padding:8px;border-bottom:1px solid #ddd">Leads</td><td>${reportData.summary.total_leads}</td></tr>
-          <tr><td style="padding:8px;border-bottom:1px solid #ddd">Visitas</td><td>${reportData.summary.total_visitas}</td></tr>
-          <tr><td style="padding:8px;border-bottom:1px solid #ddd">Vendas</td><td>${reportData.summary.total_vendas}</td></tr>
-          <tr><td style="padding:8px;border-bottom:1px solid #ddd">Valor vendido</td><td>${currency}</td></tr>
-          <tr><td style="padding:8px;border-bottom:1px solid #ddd">Conversão lead → venda</td><td>${reportData.summary.conversao_lead_venda.toFixed(2)}%</td></tr>
-        </table>
-        <p style="color:#667085;font-size:12px">Gerado automaticamente em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}.</p>
-      </main>
-    `,
+    html: emailMeMude({
+      previa: scheduledReport.email_message || 'Seu relatório programado da MeMude chegou.',
+      selo: 'Relatório',
+      titulo: scheduledReport.report_templates?.name || 'Relatório MeMude',
+      paragrafos: [escapeHtml(scheduledReport.email_message || 'Segue o resumo programado.')],
+      destaque: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">${[
+        ['Leads', reportData.summary.total_leads],
+        ['Visitas', reportData.summary.total_visitas],
+        ['Vendas', reportData.summary.total_vendas],
+        ['Valor vendido', currency],
+        ['Conversão lead → venda', `${Number(reportData.summary.conversao_lead_venda ?? 0).toFixed(2)}%`],
+      ].map(([r, v]) => `<tr><td style="padding:6px 0;color:#6B6585;">${escapar(r)}</td><td align="right" style="padding:6px 0;font-weight:700;color:#1E1640;">${escapar(v)}</td></tr>`).join('')}</table>`,
+      rodape: `Gerado automaticamente em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })}.`,
+    }),
   });
   if (error) throw new Error(`Falha ao enviar relatório: ${error.message}`);
   console.log('Scheduled report sent', { report_id: scheduledReport.id, recipient_count: recipients.length });

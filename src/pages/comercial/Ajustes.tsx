@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { useConfigComercial, useEquipe } from '@/hooks/comercial/dados';
+import { useConfigComercial, useEquipe, useTemplates } from '@/hooks/comercial/dados';
 import { formatarDataHora, relativo } from '@/lib/comercial/datas';
 import { EstadoVazio } from '@/components/comercial/ui';
 
@@ -160,6 +160,8 @@ function PrazosRating() {
         </div>
       </section>
 
+      <MensagensAutomaticas f={f} setF={setF} />
+
       <section className="rounded-xl border bg-card p-5 shadow-sm lg:col-span-2">
         <h2 className="text-sm font-semibold">Equipe</h2>
         <div className="mt-4 grid gap-5 sm:grid-cols-2">
@@ -193,6 +195,75 @@ function PrazosRating() {
         </Button>
       </div>
     </div>
+  );
+}
+
+// Mensagens que o sistema sabe mandar sozinho ao cliente (na ordem em que acontecem)
+const MENSAGENS_AUTO: { chave: string; quando: string }[] = [
+  { chave: 'msg1', quando: 'Ao agendar · confirma os dados da visita' },
+  { chave: 'msg2', quando: 'Ao agendar · "visita agendada com sucesso"' },
+  { chave: 'msg3', quando: 'Corretor aceitou · apresenta o corretor' },
+  { chave: 'msg3b', quando: 'Corretor aceitou · o corretor segue a conversa' },
+  { chave: 'd2_cliente', quando: '2 dias antes · lembrete' },
+  { chave: 'd1_cliente', quando: '1 dia antes · lembrete' },
+  { chave: 'd0_cliente', quando: 'No dia · lembrete' },
+  { chave: 'realizada_cliente', quando: 'Depois da visita · agradecimento' },
+  { chave: 'noshow_cliente', quando: 'Cliente faltou · remarcar' },
+];
+
+function MensagensAutomaticas({ f, setF }: { f: Record<string, unknown>; setF: (v: Record<string, unknown>) => void }) {
+  const { data: templates = [] } = useTemplates();
+  const { data: numero } = useQuery({
+    queryKey: ['comercial', 'numero-conversas'],
+    queryFn: async () => {
+      const { data } = await supabase.from('conv_numeros').select('nome, status').eq('ativo', true).limit(1).maybeSingle();
+      return data;
+    },
+  });
+  const ligado = !!f.mensagens_auto;
+  const escolhidas = (f.mensagens_auto_modelos as string[] | null) ?? ['msg1', 'msg3'];
+  const teste = /teste/i.test(numero?.nome ?? '');
+  const alternar = (chave: string, c: boolean) =>
+    setF({ ...f, mensagens_auto_modelos: c ? [...new Set([...escolhidas, chave])] : escolhidas.filter((x) => x !== chave) });
+
+  return (
+    <section className="rounded-xl border bg-card p-5 shadow-sm lg:col-span-2">
+      <h2 className="text-sm font-semibold">Mensagens automáticas ao cliente</h2>
+      <p className="mb-4 text-xs text-muted-foreground">
+        Saem pelo número das Conversas, em nome de quem agendou, das 8h às 20h. O texto é o modelo de Mensagens com os dados da visita.
+      </p>
+      <label htmlFor="mensagens_auto" className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+        <Switch id="mensagens_auto" checked={ligado} onCheckedChange={(c) => setF({ ...f, mensagens_auto: c })} className="mt-0.5" />
+        <span>
+          <span className="block text-sm font-medium">Enviar sozinho ao cliente</span>
+          <span className="block text-xs text-muted-foreground">
+            {ligado ? 'Ligado: as mensagens marcadas abaixo saem sem ninguém precisar copiar e colar.' : 'Desligado: nada sai sozinho; a SDR envia pelo painel da visita.'}
+            {numero && <> Número: <strong>{numero.nome}</strong>{numero.status !== 'aberto' && ' (desconectado)'}.</>}
+          </span>
+        </span>
+      </label>
+      {ligado && teste && (
+        <p className="mt-2 flex items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> O número conectado é de teste. Os clientes vão receber por ele.
+        </p>
+      )}
+      <ul className={cn('mt-4 grid gap-2 sm:grid-cols-2', !ligado && 'opacity-60')}>
+        {MENSAGENS_AUTO.map((m) => {
+          const t = templates.find((x) => x.chave === m.chave);
+          return (
+            <li key={m.chave}>
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 hover:bg-muted/50">
+                <Checkbox checked={escolhidas.includes(m.chave)} onCheckedChange={(c) => alternar(m.chave, !!c)} className="mt-0.5" disabled={!t} />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium">{m.quando}</span>
+                  <span className="line-clamp-2 text-xs text-muted-foreground">{t ? t.conteudo.replace(/\*/g, '') : 'Modelo desativado em Mensagens'}</span>
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

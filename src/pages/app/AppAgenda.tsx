@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlarmClockPlus, Check, MessageCircle, PartyPopper } from 'lucide-react';
+import { AlarmClockPlus, CalendarSync, Check, MessageCircle, PartyPopper } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BotaoTopo, Topo } from '@/components/app/Topo';
 import { NovoLembrete } from '@/components/app/NovoLembrete';
+import { GavetaAgenda } from '@/components/app/GavetaAgenda';
 import { Bloco, FalhaCarregar, Segmentado } from '@/components/app/ui';
 import { ListaVisitas } from '@/components/app/ListaVisitas';
 import { useAtividades, useConcluirAtividade, useMinhasVisitas } from '@/hooks/conversas/app';
@@ -15,6 +16,7 @@ type Aba = 'hoje' | 'proximos';
 /** Agenda do corretor: atividades e visitas de hoje, e as visitas dos próximos 7 dias. */
 export default function AppAgenda() {
   const [lembrete, setLembrete] = useState(false);
+  const [sincronizar, setSincronizar] = useState(false);
   const navigate = useNavigate();
   const [aba, setAba] = useState<Aba>('hoje');
   const { data: atividades = [], isLoading: carregandoAtiv, isError: erroAtiv, refetch: recarregarAtiv } = useAtividades();
@@ -34,8 +36,14 @@ export default function AppAgenda() {
   return (
     <>
       <NovoLembrete aberto={lembrete} aoFechar={() => setLembrete(false)} />
+      <GavetaAgenda aberto={sincronizar} aoFechar={() => setSincronizar(false)} />
       <Topo titulo="Agenda" subtitulo={`${plural(visitasHoje.length, 'visita', 'visitas')} hoje · ${plural(deHoje.length, 'atividade', 'atividades')}`}
-        direita={<BotaoTopo rotulo="Novo lembrete" aoTocar={() => setLembrete(true)} cheio><AlarmClockPlus className="h-5 w-5" /></BotaoTopo>}
+        direita={(
+          <div className="flex gap-2">
+            <BotaoTopo rotulo="Sincronizar com Google Agenda, iPhone ou Outlook" aoTocar={() => setSincronizar(true)}><CalendarSync className="h-5 w-5" /></BotaoTopo>
+            <BotaoTopo rotulo="Novo lembrete" aoTocar={() => setLembrete(true)} cheio><AlarmClockPlus className="h-5 w-5" /></BotaoTopo>
+          </div>
+        )}
         abaixo={(
           <Segmentado<Aba> rotulo="Período" valor={aba} aoMudar={setAba} opcoes={[
             { valor: 'hoje', rotulo: 'Hoje', contador: atrasadas },

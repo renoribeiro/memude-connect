@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, BellOff, ChevronRight, Download, ExternalLink, LogOut, Moon, Share, ShieldCheck, Sun, Wallet, Zap } from 'lucide-react';
+import { Bell, BellOff, CalendarSync, ChevronRight, Download, ExternalLink, LogOut, Moon, Share, ShieldCheck, Sun, Wallet, Zap } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -9,6 +9,7 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { Topo } from '@/components/app/Topo';
 import { Bloco, CartaoNumero } from '@/components/app/ui';
 import { TrocarFoto } from '@/components/app/TrocarFoto';
+import { GavetaAgenda } from '@/components/app/GavetaAgenda';
 import { RespostasRapidasPainel } from '@/components/conversas/RespostasRapidasPainel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,6 +38,7 @@ export default function AppPerfil() {
   });
   const [instalar, setInstalar] = useState<EventoInstalar | null>(null);
   const [respostas, setRespostas] = useState(false);
+  const [agenda, setAgenda] = useState(false);
   const nome = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Corretor';
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
@@ -133,6 +135,11 @@ export default function AppPerfil() {
               {instalar && <Button size="sm" variant="acao" onClick={async () => { await instalar.prompt(); setInstalar(null); }}>Instalar</Button>}
             </div>
           )}
+          <button type="button" onClick={() => setAgenda(true)} className={linha}>
+            <CalendarSync className="h-5 w-5 text-muted-foreground" aria-hidden />
+            <span className="flex-1"><span className="block font-bold">Sincronizar agenda</span><span className="text-xs text-muted-foreground">Google Agenda, iPhone ou Outlook</span></span>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" aria-hidden />
+          </button>
           <button type="button" onClick={() => setRespostas(true)} className={linha}>
             <Zap className="h-5 w-5 text-muted-foreground" aria-hidden />
             <span className="flex-1"><span className="block font-bold">Respostas rápidas</span><span className="text-xs text-muted-foreground">Atalhos com “/” no chat</span></span>
@@ -153,6 +160,7 @@ export default function AppPerfil() {
         <Button variant="outline" className="h-12 w-full text-mm-rosa-texto" onClick={signOut}><LogOut className="h-4 w-4" /> Sair</Button>
         <p className="pb-2 text-center text-xs font-semibold text-muted-foreground">MeMude Corretor · atendimento MeMude</p>
       </div>
+      <GavetaAgenda aberto={agenda} aoFechar={() => setAgenda(false)} />
       <Drawer open={respostas} onOpenChange={setRespostas}>
         <DrawerContent className="tema-memude max-h-[88dvh] bg-card">
           <DrawerTitle className="sr-only">Respostas rápidas</DrawerTitle>

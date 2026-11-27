@@ -7,6 +7,7 @@ import { useListaConversas, useTempoRealConversas } from '@/hooks/conversas/dado
 import { useConvites } from '@/hooks/conversas/useConvites';
 import { useMensagensDoServiceWorker } from '@/hooks/conversas/usePush';
 import { ConviteNovo } from '@/components/app/ConviteNovo';
+import { BotaoAjuda, PedirAjuda } from '@/components/app/PedirAjuda';
 import AppInicio from './AppInicio';
 
 const AppConversas = lazy(() => import('./AppConversas'));
@@ -40,6 +41,7 @@ export default function AppCorretor() {
   useTempoRealConversas();
   useMensagensDoServiceWorker();
 
+  const [ajuda, setAjuda] = useState(false);
   const naoLidas = conversas.reduce((s, c) => s + (c.nao_lidas > 0 ? 1 : 0), 0);
   const lista = { conversas, carregando, erro, tentar: () => { refetch(); } };
 
@@ -74,7 +76,7 @@ export default function AppCorretor() {
   }, [naoLidas]);
 
   return (
-    <div className="tema-memude flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground md:sombra-elevada md:mx-auto md:max-w-[480px] md:border-x md:border-mm-borda-suave">
+    <div className="tema-memude relative flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground md:sombra-elevada md:mx-auto md:max-w-[480px] md:border-x md:border-mm-borda-suave">
       <main data-sob-convite className="flex min-h-0 flex-1 flex-col">
         <Suspense fallback={<Carregando />}>
           <Routes>
@@ -94,6 +96,11 @@ export default function AppCorretor() {
           </Routes>
         </Suspense>
       </main>
+
+      {!noChat && (
+        <BotaoAjuda aoTocar={() => setAjuda(true)} className="absolute bottom-[calc(80px+env(safe-area-inset-bottom))] right-4 z-30" />
+      )}
+      <PedirAjuda aberto={ajuda} aoFechar={() => setAjuda(false)} />
 
       {!noChat && (
         <nav data-sob-convite className="grid shrink-0 grid-cols-5 border-t border-mm-borda-suave bg-card pb-[env(safe-area-inset-bottom)]" aria-label="Navegação do app">

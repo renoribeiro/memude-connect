@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { chamarFuncao, mensagemErro, subirAnexo, tipoDoArquivo } from '@/lib/conversas/servidor';
+import { linkAssinado, midiaGuardada } from '@/lib/conversas/midia';
 import type { ConversaItem, Filtro, Mensagem, MensagemLocal, Numero } from '@/lib/conversas/tipos';
 
 export const cc = {
@@ -79,7 +80,8 @@ export function useListaConversas(filtro: Filtro, busca: string, ativo = true) {
     queryKey: cc.lista(filtro, busca),
     enabled: ativo,
     placeholderData: (anterior) => anterior,
-    refetchInterval: 90_000,
+    // O tempo real já atualiza a lista a cada mudança; isto é só a conferência de segurança (economiza tráfego)
+    refetchInterval: 5 * 60_000,
     queryFn: async (): Promise<ConversaItem[]> => {
       const { data, error } = await supabase.rpc('conversas_listar', { p_filtro: filtro, p_busca: busca || null, p_limite: 300 });
       if (error) throw error;
@@ -389,17 +391,13 @@ export function useCorretoresComApp() {
 
 // ===== Mídia =====
 
-/** Link temporário (1 h) para ver a mídia de uma conversa visível ao usuário. */
-export function useMidiaUrl(path: string | null | undefined) {
+/** Endereço para mostrar a mídia. Fotos e áudios (guardar) vêm do aparelho depois da primeira vez. */
+export function useMidiaUrl(path: string | null | undefined, guardar = false) {
   return useQuery({
-    queryKey: ['conversas', 'midia', path],
+    queryKey: ['conversas', 'midia', path, guardar],
     enabled: !!path,
-    staleTime: 50 * 60_000,
-    gcTime: 55 * 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase.storage.from('conversas').createSignedUrl(path!, 3600);
-      if (error) throw error;
-      return data.signedUrl;
-    },
+    staleTime: guardar ? Infinity : 50 * 60_000,
+    gcTime: guardar ? Infinity : 55 * 60_000,
+    queryFn: () => (guardar ? midiaGuardada(path!) : linkAssinado(path!)),
   });
 }

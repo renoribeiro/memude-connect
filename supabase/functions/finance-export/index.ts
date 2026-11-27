@@ -10,6 +10,20 @@ const selects = {
 
 type Resource = keyof typeof selects
 
+// Comprime a resposta quando o Financeiro aceita gzip (o cliente descomprime sozinho).
+// Corta ~80% do tráfego de saída do Supabase: esta função responde a cada poucos minutos com páginas de até 500 registros.
+async function responderJson(request: Request, body: unknown, status = 200): Promise<Response> {
+  const texto = JSON.stringify(body)
+  const aceitaGzip = /gzip/i.test(request.headers.get('accept-encoding') ?? '')
+  if (!aceitaGzip || texto.length < 1024)
+    return new Response(texto, { status, headers: { 'Content-Type': 'application/json', 'Vary': 'Accept-Encoding' } })
+  const comprimido = await new Response(new Blob([texto]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer()
+  return new Response(comprimido, {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Content-Encoding': 'gzip', 'Content-Length': String(comprimido.byteLength), 'Vary': 'Accept-Encoding' },
+  })
+}
+
 Deno.serve(async request => {
   if (request.method !== 'POST')
     return Response.json({ error: 'Método não permitido.' }, { status: 405 })
@@ -46,5 +60,5 @@ Deno.serve(async request => {
   if (error)
     return Response.json({ error: error.message }, { status: 502 })
 
-  return Response.json({ data: data ?? [], nextOffset: (data?.length ?? 0) === PAGE_SIZE ? offset + PAGE_SIZE : null })
+  return await responderJson(request, { data: data ?? [], nextOffset: (data?.length ?? 0) === PAGE_SIZE ? offset + PAGE_SIZE : null })
 })

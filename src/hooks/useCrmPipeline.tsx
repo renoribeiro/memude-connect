@@ -164,7 +164,8 @@ export function useCrmPipeline(pipelineId?: string, archived = false) {
             return all;
         },
         enabled: !!pipelineId,
-        refetchInterval: 30_000,
+        // Funil inteiro a cada 30 s gastava muito tráfego; 2 min basta (quem move o card vê na hora)
+        refetchInterval: 2 * 60_000,
     });
 
     const automations = useQuery({

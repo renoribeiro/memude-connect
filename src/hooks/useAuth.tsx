@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { desativarPush } from '@/lib/conversas/push';
+import { limparMidiaGuardada } from '@/lib/conversas/midia';
 
 interface Profile {
   id: string;
@@ -112,6 +113,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
         const novoUsuario = session?.user?.id ?? null;
         if (event === 'SIGNED_OUT' || (ultimoUsuario.current && novoUsuario && novoUsuario !== ultimoUsuario.current)) {
           queryClient.clear();
+          void limparMidiaGuardada();
         }
         ultimoUsuario.current = novoUsuario;
 
@@ -258,6 +260,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     await supabase.auth.signOut();
     // Celular compartilhado: nada da pessoa anterior fica na tela (conversas em cache e rascunhos)
     queryClient.clear();
+    void limparMidiaGuardada();
     Object.keys(sessionStorage).filter((k) => k.startsWith('memude:rascunho:')).forEach((k) => sessionStorage.removeItem(k));
     setUser(null);
     setSession(null);

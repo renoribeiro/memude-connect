@@ -79,7 +79,7 @@ function PlayerAudio({ src, segundos, transcricao, minha }: { src?: string; segu
 }
 
 function Midia({ m, minha }: { m: MensagemLocal; minha: boolean }) {
-  const { data: url } = useMidiaUrl(m.local ? null : m.midia_path);
+  const { data: url } = useMidiaUrl(m.local ? null : m.midia_path, m.tipo === 'imagem' || m.tipo === 'figurinha' || m.tipo === 'audio');
   const src = m.previaUrl ?? url;
   const [ampliada, setAmpliada] = useState(false);
   if (!m.midia_path && !m.previaUrl) {

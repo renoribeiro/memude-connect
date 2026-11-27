@@ -396,7 +396,7 @@ export async function registrarUsoMensagem(visitaId: string, template: string, d
 export function useTarefasPendentes() {
   return useQuery({
     queryKey: chaves.tarefas,
-    refetchInterval: 30_000,
+    refetchInterval: 2 * 60_000,
     queryFn: async () => {
       const fimDoDia = new Date(`${somarDias(hojeISO(), 1)}T00:00:00-03:00`).toISOString();
       const { data, error } = await supabase

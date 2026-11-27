@@ -1,188 +1,94 @@
 import { useState, useEffect } from "react";
-import { Bell, CheckCircle, AlertCircle, Info, X, Calendar, UserPlus, Clock, XCircle } from "lucide-react";
+import { Bell, CheckCircle, AlertCircle, Info, X, Calendar, UserPlus, Clock, XCircle, LifeBuoy, MessageSquareQuote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useAuth } from "@/hooks/useAuth";
+import { CHAVE_NOTIFICACOES, destinoNotificacao, useMarcarLidas, useNotificacoes, type Notificacao } from "@/hooks/useNotificacoes";
 
-interface Notification {
-  id: string;
-  user_id: string;
-  type: string;
-  title: string;
-  message: string;
-  read: boolean;
-  metadata: any;
-  related_lead_id?: string | null;
-  related_visit_id?: string | null;
-  related_corretor_id?: string | null;
-  created_at: string;
-  read_at?: string | null;
+export function iconeNotificacao(n: Pick<Notificacao, 'type' | 'metadata'>) {
+  if (n.metadata?.tipo === 'pedido_ajuda') return <LifeBuoy className="h-4 w-4 text-rose-500" />;
+  switch (n.type) {
+    case 'new_lead':
+    case 'lead_distributed':
+      return <UserPlus className="h-4 w-4 text-blue-500" />;
+    case 'lead_accepted':
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
+    case 'lead_rejected':
+    case 'lead_timeout':
+      return <XCircle className="h-4 w-4 text-red-500" />;
+    case 'new_visit':
+    case 'visit_confirmed':
+      return <Calendar className="h-4 w-4 text-teal-500" />;
+    case 'visit_completed':
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
+    case 'visit_cancelled':
+      return <XCircle className="h-4 w-4 text-red-500" />;
+    case 'distribution_timeout':
+      return <Clock className="h-4 w-4 text-orange-500" />;
+    case 'system_alert':
+      return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+    default:
+      return <Info className="h-4 w-4 text-blue-500" />;
+  }
 }
 
+/** Sininho do Connect: só as notificações da própria pessoa; visita realizada e pedido de ajuda abrem um pop-up. */
 export function NotificationSystem() {
   const [open, setOpen] = useState(false);
+  const [popup, setPopup] = useState<Notificacao | null>(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { data: notifications = [], isLoading } = useNotificacoes();
+  const marcar = useMarcarLidas();
 
-  // Fetch real notifications from database
-  const { data: notifications = [], isLoading } = useQuery<Notification[]>({
-    queryKey: ['notifications'],
-    queryFn: async ({ signal }) => {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('id, user_id, type, title, message, read, metadata, related_lead_id, related_visit_id, related_corretor_id, created_at, read_at')
-        .order('created_at', { ascending: false })
-        .limit(50)
-        .abortSignal(signal);
-
-      if (error) throw error;
-      return (data || []) as Notification[];
-    },
-  });
-
-  // Real-time subscription for new notifications
+  // Tempo real: só o que é para esta pessoa (antes, o admin recebia aviso de tudo de todos)
   useEffect(() => {
+    if (!user?.id) return;
     const channel = supabase
-      .channel('notifications-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-        },
-        (payload) => {
-          queryClient.invalidateQueries({ queryKey: ['notifications'] });
-          
-          // Show browser notification
-          const notification = payload.new as Notification;
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(notification.title, {
-              body: notification.message,
-              icon: '/favicon.ico',
-            });
-          }
-          
-          // Show toast
-          toast({
-            title: notification.title,
-            description: notification.message,
-          });
-        }
-      )
+      .channel(`notificacoes-${user.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, (payload) => {
+        queryClient.invalidateQueries({ queryKey: CHAVE_NOTIFICACOES });
+        const n = payload.new as Notificacao;
+        if (n.user_id !== user.id) return;
+        if (n.metadata?.popup) setPopup(n);
+        else toast({ title: n.title, description: n.message });
+      })
       .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient, user?.id]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-
-  // Request notification permission on mount
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  const markAsReadMutation = useMutation({
-    mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true, read_at: new Date().toISOString() })
-        .eq('id', notificationId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    },
-  });
-
-  const markAllAsReadMutation = useMutation({
-    mutationFn: async () => {
-      const unreadIds = (notifications as Notification[]).filter(n => !n.read).map(n => n.id);
-      
-      if (unreadIds.length === 0) return;
-
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true, read_at: new Date().toISOString() })
-        .in('id', unreadIds);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      toast({
-        title: "Todas as notificações marcadas como lidas",
-      });
-    },
-  });
-
-  const handleNotificationClick = (notification: Notification) => {
-    // Mark as read
-    if (!notification.read) {
-      markAsReadMutation.mutate(notification.id);
-    }
-
-    // Navigate based on type
-    if (notification.related_lead_id) {
-      navigate('/leads');
-    } else if (notification.related_visit_id) {
-      navigate('/visitas');
-    }
-
+  const abrir = (n: Notificacao) => {
+    if (!n.read) marcar.mutate([n.id]);
     setOpen(false);
+    setPopup(null);
+    navigate(destinoNotificacao(n));
   };
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'new_lead':
-      case 'lead_distributed':
-        return <UserPlus className="h-4 w-4 text-blue-500" />;
-      case 'lead_accepted':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'lead_rejected':
-      case 'lead_timeout':
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      case 'new_visit':
-      case 'visit_confirmed':
-        return <Calendar className="h-4 w-4 text-teal-500" />;
-      case 'visit_completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'visit_cancelled':
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      case 'distribution_timeout':
-        return <Clock className="h-4 w-4 text-orange-500" />;
-      case 'system_alert':
-        return <AlertCircle className="h-4 w-4 text-yellow-500" />;
-      case 'info':
-      default:
-        return <Info className="h-4 w-4 text-blue-500" />;
-    }
-  };
-
-  const notificationList = notifications as Notification[];
-  const unreadCount = notificationList.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const fb = popup?.metadata as Record<string, string | boolean | null> | null | undefined;
 
   return (
+    <>
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative" aria-label={`Notificações: ${unreadCount} não lidas`}>
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <Badge 
-              variant="destructive" 
+            <Badge
+              variant="destructive"
               className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
             >
-              {unreadCount}
+              {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>
           )}
         </Button>
@@ -191,16 +97,14 @@ export function NotificationSystem() {
       <PopoverContent className="w-96 p-0" align="end">
         <div className="flex items-center justify-between p-4 border-b">
           <h3 className="font-semibold text-lg">Notificações</h3>
-          {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => markAllAsReadMutation.mutate()}
-              disabled={markAllAsReadMutation.isPending}
-            >
-              Marcar todas como lidas
-            </Button>
-          )}
+          <div className="flex gap-1">
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => marcar.mutate(notifications.filter((n) => !n.read).map((n) => n.id))} disabled={marcar.isPending}>
+                Marcar todas como lidas
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => { setOpen(false); navigate('/hoje'); }}>Ver todas</Button>
+          </div>
         </div>
 
         <ScrollArea className="h-[400px]">
@@ -208,56 +112,31 @@ export function NotificationSystem() {
             <div className="flex items-center justify-center py-8">
               <p className="text-sm text-muted-foreground">Carregando...</p>
             </div>
-          ) : notificationList.length === 0 ? (
+          ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Bell className="h-12 w-12 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Nenhuma notificação
-              </p>
+              <p className="text-sm text-muted-foreground">Nenhuma notificação</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {notificationList.map((notification) => (
+            <div className="space-y-2 p-2">
+              {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-3 rounded-lg border transition-colors cursor-pointer hover:bg-accent/30 ${
-                    notification.read
-                      ? 'bg-background'
-                      : 'bg-accent/50'
-                  }`}
-                  onClick={() => handleNotificationClick(notification)}
+                  className={`p-3 rounded-lg border transition-colors cursor-pointer hover:bg-accent/30 ${notification.read ? 'bg-background' : 'bg-accent/50'}`}
+                  onClick={() => abrir(notification)}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5">
-                      {getNotificationIcon(notification.type)}
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium leading-none">
-                          {notification.title}
-                        </p>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {notification.message}
-                      </p>
+                    <div className="mt-0.5">{iconeNotificacao(notification)}</div>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="text-sm font-medium leading-snug">{notification.title}</p>
+                      <p className="line-clamp-3 text-sm text-muted-foreground">{notification.message}</p>
                       <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(notification.created_at), {
-                          addSuffix: true,
-                          locale: ptBR,
-                        })}
+                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: ptBR })}
                       </p>
                     </div>
                     {!notification.read && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          markAsReadMutation.mutate(notification.id);
-                        }}
-                        aria-label="Marcar notificação como lida"
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+                        onClick={(e) => { e.stopPropagation(); marcar.mutate([notification.id]); }} aria-label="Marcar notificação como lida">
                         <X className="h-4 w-4" />
                       </Button>
                     )}
@@ -269,6 +148,31 @@ export function NotificationSystem() {
         </ScrollArea>
       </PopoverContent>
     </Popover>
+
+    {/* Pop-up: visita realizada / cliente não veio / pedido de ajuda */}
+    <Dialog open={!!popup} onOpenChange={(o) => { if (!o && popup) { marcar.mutate([popup.id]); setPopup(null); } }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">{popup && iconeNotificacao(popup)} {popup?.title}</DialogTitle>
+          <DialogDescription>
+            {[fb?.empreendimento, fb?.data, fb?.corretor && `Corretor: ${fb.corretor}`].filter(Boolean).join(' · ') || popup?.message}
+          </DialogDescription>
+        </DialogHeader>
+        {fb?.feedback ? (
+          <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+            <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <MessageSquareQuote className="h-3.5 w-3.5" /> {fb.rotulo ? String(fb.rotulo) : 'Retorno do corretor'}
+            </p>
+            <p className="whitespace-pre-wrap">{String(fb.feedback)}</p>
+          </div>
+        ) : popup?.message ? <p className="text-sm">{popup.message}</p> : null}
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => { if (popup) marcar.mutate([popup.id]); setPopup(null); }}>Ok, vi</Button>
+          {popup && <Button onClick={() => abrir(popup)}>{popup.related_visit_id ? 'Abrir a visita' : 'Abrir'}</Button>}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

@@ -19,23 +19,27 @@ const nomeLead = (v: VisitaParaContar) => (v.leads as { nome?: string } | null)?
 const nomeEmp = (v: VisitaParaContar) => (v.empreendimentos as { nome?: string } | null)?.nome ?? 'Empreendimento';
 
 /** Depois da visita, o corretor conta como foi em um toque; o cliente segue o caminho certo sozinho. */
-export function ComoFoiVisita({ visita, aberto, aoFechar }: { visita: VisitaParaContar | null; aberto: boolean; aoFechar: () => void }) {
+export function ComoFoiVisita({ visita, aberto, aoFechar, obrigatorio }: { visita: VisitaParaContar | null; aberto: boolean; aoFechar: () => void; obrigatorio?: boolean }) {
   const registrar = useRegistrarVisita();
   const [escolha, setEscolha] = useState<ResultadoVisita | null>(null);
   const [motivo, setMotivo] = useState('');
   useEffect(() => { setEscolha(null); setMotivo(''); }, [visita?.id]);
 
   const opcao = OPCOES.find((o) => o.valor === escolha);
-  const faltaMotivo = !!opcao?.motivo && motivo.trim().length < 3;
+  // O retorno escrito é obrigatório em todos os casos: é ele que o closer e a equipe leem no perfil do cliente
+  const faltaMotivo = motivo.trim().length < 10;
   const enviar = () => {
     if (!visita || !escolha || faltaMotivo) return;
     registrar.mutate({ visita: visita.id, resultado: escolha, observacao: motivo }, { onSuccess: aoFechar });
   };
 
   return (
-    <Drawer open={aberto} onOpenChange={(v) => !v && aoFechar()}>
+    <Drawer open={aberto} dismissible={!obrigatorio} onOpenChange={(v) => !v && !obrigatorio && aoFechar()}>
       <DrawerContent className="tema-memude max-h-[92dvh] bg-card">
         <div className="overflow-y-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
+          {obrigatorio && (
+            <p className="mb-2 rounded-xl bg-mm-alerta-fundo px-3 py-2 text-[13px] font-semibold text-mm-alerta">Antes de continuar, conte para o closer como foi esta visita.</p>
+          )}
           <DrawerTitle className="text-xl font-extrabold tracking-[-0.01em]">Como foi a visita?</DrawerTitle>
           {visita && (
             <DrawerDescription className="mt-0.5 text-sm">
@@ -61,11 +65,13 @@ export function ComoFoiVisita({ visita, aberto, aoFechar }: { visita: VisitaPara
           {escolha && (
             <div className="mt-4 space-y-1.5">
               <label htmlFor="como-foi-motivo" className="text-sm font-bold">
-                {opcao?.motivo ? 'O que ele achou? *' : 'Quer deixar um comentário? (opcional)'}
+                {opcao?.motivo ? 'O que ele achou? *' : escolha === 'no_show' ? 'O que aconteceu? *' : 'Conte para o closer como foi *'}
               </label>
               <Textarea id="como-foi-motivo" rows={3} maxLength={1000} value={motivo} onChange={(e) => setMotivo(e.target.value)} className="text-base"
-                placeholder={opcao?.motivo ? 'Ex.: achou a planta pequena, quer 3 quartos e mais perto do trabalho' : 'Ex.: vai conversar com a esposa e me responde até sexta'} />
-              {opcao?.motivo && <p className="text-xs text-muted-foreground">Isso ajuda a equipe a oferecer o imóvel certo.</p>}
+                placeholder={opcao?.motivo ? 'Ex.: achou a planta pequena, quer 3 quartos e mais perto do trabalho' : escolha === 'no_show' ? 'Ex.: esperei 30 min, liguei e não atendeu' : 'Ex.: gostou da área de lazer, vai conversar com a esposa e responde até sexta'} />
+              <p className={cn('text-xs', faltaMotivo && motivo.trim() ? 'text-mm-rosa-texto' : 'text-muted-foreground')}>
+                {faltaMotivo ? 'Escreva pelo menos uma frase. ' : ''}O closer recebe na hora e isso fica no perfil do cliente.
+              </p>
             </div>
           )}
           <Button variant="acao" size="lg" className="mt-5 h-14 w-full rounded-full text-lg font-extrabold"

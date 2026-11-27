@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  AlarmClock, ArrowRight, CalendarClock, Check, CheckCircle2, Flag, Loader2, PhoneOff, RefreshCw, Star, ThumbsDown, ThumbsUp,
+  AlarmClock, ArrowRight, CalendarClock, Check, CheckCircle2, Flag, Loader2, PhoneOff, RefreshCw, ThumbsDown, ThumbsUp,
   MessageCircle, Smartphone, UserRoundCheck, UserRoundX, XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -228,23 +228,10 @@ function EscolherEConvidar({ visita, onFeito }: { visita: Visita; onFeito?: () =
   );
 }
 
-function Estrelas({ valor, onChange }: { valor: number | null; onChange: (n: number) => void }) {
-  return (
-    <div role="radiogroup" aria-label="Nota do cliente" className="flex gap-1">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} type="button" role="radio" aria-checked={valor === n} aria-label={`${n} de 5`} onClick={() => onChange(n)}
-          className="rounded p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Star className={cn('h-6 w-6', valor !== null && n <= valor ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/70')} />
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function RetornoPosVisita({ visita, tarefas }: { visita: Visita; tarefas: Tarefa[] }) {
   const acao = useAcaoVisita();
-  const [nota, setNota] = useState<number | null>(visita.avaliacao_lead);
-  const [impressao, setImpressao] = useState(visita.comentarios_lead ?? '');
+  // O que o corretor contou no app é a versão que vale; a equipe só escreve o retorno se ele não usou o app
+  const contouNoApp = !!visita.resultado_cliente;
   const [feedback, setFeedback] = useState(visita.feedback_corretor ?? '');
   const [atividade, setAtividade] = useState('');
   const [dataPasso, setDataPasso] = useState('');
@@ -260,7 +247,7 @@ function RetornoPosVisita({ visita, tarefas }: { visita: Visita; tarefas: Tarefa
   const quando = dataPasso && horaPasso ? new Date(`${dataPasso}T${horaPasso}:00-03:00`) : null;
   const passoValido = !!(atividade.trim().length >= 3 && quando && quando.getTime() > Date.now() - 5 * 60000);
   const precisaPasso = !temAtividade || preencheuPasso;
-  const mudouRetorno = nota !== visita.avaliacao_lead || impressao !== (visita.comentarios_lead ?? '') || feedback !== (visita.feedback_corretor ?? '');
+  const mudouRetorno = !contouNoApp && feedback !== (visita.feedback_corretor ?? '');
   const podeSalvar = (precisaPasso ? passoValido : mudouRetorno) && !acao.isPending;
   const aviso = precisaPasso && !passoValido
     ? (!atividade.trim() ? 'Descreva a atividade do próximo passo.' : !dataPasso || !horaPasso ? 'Escolha a data e o horário da atividade.' : 'Escolha uma data e horário no futuro.')
@@ -268,21 +255,26 @@ function RetornoPosVisita({ visita, tarefas }: { visita: Visita; tarefas: Tarefa
 
   return (
     <Cartao tom={pendRetorno || pendProximo ? 'alerta' : 'sucesso'} icone={CheckCircle2} titulo="Retorno pós-visita">
-      {visita.resultado_cliente && RESULTADO_CORRETOR[visita.resultado_cliente] && (
-        <p className="rounded-lg border border-primary/25 bg-primary/[0.04] px-3 py-2 text-sm">
-          <strong>O corretor contou no app:</strong> {RESULTADO_CORRETOR[visita.resultado_cliente].rotulo}.
-          <span className="block text-xs text-muted-foreground">{RESULTADO_CORRETOR[visita.resultado_cliente].texto}{visita.feedback_corretor ? ` Comentário: ${visita.feedback_corretor}` : ''}</span>
-        </p>
+      {contouNoApp ? (
+        <div className="rounded-lg border border-primary/25 bg-primary/[0.04] px-3 py-2.5 text-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Retorno do corretor (pelo app)</p>
+          <p className="mt-0.5 font-semibold">{RESULTADO_CORRETOR[visita.resultado_cliente!]?.rotulo ?? 'Visita realizada'}</p>
+          {visita.feedback_corretor && <p className="mt-1 whitespace-pre-wrap">{visita.feedback_corretor}</p>}
+          <p className="mt-1 text-xs text-muted-foreground">{RESULTADO_CORRETOR[visita.resultado_cliente!]?.texto}</p>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <Pendencia ok={!pendRetorno} rotulo="Retorno do corretor" prazo={pendRetorno?.vence_em} />
+          </div>
+          <p className="text-xs text-muted-foreground">O corretor ainda não contou pelo app (o app dele pede o retorno). Se ele contou por WhatsApp ou ligação, anote abaixo.</p>
+          <div className="grid gap-1.5"><Label htmlFor="rv-fb">Retorno do corretor</Label>
+            <Textarea id="rv-fb" rows={3} maxLength={4000} value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Como foi a visita: interesse, objeções, condições" /></div>
+        </>
       )}
       <div className="flex flex-wrap gap-2 text-xs">
-        <Pendencia ok={!pendRetorno} rotulo="Retorno do corretor e do cliente" prazo={pendRetorno?.vence_em} />
         <Pendencia ok={!pendProximo} rotulo="Próximo passo" prazo={pendProximo?.vence_em} />
       </div>
-      <div className="grid gap-1.5"><Label>Nota do cliente</Label><Estrelas valor={nota} onChange={setNota} /></div>
-      <div className="grid gap-1.5"><Label htmlFor="rv-imp">Impressão do cliente</Label>
-        <Textarea id="rv-imp" rows={2} maxLength={4000} value={impressao} onChange={(e) => setImpressao(e.target.value)} placeholder="O que o cliente achou do empreendimento e do atendimento" /></div>
-      <div className="grid gap-1.5"><Label htmlFor="rv-fb">Retorno do corretor</Label>
-        <Textarea id="rv-fb" rows={2} maxLength={4000} value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Interesse, objeções, condições" /></div>
 
       <fieldset className="space-y-2.5 rounded-lg border border-primary/25 bg-primary/[0.03] p-3">
         <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold">
@@ -324,7 +316,7 @@ function RetornoPosVisita({ visita, tarefas }: { visita: Visita; tarefas: Tarefa
         args: {
           p_visita_id: visita.id,
           p_dados: {
-            nota, impressao, feedback_corretor: feedback,
+            ...(contouNoApp ? {} : { feedback_corretor: feedback }),
             ...(passoValido && quando ? { proximo_passo: atividade.trim(), proximo_passo_em: quando.toISOString() } : {}),
           },
         },

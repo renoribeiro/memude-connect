@@ -16,6 +16,9 @@ import { useAbrirVisita } from '@/hooks/comercial/useAbrirVisita';
 import { EstadoVazio, StatusVisitaBadge } from '@/components/comercial/ui';
 import { CancelarDialog } from '@/components/comercial/AcoesVisita';
 import { nomeCorretor } from '@/lib/comercial/nomes';
+import { AlertasHoje, NotificacoesHoje } from '@/components/comercial/NotificacoesHoje';
+import { useNotificacoes } from '@/hooks/useNotificacoes';
+import { useAlertas } from '@/hooks/conversas/dados';
 
 type Tarefa = NonNullable<ReturnType<typeof useTarefasPendentes>['data']>[number];
 
@@ -44,6 +47,9 @@ export default function HojePage() {
   const { data: equipe = [] } = useEquipe();
   const abrir = useAbrirVisita();
   const nomes = useMemo(() => new Map(equipe.map((u) => [u.user_id, u.nome])), [equipe]);
+  const { data: notificacoes = [] } = useNotificacoes();
+  const { data: alertas = [] } = useAlertas();
+  const novas = notificacoes.filter((n) => !n.read).length;
 
   // Visita cancelada/reagendada não tem mais o que confirmar (o banco já encerra; aqui é só proteção)
   const validas = tarefas.filter((t) => !['cancelada', 'reagendada'].includes((t.visitas as { status?: string } | null)?.status ?? ''));
@@ -63,6 +69,7 @@ export default function HojePage() {
               <Resumo valor={totalVencidas} rotulo={totalVencidas === 1 ? 'vencida' : 'vencidas'} tom={totalVencidas ? 'perigo' : 'neutro'} />
               <Resumo valor={minhas.length - totalVencidas} rotulo="para hoje" />
               <Resumo valor={visitasHoje.filter((v) => v.status !== 'cancelada' && v.status !== 'reagendada').length} rotulo="visitas hoje" />
+              {novas > 0 && <Resumo valor={novas} rotulo={novas === 1 ? 'notificação nova' : 'notificações novas'} tom="perigo" />}
             </div>
           </div>
           <div className="flex gap-2">
@@ -73,9 +80,12 @@ export default function HojePage() {
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="min-w-0 space-y-4">
+            {/* Central de notificações: visita realizada (com o retorno do corretor), aceites, pedidos de ajuda e atrasos */}
+            <NotificacoesHoje />
+            <AlertasHoje />
             {isLoading && [0, 1, 2].map((i) => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}
-            {!isLoading && !minhas.length && !daEquipeAtrasadas.length && (
-              <EstadoVazio icone={CheckCircle2} titulo="Tudo em dia" descricao="Nenhuma tarefa sua para hoje. As novas aparecem aqui automaticamente." />
+            {!isLoading && !minhas.length && !daEquipeAtrasadas.length && !novas && !alertas.length && (
+              <EstadoVazio icone={CheckCircle2} titulo="Tudo em dia" descricao="Nenhuma tarefa, notificação nova ou alerta. O que precisar da sua atenção aparece aqui automaticamente." />
             )}
             {!isLoading && BLOCOS.map((b) => {
               const lista = ordenar(minhas.filter((t) => b.tipos.includes(t.tipo)));

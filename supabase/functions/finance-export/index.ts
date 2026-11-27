@@ -14,7 +14,7 @@ type Resource = keyof typeof selects
 // Corta ~80% do tráfego de saída do Supabase: esta função responde a cada poucos minutos com páginas de até 500 registros.
 async function responderJson(request: Request, body: unknown, status = 200): Promise<Response> {
   const texto = JSON.stringify(body)
-  const aceitaGzip = /gzip/i.test(request.headers.get('accept-encoding') ?? '')
+  const aceitaGzip = /gzip/i.test(request.headers.get('accept-encoding') ?? '')
   if (!aceitaGzip || texto.length < 1024)
     return new Response(texto, { status, headers: { 'Content-Type': 'application/json', 'Vary': 'Accept-Encoding' } })
   const comprimido = await new Response(new Blob([texto]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer()

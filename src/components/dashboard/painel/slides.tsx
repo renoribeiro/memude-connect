@@ -150,7 +150,7 @@ export function SlideCanais({ d, atual, anterior }: { d: DadosApresentacao; atua
       </Tabela>
       <Nota>
         Qualificação geral {pct1(atual.qualificados, atual.leads)} no período (período anterior: {pct1(anterior.qualificados, anterior.leads)}).
-        Qualificado = em conversa, interessado ou status mais avançado, ou com visita.
+        Qualificado = em conversa, interessado, investidor ou mais avançado, ou com visita. Sem renda, não interessado, corretor, inválido, já comprou e não no momento nunca contam.
       </Nota>
     </div>
   );
@@ -158,9 +158,9 @@ export function SlideCanais({ d, atual, anterior }: { d: DadosApresentacao; atua
 
 // ---------- 3) Status dos leads ----------
 const GRUPOS: { nome: string; cor: string; status: string[] }[] = [
-  { nome: 'Qualificado / em atendimento', cor: ROXO, status: ['em conversa', 'interessado', 'investidor', 'corretor', 'visita agendada', 'visitou', 'documentacao', 'doc aprovada', 'negociacao', 'aguardando assinatura', 'vendido', 'vendido!'] },
+  { nome: 'Qualificado / em atendimento', cor: ROXO, status: ['em conversa', 'interessado', 'investidor', 'visita agendada', 'visitou', 'documentacao', 'doc aprovada', 'negociacao', 'aguardando assinatura', 'vendido', 'vendido!'] },
   { nome: 'Sem resposta', cor: ROSA, status: ['novo', 'sem interacao', 'sem resposta', 'follow', 'follow up'] },
-  { nome: 'Descartado / perda', cor: '#8a3c9e', status: ['nao interessado', 'sem renda', 'nao no momento', 'ja comprou', 'perdido', 'desistiu'] },
+  { nome: 'Descartado / perda', cor: '#8a3c9e', status: ['nao interessado', 'sem renda', 'corretor', 'invalido', 'nao no momento', 'ja comprou', 'perdido', 'desistiu'] },
 ];
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 

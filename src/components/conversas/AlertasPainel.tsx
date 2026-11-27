@@ -1,17 +1,18 @@
-import { AlertTriangle, BellRing, CheckCircle2, Flame, PhoneOff, Snowflake, Sparkles, UserX } from 'lucide-react';
+import { AlertTriangle, BellRing, CheckCircle2, Flame, LifeBuoy, MessageCircle, PhoneOff, Snowflake, Sparkles, UserX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EstadoVazio } from '@/components/comercial/ui';
 import { haQuanto } from '@/lib/conversas/formato';
 import { TIPO_ALERTA } from '@/lib/conversas/tipos';
+import { linkWhatsApp } from '@/lib/comercial/telefone';
 import { useAlertas, useResolverAlerta } from '@/hooks/conversas/dados';
 import { useAgora } from '@/hooks/conversas/useAgora';
 
 const ICONE: Record<string, typeof AlertTriangle> = {
-  sem_resposta: AlertTriangle, pos_visita_esquecido: Snowflake, sinal_compra: Flame, contato_pessoal: UserX, numero_caiu: PhoneOff, confirmar_ia: Sparkles,
+  sem_resposta: AlertTriangle, pos_visita_esquecido: Snowflake, sinal_compra: Flame, contato_pessoal: UserX, numero_caiu: PhoneOff, confirmar_ia: Sparkles, pedido_ajuda: LifeBuoy,
 };
-const ORDEM = ['numero_caiu', 'contato_pessoal', 'sem_resposta', 'confirmar_ia', 'sinal_compra', 'pos_visita_esquecido'];
+const ORDEM = ['pedido_ajuda', 'numero_caiu', 'contato_pessoal', 'sem_resposta', 'confirmar_ia', 'sinal_compra', 'pos_visita_esquecido'];
 
 /** Central de alertas do closer: quem está sem resposta, clientes esfriando, sinais de compra. */
 export function AlertasPainel({ aoAbrirConversa }: { aoAbrirConversa: (id: string) => void }) {
@@ -43,9 +44,14 @@ export function AlertasPainel({ aoAbrirConversa }: { aoAbrirConversa: (id: strin
             </span>
             <div className="min-w-0 flex-1 basis-48">
               <p className="truncate text-sm font-bold">{a.titulo}</p>
-              <p className="truncate text-xs text-muted-foreground">{TIPO_ALERTA[a.tipo]?.rotulo} · {a.detalhe} · {haQuanto(a.criado_em, agora)}</p>
+              <p className={cn("text-xs text-muted-foreground", a.tipo === 'pedido_ajuda' ? "line-clamp-3" : "truncate")}>{TIPO_ALERTA[a.tipo]?.rotulo}{a.detalhe ? ` · ${a.detalhe}` : ""} · {haQuanto(a.criado_em, agora)}</p>
             </div>
             <div className="ml-auto flex shrink-0 gap-1.5">
+              {a.tipo === 'pedido_ajuda' && a.contato && linkWhatsApp(a.contato, 'Oi! Vi seu pedido de ajuda no app MeMude. ') && (
+                <Button size="sm" variant="contorno" asChild>
+                  <a href={linkWhatsApp(a.contato, 'Oi! Vi seu pedido de ajuda no app MeMude. ')!} target="_blank" rel="noopener noreferrer"><MessageCircle className="h-4 w-4" /> Chamar corretor</a>
+                </Button>
+              )}
               {a.conversa_id && <Button size="sm" variant="contorno" onClick={() => aoAbrirConversa(a.conversa_id!)}>Abrir conversa</Button>}
               <Button size="sm" variant="ghost" onClick={() => resolver.mutate(a.id)} disabled={resolver.isPending}>Resolvido</Button>
             </div>

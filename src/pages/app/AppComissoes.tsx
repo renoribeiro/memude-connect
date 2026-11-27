@@ -12,6 +12,7 @@ type Comissao = {
   valor_imovel: number | null; comissao_percentual: number | null; imposto_percentual: number | null;
   valor_comissao_bruta: number | null; valor_imposto: number | null; valor_corretor: number | null;
   status: string; data_pagamento: string | null; observacoes: string | null; tem_comprovante: boolean; atualizado_em: string | null;
+  percentual_corretor: number | null;
 };
 type Filtro = 'todas' | 'analise' | 'receber' | 'recebidas' | 'canceladas';
 
@@ -93,7 +94,7 @@ function CartaoVenda({ c }: { c: Comissao }) {
             <Linha rotulo="Valor do imóvel" valor={real(c.valor_imovel)} />
             <Linha rotulo={`Comissão da venda${c.comissao_percentual != null ? ` (${pct(c.comissao_percentual)})` : ''}`} valor={real(c.valor_comissao_bruta)} />
             <Linha rotulo={`Impostos${c.imposto_percentual != null ? ` (${pct(c.imposto_percentual)})` : ''}`} valor={c.valor_imposto != null ? `– ${real(c.valor_imposto)}` : null} />
-            <Linha rotulo="Sua comissão" valor={real(c.valor_corretor)} destaque />
+            <Linha rotulo={`Sua parte${c.percentual_corretor != null ? ` (${pct(c.percentual_corretor)} após impostos)` : ""}`} valor={real(c.valor_corretor)} destaque />
             <Linha rotulo="Pagamento" valor={c.status === 'paga' ? (data(c.data_pagamento) ? `Pago em ${data(c.data_pagamento)}` : 'Pago') : c.data_pagamento ? `Previsto para ${data(c.data_pagamento)}` : null} />
           </dl>
           {c.tem_comprovante && (

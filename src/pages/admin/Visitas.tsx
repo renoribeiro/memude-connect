@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, Clock, MapPin, Plus, Star, User } from "lucide-react";
+import { Calendar, CalendarSync, Clock, MapPin, Plus, Star, User } from "lucide-react";
+import { SincronizarAgenda } from "@/components/agenda/SincronizarAgenda";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export default function Visitas() {
   const [modalAberto, setModalAberto] = useState(false);
   const [detalheAberto, setDetalheAberto] = useState(false);
   const [visitaId, setVisitaId] = useState<string | undefined>();
+  const [sincronizar, setSincronizar] = useState(false);
 
   const ordenados = [...meses].sort();
   const de = mes(ordenados[0]).de;
@@ -97,6 +99,9 @@ export default function Visitas() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <SeletorMeses valor={meses} onChange={setMeses} />
+            <Button variant="outline" onClick={() => setSincronizar(true)}>
+              <CalendarSync className="mr-1.5 h-4 w-4" /> Sincronizar agenda
+            </Button>
             <Button onClick={() => { setVisitaId(undefined); setModalAberto(true); }}>
               <Plus className="mr-1.5 h-4 w-4" /> Nova visita
             </Button>
@@ -165,6 +170,14 @@ export default function Visitas() {
           <DialogContent className="max-w-2xl">
             <DialogHeader><DialogTitle>Detalhes da visita</DialogTitle></DialogHeader>
             {visitaId && <VisitaDetails visitaId={visitaId} />}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={sincronizar} onOpenChange={setSincronizar}>
+          <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+            <DialogHeader><DialogTitle>Sincronizar agenda</DialogTitle></DialogHeader>
+            <p className="-mt-2 text-sm text-muted-foreground">Todas as visitas da equipe na sua agenda, com o nome do corretor. Atualiza sozinho.</p>
+            <SincronizarAgenda />
           </DialogContent>
         </Dialog>
       </div>

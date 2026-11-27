@@ -164,3 +164,28 @@ verify_jwt = false
 
 [functions.conversas-fotos]
 verify_jwt = false
+
+# Modelos de e-mail do login com a identidade MeMude (no projeto em produção, colar em Authentication > Emails)
+[auth.email.template.invite]
+subject = "Seu acesso ao MeMude Connect está pronto"
+content_path = "./supabase/templates/convite.html"
+
+[auth.email.template.recovery]
+subject = "Crie uma nova senha · MeMude Connect"
+content_path = "./supabase/templates/recuperar-senha.html"
+
+[auth.email.template.confirmation]
+subject = "Confirme seu e-mail · MeMude Connect"
+content_path = "./supabase/templates/confirmar-email.html"
+
+[auth.email.template.magic_link]
+subject = "Seu link de acesso · MeMude Connect"
+content_path = "./supabase/templates/link-de-acesso.html"
+
+[auth.email.template.email_change]
+subject = "Confirme seu novo e-mail · MeMude Connect"
+content_path = "./supabase/templates/trocar-email.html"
+
+[auth.email.template.reauthentication]
+subject = "Seu código de confirmação · MeMude Connect"
+content_path = "./supabase/templates/codigo-de-confirmacao.html"

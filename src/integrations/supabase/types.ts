@@ -130,6 +130,27 @@ export type Database = {
           },
         ]
       }
+      agenda_links: {
+        Row: {
+          criado_em: string
+          token: string
+          usado_em: string | null
+          user_id: string
+        }
+        Insert: {
+          criado_em?: string
+          token: string
+          usado_em?: string | null
+          user_id: string
+        }
+        Update: {
+          criado_em?: string
+          token?: string
+          usado_em?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       agent_activity_log: {
         Row: {
           activity_data: Json | null
@@ -1690,6 +1711,7 @@ export type Database = {
       }
       conv_alertas: {
         Row: {
+          contato: string | null
           conversa_id: string | null
           criado_em: string
           detalhe: string | null
@@ -1698,10 +1720,12 @@ export type Database = {
           resolvido_em: string | null
           resolvido_por: string | null
           responsavel_id: string | null
+          solicitante_id: string | null
           tipo: string
           titulo: string
         }
         Insert: {
+          contato?: string | null
           conversa_id?: string | null
           criado_em?: string
           detalhe?: string | null
@@ -1710,10 +1734,12 @@ export type Database = {
           resolvido_em?: string | null
           resolvido_por?: string | null
           responsavel_id?: string | null
+          solicitante_id?: string | null
           tipo: string
           titulo: string
         }
         Update: {
+          contato?: string | null
           conversa_id?: string | null
           criado_em?: string
           detalhe?: string | null
@@ -1722,6 +1748,7 @@ export type Database = {
           resolvido_em?: string | null
           resolvido_por?: string | null
           responsavel_id?: string | null
+          solicitante_id?: string | null
           tipo?: string
           titulo?: string
         }
@@ -2825,6 +2852,7 @@ export type Database = {
           id: boolean
           manual_corretor_url: string
           mensagens_auto: boolean
+          mensagens_auto_modelos: string[]
           min_visitas_historico: number
           pesos: Json
           prazo_aceite_min: number
@@ -2848,6 +2876,7 @@ export type Database = {
           id?: boolean
           manual_corretor_url?: string
           mensagens_auto?: boolean
+          mensagens_auto_modelos?: string[]
           min_visitas_historico?: number
           pesos?: Json
           prazo_aceite_min?: number
@@ -2871,6 +2900,7 @@ export type Database = {
           id?: boolean
           manual_corretor_url?: string
           mensagens_auto?: boolean
+          mensagens_auto_modelos?: string[]
           min_visitas_historico?: number
           pesos?: Json
           prazo_aceite_min?: number
@@ -5191,6 +5221,7 @@ export type Database = {
           lead_id: string
           lembrete_enviado: boolean | null
           observacoes: string | null
+          percentual_corretor: number
           status: Database["public"]["Enums"]["venda_status"]
           updated_at: string | null
           valor_comissao_bruta: number | null
@@ -5215,6 +5246,7 @@ export type Database = {
           lead_id: string
           lembrete_enviado?: boolean | null
           observacoes?: string | null
+          percentual_corretor?: number
           status?: Database["public"]["Enums"]["venda_status"]
           updated_at?: string | null
           valor_comissao_bruta?: number | null
@@ -5239,6 +5271,7 @@ export type Database = {
           lead_id?: string
           lembrete_enviado?: boolean | null
           observacoes?: string | null
+          percentual_corretor?: number
           status?: Database["public"]["Enums"]["venda_status"]
           updated_at?: string | null
           valor_comissao_bruta?: number | null
@@ -6676,6 +6709,7 @@ export type Database = {
         Args: { p_attempt_id: string; p_corretor_id: string }
         Returns: boolean
       }
+      agenda_feed: { Args: { p_token: string }; Returns: Json }
       assign_ab_experiment: {
         Args: { p_conversation_id: string; p_experiment_id: string }
         Returns: string
@@ -6954,6 +6988,7 @@ export type Database = {
           imagem: string
           imposto_percentual: number
           observacoes: string
+          percentual_corretor: number
           status: string
           tem_comprovante: boolean
           valor_comissao_bruta: number
@@ -6962,6 +6997,15 @@ export type Database = {
           valor_imposto: number
           venda_id: string
         }[]
+      }
+      corretor_pedir_ajuda: {
+        Args: {
+          p_assunto: string
+          p_conversa?: string
+          p_texto?: string
+          p_urgente?: boolean
+        }
+        Returns: string
       }
       corretor_registrar_visita: {
         Args: { p_observacao?: string; p_resultado: string; p_visita: string }
@@ -7286,6 +7330,7 @@ export type Database = {
         Returns: undefined
       }
       meu_avatar_definir: { Args: { p_caminho: string }; Returns: string }
+      minha_agenda_link: { Args: { p_trocar?: boolean }; Returns: string }
       minha_atividade_concluir: {
         Args: { p_tarefa: string }
         Returns: undefined

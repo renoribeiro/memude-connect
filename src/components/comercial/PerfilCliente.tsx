@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, MessagesSquare, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Temperatura } from '@/components/conversas/pecas';
 import { formatarDataHora } from '@/lib/comercial/datas';
 import { cn } from '@/lib/utils';
+import { VisitasDoCliente } from './VisitasDoCliente';
 
 const CAMPOS: [string, string][] = [['renda', 'Renda'], ['entrada_fgts', 'Entrada/FGTS'], ['prazo', 'Prazo'], ['finalidade', 'Finalidade'], ['regiao', 'Região']];
 
@@ -27,14 +28,23 @@ export function usePerfilCliente(leadId: string | null | undefined) {
   });
 }
 
-export function PerfilCliente({ leadId, className, titulo = 'Perfil do cliente' }: { leadId: string | null | undefined; className?: string; titulo?: string }) {
+/**
+ * Perfil unificado do cliente (o mesmo em Leads, CRM e Agenda): o resumo da IA e, logo abaixo, todas as visitas
+ * com o perfil que a SDR passou, como foi segundo o corretor, o retorno dele e o próximo passo.
+ */
+export function PerfilCliente({ leadId, className, titulo = 'Perfil do cliente', comVisitas = true, aoAbrirVisita, visitaAtual }: {
+  leadId: string | null | undefined; className?: string; titulo?: string; comVisitas?: boolean;
+  aoAbrirVisita?: (visitaId: string) => void; visitaAtual?: string | null;
+}) {
   const { data: p, isLoading } = usePerfilCliente(leadId);
+  const navegar = useNavigate();
   if (!leadId) return null;
   const q = (p?.qualificacao ?? {}) as Record<string, unknown>;
   const campos = CAMPOS.filter(([k]) => typeof q[k] === 'string' && q[k]);
 
   return (
-    <section className={cn('rounded-xl border bg-card p-4', className)} aria-label={titulo}>
+    <div className={cn('space-y-3', className)}>
+    <section className="rounded-xl border bg-card p-4" aria-label={titulo}>
       <div className="mb-2 flex items-center gap-2">
         <h3 className="flex items-center gap-1.5 text-sm font-semibold"><Sparkles className="h-4 w-4 text-primary" aria-hidden /> {titulo}</h3>
         {p?.perfil_temperatura && <Temperatura valor={p.perfil_temperatura} comRotulo />}
@@ -64,5 +74,10 @@ export function PerfilCliente({ leadId, className, titulo = 'Perfil do cliente' 
         </>
       )}
     </section>
+    {comVisitas && (
+      <VisitasDoCliente leadId={leadId} destacar={visitaAtual}
+        aoAbrir={aoAbrirVisita ?? ((id) => navegar(`/hoje?visita=${id}`))} />
+    )}
+    </div>
   );
 }

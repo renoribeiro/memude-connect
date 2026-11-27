@@ -8,6 +8,8 @@ import { useConvites } from '@/hooks/conversas/useConvites';
 import { useMensagensDoServiceWorker } from '@/hooks/conversas/usePush';
 import { ConviteNovo } from '@/components/app/ConviteNovo';
 import { BotaoAjuda, PedirAjuda } from '@/components/app/PedirAjuda';
+import { ComoFoiVisita } from '@/components/app/ComoFoiVisita';
+import { useVisitasParaContar } from '@/hooks/conversas/app';
 import AppInicio from './AppInicio';
 
 const AppConversas = lazy(() => import('./AppConversas'));
@@ -42,6 +44,13 @@ export default function AppCorretor() {
   useMensagensDoServiceWorker();
 
   const [ajuda, setAjuda] = useState(false);
+  // Retorno obrigatório: 1 hora depois do horário da visita, o app pede o retorno e só fecha quando o corretor envia
+  const { data: paraContar = [] } = useVisitasParaContar();
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setAgora(Date.now()), 60_000); return () => clearInterval(t); }, []);
+  const cobrar = [...paraContar]
+    .filter((v) => new Date(`${v.data_visita}T${String(v.horario_visita).slice(0, 5)}:00-03:00`).getTime() + 60 * 60_000 <= agora)
+    .sort((a, b) => `${a.data_visita}${a.horario_visita}`.localeCompare(`${b.data_visita}${b.horario_visita}`))[0] ?? null;
   const naoLidas = conversas.reduce((s, c) => s + (c.nao_lidas > 0 ? 1 : 0), 0);
   const lista = { conversas, carregando, erro, tentar: () => { refetch(); } };
 
@@ -101,6 +110,7 @@ export default function AppCorretor() {
         <BotaoAjuda aoTocar={() => setAjuda(true)} className="absolute bottom-[calc(80px+env(safe-area-inset-bottom))] right-4 z-30" />
       )}
       <PedirAjuda aberto={ajuda} aoFechar={() => setAjuda(false)} />
+      <ComoFoiVisita visita={cobrar} aberto={!!cobrar && !convites.length && !conviteAberto && !ajuda} aoFechar={() => undefined} obrigatorio />
 
       {!noChat && (
         <nav data-sob-convite className="grid shrink-0 grid-cols-5 border-t border-mm-borda-suave bg-card pb-[env(safe-area-inset-bottom)]" aria-label="Navegação do app">

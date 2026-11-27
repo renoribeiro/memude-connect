@@ -17,6 +17,7 @@ import { FONTES, STATUS_ATENDIMENTO } from '@/lib/comercial/constantes';
 import { formatarData, formatarDataHora, formatarHora } from '@/lib/comercial/datas';
 import { telefoneCanonico } from '@/lib/comercial/telefone';
 import { AgendarVisitaDialog } from '@/components/comercial/AgendarVisitaDialog';
+import { VisitasDoCliente } from '@/components/comercial/VisitasDoCliente';
 import { AcompanhamentoIA, type ConversaIA, type MudancaIA } from '@/components/comercial/AcompanhamentoIA';
 import { VisitaPainel } from '@/components/comercial/VisitaPainel';
 import { useAbrirVisita } from '@/hooks/comercial/useAbrirVisita';
@@ -162,27 +163,11 @@ export default function LeadPerfilPage() {
               } : null}
               qualificacao={(lead.qualificacao ?? null) as Record<string, unknown> | null} mudancas={data.mudancasIa as MudancaIA[]} nomes={nomes} />
 
-            <section className="rounded-xl border bg-card p-5 shadow-sm">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold"><CalendarDays className="h-4 w-4 text-primary" /> Visitas</h2>
-              {!data.visitas.length ? (
-                <p className="text-sm text-muted-foreground">Nenhuma visita. <button type="button" onClick={() => setAgendar(true)} className="font-medium text-primary hover:underline">Agendar agora</button></p>
-              ) : (
-                <ul className="divide-y">
-                  {data.visitas.map((v) => (
-                    <li key={v.id}>
-                      <button type="button" onClick={() => abrirVisita(v.id)} className="flex w-full items-center gap-3 py-2.5 text-left hover:bg-muted/60">
-                        <span className="w-24 shrink-0 text-sm font-semibold tabular-nums">{formatarData(v.data_visita)}<span className="block text-xs font-normal text-muted-foreground">{formatarHora(v.horario_visita)}</span></span>
-                        <span className="min-w-0 flex-1 truncate text-sm">
-                          {(v.empreendimentos as { nome: string } | null)?.nome ?? '—'}
-                          <span className="block truncate text-xs text-muted-foreground">{nomeCorretor(v.corretores as never) || 'sem corretor'} · {v.local_nome ?? v.meeting_address ?? ''}</span>
-                        </span>
-                        <StatusVisitaBadge status={v.status} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            {/* Histórico de visitas unificado (o mesmo do CRM e da Agenda): perfil da SDR, como foi segundo o corretor e próximo passo */}
+            <div className="space-y-2">
+              <VisitasDoCliente leadId={lead.id} aoAbrir={abrirVisita} className="p-5 shadow-sm" />
+              <button type="button" onClick={() => setAgendar(true)} className="text-sm font-medium text-primary hover:underline">+ Agendar visita</button>
+            </div>
 
             <section className="rounded-xl border bg-card p-5 shadow-sm">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Kanban className="h-4 w-4 text-primary" /> Oportunidades no funil</h2>
